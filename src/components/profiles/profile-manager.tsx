@@ -133,7 +133,7 @@ export function ProfileManager() {
                         <AvatarFallback>{profile.name.charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-semibold">{profile.name}</p>
+                        <p className="font-bold">{profile.name}</p>
                         <p className="text-sm text-muted-foreground">{profile.age} years old, {profile.gender}</p>
                       </div>
                        {activeProfile?.id === profile.id && <CheckCircle className="w-5 h-5 text-green-500" />}
@@ -169,7 +169,7 @@ export function ProfileManager() {
             ) : (
               <div className="text-center py-10">
                 <User className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-2 text-sm font-medium text-foreground">No profiles found</h3>
+                <h3 className="mt-2 text-sm font-bold text-foreground">No profiles found</h3>
                 <p className="mt-1 text-sm text-muted-foreground">Get started by adding a new profile.</p>
               </div>
             )}

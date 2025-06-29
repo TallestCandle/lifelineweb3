@@ -78,7 +78,7 @@ export function Dashboard() {
                 <Icon className={cn("w-6 h-6 transition-colors duration-300", item.colorClass)} />
               </div>
               <div className="h-8 flex items-center">
-                  <p className="text-xs font-medium text-foreground/80 transition-colors duration-300 group-hover:text-foreground">{item.label}</p>
+                  <p className="text-xs font-bold text-foreground/80 transition-colors duration-300 group-hover:text-foreground">{item.label}</p>
               </div>
             </div>
           );

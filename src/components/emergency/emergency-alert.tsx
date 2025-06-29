@@ -193,7 +193,7 @@ export function EmergencyAlert() {
                         <p className="text-lg">If you are in a crisis, press the button below to immediately notify your emergency contacts and guardians.</p>
                         
                         <div className="p-3 bg-secondary rounded-lg text-sm">
-                            <div className="flex items-center justify-center gap-2 font-medium">
+                            <div className="flex items-center justify-center gap-2">
                                 <MapPin className="w-4 h-4"/>
                                 <span>Your Location:</span>
                             </div>
@@ -242,7 +242,7 @@ export function EmergencyAlert() {
                                 <Button type="submit" className="w-full">Add Guardian</Button>
                             </form>
                         </Form>
-                        <h3 className="text-lg font-medium mb-4">Your Guardians</h3>
+                        <h3 className="text-lg font-bold mb-4">Your Guardians</h3>
                         <ul className="space-y-4 max-h-60 overflow-y-auto pr-2">
                             {guardians.length > 0 ? guardians.map((guardian) => (
                                 <li key={guardian.id} className="flex items-center justify-between p-2 rounded-md hover:bg-secondary">
@@ -251,7 +251,7 @@ export function EmergencyAlert() {
                                             <AvatarFallback>{guardian.name.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <div>
-                                            <p className="font-semibold">{guardian.name}</p>
+                                            <p className="font-bold">{guardian.name}</p>
                                             <p className="text-sm text-muted-foreground">{guardian.relationship}</p>
                                             <p className="text-sm text-muted-foreground">{guardian.contact}</p>
                                         </div>
@@ -326,7 +326,7 @@ export function EmergencyAlert() {
                         {guardians.length > 0 ? guardians.map(guardian => (
                             <div key={guardian.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
                                 <div>
-                                    <p className="font-semibold">{guardian.name}</p>
+                                    <p className="font-bold">{guardian.name}</p>
                                     <p className="text-sm text-muted-foreground">{guardian.contact}</p>
                                 </div>
                                 <div className="flex gap-2">

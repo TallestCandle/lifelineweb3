@@ -226,7 +226,7 @@ export function VitalsLog() {
                 <TableBody>
                   {vitalsHistory.length > 0 ? vitalsHistory.map(entry => (
                     <TableRow key={entry.id}>
-                      <TableCell className="font-medium whitespace-nowrap">{format(parseISO(entry.date), 'MMM d, yyyy')}</TableCell>
+                      <TableCell className="whitespace-nowrap">{format(parseISO(entry.date), 'MMM d, yyyy')}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap items-center gap-2">
                             {entry.systolic && entry.diastolic && <HeartPulse className="w-4 h-4 text-red-400" title="Blood Pressure"/>}
@@ -266,7 +266,7 @@ export function VitalsLog() {
                             <HeartPulse className="w-5 h-5 text-red-400 mt-1" />
                             <div>
                                 <div className="text-sm text-muted-foreground">Blood Pressure</div>
-                                <div className="font-semibold">{selectedVital.systolic}/{selectedVital.diastolic} mmHg</div>
+                                <div className="font-bold">{selectedVital.systolic}/{selectedVital.diastolic} mmHg</div>
                             </div>
                         </div>
                     )}
@@ -275,7 +275,7 @@ export function VitalsLog() {
                             <Activity className="w-5 h-5 text-cyan-400 mt-1" />
                             <div>
                                 <div className="text-sm text-muted-foreground">Oxygen Saturation</div>
-                                <div className="font-semibold">{selectedVital.oxygenLevel}%</div>
+                                <div className="font-bold">{selectedVital.oxygenLevel}%</div>
                             </div>
                         </div>
                     )}
@@ -284,7 +284,7 @@ export function VitalsLog() {
                             <Thermometer className="w-5 h-5 text-orange-400 mt-1" />
                             <div>
                                 <div className="text-sm text-muted-foreground">Temperature</div>
-                                <div className="font-semibold">{selectedVital.temperature}°F</div>
+                                <div className="font-bold">{selectedVital.temperature}°F</div>
                             </div>
                         </div>
                     )}
@@ -293,7 +293,7 @@ export function VitalsLog() {
                             <Droplets className="w-5 h-5 text-yellow-400 mt-1" />
                             <div>
                                 <div className="text-sm text-muted-foreground">Blood Sugar</div>
-                                <div className="font-semibold">{selectedVital.bloodSugar} mg/dL</div>
+                                <div className="font-bold">{selectedVital.bloodSugar} mg/dL</div>
                             </div>
                         </div>
                     )}
@@ -302,7 +302,7 @@ export function VitalsLog() {
                             <Scale className="w-5 h-5 text-green-400 mt-1" />
                             <div>
                                 <div className="text-sm text-muted-foreground">Weight</div>
-                                <div className="font-semibold">{selectedVital.weight} lbs</div>
+                                <div className="font-bold">{selectedVital.weight} lbs</div>
                             </div>
                         </div>
                     )}

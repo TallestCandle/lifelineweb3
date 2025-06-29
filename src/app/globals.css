@@ -107,7 +107,7 @@
     @apply border-border/40;
   }
   body {
-    @apply bg-background text-foreground font-medium;
+    @apply bg-background text-foreground font-bold;
     font-family: 'Rajdhani', sans-serif;
   }
 }

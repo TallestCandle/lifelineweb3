@@ -209,7 +209,7 @@ export function RemindersList() {
                                         <div className="flex items-center gap-4 min-w-0">
                                             <Pill className={cn("w-6 h-6 flex-shrink-0", status ? 'text-muted-foreground' : 'text-primary')} />
                                             <div className="min-w-0">
-                                                <p className={cn("font-semibold truncate", status && "line-through text-muted-foreground")}>{reminder.name}</p>
+                                                <p className={cn("font-bold truncate", status && "line-through text-muted-foreground")}>{reminder.name}</p>
                                                 <p className="text-sm text-muted-foreground">{reminder.time}</p>
                                             </div>
                                         </div>

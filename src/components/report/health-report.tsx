@@ -186,17 +186,17 @@ export function HealthReport() {
                     <h1 className="text-3xl font-bold text-primary">Health Report</h1>
                     <p className="text-lg text-muted-foreground">{format(selectedDate, 'MMMM yyyy')}</p>
                     <div className="mt-4">
-                        <p><span className="font-semibold">Patient:</span> {activeProfile?.name || 'N/A'}</p>
-                        <p><span className="font-semibold">Age:</span> {activeProfile?.age || 'N/A'}</p>
-                        <p><span className="font-semibold">Gender:</span> {activeProfile?.gender || 'N/A'}</p>
+                        <p><span className="font-bold">Patient:</span> {activeProfile?.name || 'N/A'}</p>
+                        <p><span className="font-bold">Age:</span> {activeProfile?.age || 'N/A'}</p>
+                        <p><span className="font-bold">Gender:</span> {activeProfile?.gender || 'N/A'}</p>
                     </div>
                 </header>
 
                 <section className="mb-8">
-                    <h2 className="text-2xl font-semibold mb-4">Vitals Trends</h2>
+                    <h2 className="text-2xl font-bold mb-4">Vitals Trends</h2>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div>
-                            <h3 className="text-lg font-medium text-center mb-2">Blood Pressure (mmHg)</h3>
+                            <h3 className="text-lg font-bold text-center mb-2">Blood Pressure (mmHg)</h3>
                             {chartData.filter(d => d.systolic || d.diastolic).length > 1 ? (
                                 <ChartContainer config={bpChartConfig} className="min-h-[200px] w-full">
                                     <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
@@ -211,7 +211,7 @@ export function HealthReport() {
                             ) : <p className="text-center text-muted-foreground p-8">Not enough data for chart.</p>}
                         </div>
                         <div>
-                             <h3 className="text-lg font-medium text-center mb-2">Blood Sugar (mg/dL)</h3>
+                             <h3 className="text-lg font-bold text-center mb-2">Blood Sugar (mg/dL)</h3>
                              {chartData.filter(d => d.bloodSugar).length > 1 ? (
                                 <ChartContainer config={sugarChartConfig} className="min-h-[200px] w-full">
                                     <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
@@ -228,7 +228,7 @@ export function HealthReport() {
                 </section>
                 
                 <section className="mb-8">
-                    <h2 className="text-2xl font-semibold mb-4">Vitals Log</h2>
+                    <h2 className="text-2xl font-bold mb-4">Vitals Log</h2>
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -256,7 +256,7 @@ export function HealthReport() {
                 </section>
 
                 <section>
-                    <h2 className="text-2xl font-semibold mb-4">Triggered Alerts</h2>
+                    <h2 className="text-2xl font-bold mb-4">Triggered Alerts</h2>
                      {filteredAlerts.length > 0 ? (
                         <div className="space-y-4">
                             {filteredAlerts.map(alert => (

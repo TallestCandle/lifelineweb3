@@ -200,7 +200,7 @@ export function TestStripLog() {
                                 <TableBody>
                                     {stripLogs.length > 0 ? stripLogs.map(entry => (
                                         <TableRow key={entry.id}>
-                                            <TableCell className="font-medium whitespace-nowrap">{format(parseISO(entry.date), 'MMM d, yyyy, h:mm a')}</TableCell>
+                                            <TableCell className="whitespace-nowrap">{format(parseISO(entry.date), 'MMM d, yyyy, h:mm a')}</TableCell>
                                             <TableCell>{markers.find(m => m.value === entry.marker)?.label}</TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className="flex gap-2 items-center w-fit">

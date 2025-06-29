@@ -182,7 +182,7 @@ ${Object.entries(inputData).map(([key, value]) => `${key}: ${value}`).join('\n')
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                             <section>
-                                <h3 className="text-lg font-medium mb-2 flex items-center gap-2"><HeartPulse />Vitals</h3>
+                                <h3 className="text-lg font-bold mb-2 flex items-center gap-2"><HeartPulse />Vitals</h3>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     <FormField control={form.control} name="systolic" render={({ field }) => (<FormItem><FormLabel>Systolic (mmHg)</FormLabel><FormControl><Input placeholder="120" {...field} /></FormControl></FormItem>)} />
                                     <FormField control={form.control} name="diastolic" render={({ field }) => (<FormItem><FormLabel>Diastolic (mmHg)</FormLabel><FormControl><Input placeholder="80" {...field} /></FormControl></FormItem>)} />
@@ -193,7 +193,7 @@ ${Object.entries(inputData).map(([key, value]) => `${key}: ${value}`).join('\n')
                                 </div>
                             </section>
                             <section>
-                                <h3 className="text-lg font-medium mb-2 flex items-center gap-2"><Beaker />Urine Test Strip</h3>
+                                <h3 className="text-lg font-bold mb-2 flex items-center gap-2"><Beaker />Urine Test Strip</h3>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     {markers.map(marker => (
                                         <FormField
@@ -275,10 +275,10 @@ ${Object.entries(inputData).map(([key, value]) => `${key}: ${value}`).join('\n')
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="space-y-4 pt-2">
-                                        <p><strong className="font-medium">Summary:</strong> {item.analysisResult.summary}</p>
-                                        <p><strong className="font-medium">Advice:</strong> {item.analysisResult.advice}</p>
+                                        <p><strong className="font-bold">Summary:</strong> {item.analysisResult.summary}</p>
+                                        <p><strong className="font-bold">Advice:</strong> {item.analysisResult.advice}</p>
                                         <details className="text-sm">
-                                            <summary className="cursor-pointer font-medium">View Submitted Data</summary>
+                                            <summary className="cursor-pointer font-bold">View Submitted Data</summary>
                                             <pre className="mt-2 p-2 bg-muted rounded-md text-xs whitespace-pre-wrap">
                                                 {JSON.stringify(item.inputData, null, 2)}
                                             </pre>

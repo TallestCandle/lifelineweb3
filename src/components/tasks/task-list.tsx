@@ -152,7 +152,7 @@ export function TaskList() {
         <CardContent className="space-y-6">
           <div className="flex items-center gap-4">
             <Progress value={progressPercentage} className="w-full" />
-            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+            <span className="text-sm font-bold text-muted-foreground whitespace-nowrap">
               {Math.round(progressPercentage)}%
             </span>
           </div>
