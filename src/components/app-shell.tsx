@@ -13,7 +13,7 @@ import {
   SidebarTrigger,
   SidebarFooter
 } from "@/components/ui/sidebar"
-import { Home, ListChecks, HeartPulse, Siren, Stethoscope, LogOut, FileText, Beaker } from "lucide-react"
+import { Home, ListChecks, HeartPulse, Siren, Stethoscope, LogOut, FileText, Beaker, Pill } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { signOut } from "firebase/auth"
 import { auth } from "@/lib/firebase"
@@ -23,6 +23,7 @@ const navItems = [
   { href: "/tasks", label: "Daily Tasks", icon: ListChecks },
   { href: "/vitals", label: "Vitals Log", icon: HeartPulse },
   { href: "/test-strips", label: "Test Strips", icon: Beaker },
+  { href: "/reminders", label: "Medication", icon: Pill },
   { href: "/report", label: "Health Report", icon: FileText },
   { href: "/emergency", label: "Emergency", icon: Siren },
 ]
