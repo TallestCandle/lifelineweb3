@@ -13,7 +13,7 @@ import {
   SidebarTrigger,
   SidebarFooter
 } from "@/components/ui/sidebar"
-import { Home, ListChecks, HeartPulse, Siren, Stethoscope, LogOut, FileText, Beaker, Pill, Users, ChevronsUpDown, User as UserIcon, PlusCircle } from "lucide-react"
+import { Home, ListChecks, HeartPulse, Siren, Stethoscope, LogOut, FileText, Beaker, Pill, Users, ChevronsUpDown, User as UserIcon, PlusCircle, BrainCircuit } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { signOut } from "firebase/auth"
 import { auth } from "@/lib/firebase"
@@ -28,6 +28,7 @@ const navItems = [
   { href: "/vitals", label: "Vitals Log", icon: HeartPulse },
   { href: "/test-strips", label: "Test Strips", icon: Beaker },
   { href: "/reminders", label: "Medication", icon: Pill },
+  { href: "/analysis", label: "AI Analysis", icon: BrainCircuit },
   { href: "/report", label: "Health Report", icon: FileText },
   { href: "/emergency", label: "Emergency", icon: Siren },
   { href: "/profiles", label: "Profiles", icon: Users },

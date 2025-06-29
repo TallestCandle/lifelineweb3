@@ -59,18 +59,6 @@ interface StripLogEntry extends StripLogFormValues {
   date: string;
 }
 
-interface TriggeredAlert {
-    id: string;
-    message: string;
-    timestamp: string;
-}
-
-interface Guardian {
-    id: string;
-    name: string;
-    contact: string;
-}
-
 export function TestStripLog() {
     const [isClient, setIsClient] = useState(false);
     const [stripLogs, setStripLogs] = useState<StripLogEntry[]>([]);
@@ -107,70 +95,6 @@ export function TestStripLog() {
         return levels.find(l => l.value === levelValue) || { color: 'bg-gray-400' };
     };
 
-    const notifyGuardians = useCallback(async (alert: Omit<TriggeredAlert, 'id'>) => {
-        if (!user || !activeProfile) return;
-        
-        const guardiansCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/guardians`);
-        const snapshot = await getDocs(guardiansCollectionRef);
-        const guardians: Guardian[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Guardian));
-        const userName = activeProfile?.name || user?.email || 'The user';
-
-        if (guardians.length > 0) {
-            guardians.forEach(guardian => {
-                console.log(
-                    `--- SIMULATING GUARDIAN NOTIFICATION (TEST STRIP ALERT) ---
-                    To: ${guardian.contact}
-                    Guardian: ${guardian.name}
-                    From: ${userName}
-                    Alert: ${alert.message}
-                    Time: ${format(parseISO(alert.timestamp), 'MMM d, yyyy, h:mm a')}
-                    --- END SIMULATION ---`
-                );
-            });
-            toast({
-                title: "Guardians Notified",
-                description: `A critical test strip result has also been sent to your ${guardians.length} guardian(s).`,
-            });
-        }
-    }, [user, activeProfile, toast]);
-    
-    const triggerAlert = useCallback(async (message: string) => {
-        if (!user || !activeProfile) return;
-        const newAlert = {
-            message,
-            timestamp: new Date().toISOString(),
-        };
-
-        const alertsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/alerts`);
-        await addDoc(alertsCollectionRef, newAlert);
-
-        toast({
-            variant: "destructive",
-            title: "Health Alert Triggered!",
-            description: `An abnormal test strip reading was detected. Check the Emergency page.`,
-        });
-        
-        await notifyGuardians(newAlert);
-    }, [toast, notifyGuardians, user, activeProfile]);
-
-    const checkForAlerts = useCallback((newLog: StripLogEntry, allLogs: StripLogEntry[]) => {
-        // Immediate alerts
-        if (newLog.marker === 'glucose' && newLog.level === '+++') {
-            triggerAlert("Critical Glucose Level (+++) Detected.");
-        }
-        if (newLog.marker === 'blood' && ['++', '+++'].includes(newLog.level)) {
-            triggerAlert("Significant Blood (++/+++) Detected in Urine.");
-        }
-
-        // Pattern-based alerts
-        if (newLog.marker === 'protein' && ['++', '+++'].includes(newLog.level)) {
-            const recentProteinLogs = allLogs.filter(log => log.marker === 'protein').slice(0, 3);
-            if (recentProteinLogs.filter(log => ['++', '+++'].includes(log.level)).length >= 2) {
-                triggerAlert("Consistent High Protein (++/+++) Detected. This could indicate kidney issues.");
-            }
-        }
-    }, [triggerAlert]);
-
     const onSubmit = async (data: StripLogFormValues) => {
         if (!user || !activeProfile) return;
         const newEntryData = { ...data, date: new Date().toISOString() };
@@ -182,8 +106,6 @@ export function TestStripLog() {
         setStripLogs(updatedLogs);
         
         toast({ title: "Test Strip Logged", description: "Your test strip result has been saved." });
-        
-        checkForAlerts(newEntry, updatedLogs);
         
         form.reset({marker: "", level: ""});
     };

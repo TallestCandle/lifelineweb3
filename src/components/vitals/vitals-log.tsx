@@ -43,19 +43,6 @@ interface VitalsEntry extends VitalsFormValues {
   date: string;
 }
 
-interface TriggeredAlert {
-    id: string;
-    message: string;
-    timestamp: string;
-}
-
-interface Guardian {
-    id: string;
-    name: string;
-    relationship: string;
-    contact: string;
-}
-
 const bpChartConfig = {
   systolic: { label: "Systolic", color: "hsl(var(--chart-1))" },
   diastolic: { label: "Diastolic", color: "hsl(var(--chart-2))" },
@@ -95,70 +82,6 @@ export function VitalsLog() {
     defaultValues: { systolic: '', diastolic: '', oxygenLevel: '', temperature: '', bloodSugar: '', weight: '' },
   });
 
-  const checkVitalsForAlerts = useCallback(async (vitals: VitalsFormValues) => {
-    if (!user || !activeProfile) return;
-    
-    const newAlertsData: Omit<TriggeredAlert, 'id'>[] = [];
-    const timestamp = new Date().toISOString();
-
-    const systolic = vitals.systolic ? parseInt(vitals.systolic, 10) : 0;
-    if (systolic > 180) {
-        newAlertsData.push({ message: "Hypertensive Crisis – Call for help", timestamp });
-    }
-
-    const bloodSugar = vitals.bloodSugar ? parseInt(vitals.bloodSugar, 10) : 0;
-    if (bloodSugar > 300) {
-        newAlertsData.push({ message: "Critical Blood Sugar – Seek medical attention", timestamp });
-    }
-    
-    const temperature = vitals.temperature ? parseFloat(vitals.temperature) : 0;
-    if (temperature > 103.1) {
-        newAlertsData.push({ message: "High Fever Detected", timestamp });
-    }
-
-    if (newAlertsData.length > 0) {
-        try {
-            const alertsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/alerts`);
-            for (const alertData of newAlertsData) {
-                await addDoc(alertsCollectionRef, alertData);
-            }
-
-            toast({
-                variant: "destructive",
-                title: "Health Alert Triggered!",
-                description: `A critical vital reading was detected. Please check the Emergency page for details.`,
-            });
-            
-            const guardiansCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/guardians`);
-            const guardiansSnapshot = await getDocs(guardiansCollectionRef);
-            const guardians: Guardian[] = guardiansSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Guardian));
-            const userName = activeProfile?.name || user?.email || 'The user';
-
-            if (guardians.length > 0) {
-                newAlertsData.forEach(alert => {
-                    guardians.forEach(guardian => {
-                        console.log(
-                            `--- SIMULATING GUARDIAN NOTIFICATION (VITALS ALERT) ---
-                            To: ${guardian.contact}
-                            Guardian: ${guardian.name}
-                            From: ${userName}
-                            Alert: ${alert.message}
-                            Time: ${format(parseISO(alert.timestamp), 'MMM d, yyyy, h:mm a')}
-                            --- END SIMULATION ---`
-                        );
-                    });
-                });
-                toast({
-                    title: "Guardians Notified",
-                    description: `A critical health alert has also been sent to your ${guardians.length} guardian(s).`,
-                });
-            }
-        } catch (error) {
-            console.error("Error processing alerts and notifying guardians", error);
-        }
-    }
-  }, [user, activeProfile, toast]);
-
   const onSubmit = async (data: VitalsFormValues) => {
     if (!user || !activeProfile) return;
     const vitalsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/vitals`);
@@ -175,7 +98,6 @@ export function VitalsLog() {
       const newEntry: VitalsEntry = { ...newEntryData, id: docRef.id };
       setVitalsHistory([newEntry, ...vitalsHistory]);
       toast({ title: "Vitals Logged", description: "Your new vital signs have been saved." });
-      await checkVitalsForAlerts(data);
     }
     form.reset({ systolic: '', diastolic: '', oxygenLevel: '', temperature: '', bloodSugar: '', weight: '' });
   };
