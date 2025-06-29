@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parse, subDays, isToday, parseISO } from 'date-fns';
+import { format, subDays, isToday, parseISO } from 'date-fns';
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -105,11 +105,11 @@ export function RemindersList() {
         const checkReminders = () => {
             const now = new Date();
             const todayStr = format(now, 'yyyy-MM-dd');
-            const todayHistory = history[todayStr] || {};
+            const currentHistory = history[todayStr] || {};
             const notifiedToday = getNotifiedToday();
             
             reminders.forEach(reminder => {
-                if (todayHistory[reminder.id] || notifiedToday.includes(reminder.id)) {
+                if (currentHistory[reminder.id] || notifiedToday.includes(reminder.id)) {
                     return;
                 }
 
@@ -117,23 +117,22 @@ export function RemindersList() {
                 if (now.getHours() === hour && now.getMinutes() === minute) {
                     new Notification('Medication Reminder', { 
                         body: `It's time to take your ${reminder.name}.`,
-                        tag: `${todayStr}-${reminder.id}` // Unique tag for each reminder each day
+                        tag: `${todayStr}-${reminder.id}`
                     });
                     markAsNotified(reminder.id);
                 }
             });
         };
 
-        // Check immediately on load and then every minute
         checkReminders();
-        const intervalId = setInterval(checkReminders, 60000); // Check every 60 seconds
+        const intervalId = setInterval(checkReminders, 60000); 
 
         return () => {
             clearInterval(intervalId);
         };
     }, [isClient, notificationPermission, reminders, history]);
 
-    const handleRequestNotificationPermission = async () => {
+    const handleRequestNotificationPermission = useCallback(async () => {
         if (!('Notification' in window)) {
             toast({ variant: 'destructive', title: "Notifications not supported" });
             return;
@@ -145,36 +144,37 @@ export function RemindersList() {
         } else {
             toast({ variant: 'destructive', title: "Notifications denied." });
         }
-    };
+    }, [toast]);
 
-    const onSubmit = async (data: ReminderFormValues) => {
+    const onSubmit = useCallback(async (data: ReminderFormValues) => {
         if (!user || !activeProfile) return;
         const remindersCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`);
         const docRef = await addDoc(remindersCollectionRef, data);
         const newReminder: Reminder = { ...data, id: docRef.id };
-        setReminders([...reminders, newReminder].sort((a, b) => a.time.localeCompare(b.time)));
+        setReminders(prev => [...prev, newReminder].sort((a, b) => a.time.localeCompare(b.time)));
         toast({ title: "Reminder Added", description: `${data.name} has been added.` });
         form.reset();
-    };
+    }, [user, activeProfile, toast, form]);
 
-    const deleteReminder = async (id: string) => {
+    const deleteReminder = useCallback(async (id: string) => {
         if (!user || !activeProfile) return;
         await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`, id));
-        setReminders(reminders.filter(r => r.id !== id));
+        setReminders(prev => prev.filter(r => r.id !== id));
         toast({ variant: 'destructive', title: "Reminder Removed" });
-    };
+    }, [user, activeProfile, toast]);
 
-    const markReminder = async (reminderId: string, status: 'taken' | 'missed') => {
+    const markReminder = useCallback(async (reminderId: string, status: 'taken' | 'missed') => {
         if (!user || !activeProfile) return;
         const todayStr = format(new Date(), 'yyyy-MM-dd');
-        const updatedHistoryLog = { ...history[todayStr], [reminderId]: status };
+        
+        const updatedHistoryLog = { ...(history[todayStr] || {}), [reminderId]: status };
         
         const historyDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders_history`, todayStr);
         await setDoc(historyDocRef, updatedHistoryLog, { merge: true });
 
         setHistory(prev => ({ ...prev, [todayStr]: updatedHistoryLog }));
         toast({ title: `Marked as ${status}` });
-    };
+    }, [user, activeProfile, history, toast]);
 
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const todayLog = history[todayStr] || {};
@@ -183,9 +183,7 @@ export function RemindersList() {
         return [...reminders].sort((a, b) => a.time.localeCompare(b.time));
     }, [reminders]);
 
-    const pastSevenDays = useMemo(() => {
-        return Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd')).reverse();
-    }, []);
+    const pastSevenDays = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd')).reverse();
 
     if (!isClient || !activeProfile) return null;
 
@@ -293,7 +291,7 @@ export function RemindersList() {
                                 );
                             })}
                         </Accordion>
-                         {Object.keys(history).length === 0 && <p className="text-muted-foreground text-center py-4">No history recorded yet.</p>}
+                         {Object.keys(history).filter(dateStr => reminders.some(r => history[dateStr]?.[r.id])).length === 0 && <p className="text-muted-foreground text-center py-4">No history recorded yet.</p>}
                     </CardContent>
                 </Card>
             </div>
