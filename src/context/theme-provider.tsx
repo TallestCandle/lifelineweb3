@@ -1,10 +1,11 @@
+
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 
 export const themes = [
-    { id: 'theme-cool-flash', name: 'Cool Flash' },
     { id: 'theme-serene-sky', name: 'Serene Sky' },
+    { id: 'theme-cool-flash', name: 'Cool Flash' },
     { id: 'theme-forest-whisper', name: 'Forest Whisper' },
     { id: 'theme-midnight-bloom', name: 'Midnight Bloom' },
     { id: 'theme-sunset-glow', name: 'Sunset Glow' },
@@ -17,7 +18,7 @@ export const themes = [
     { id: 'theme-royal-amethyst', name: 'Royal Amethyst' },
 ] as const;
 
-type ThemeId = typeof themes[number]['id'];
+export type ThemeId = typeof themes[number]['id'];
 
 interface ThemeContextType {
   theme: ThemeId;
@@ -26,24 +27,17 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
-const THEME_STORAGE_KEY = 'nexus-lifeline-theme';
-
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeId>('theme-cool-flash');
+  const [theme, setThemeState] = useState<ThemeId>('theme-serene-sky');
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
-    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY) as ThemeId | null;
-    if (storedTheme && themes.some(t => t.id === storedTheme)) {
-      setThemeState(storedTheme);
-    }
   }, []);
 
   useEffect(() => {
     if (isMounted) {
       document.documentElement.className = theme;
-      localStorage.setItem(THEME_STORAGE_KEY, theme);
     }
   }, [theme, isMounted]);
 

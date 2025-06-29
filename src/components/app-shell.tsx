@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -10,6 +11,7 @@ import { Button } from "./ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from "./ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "./ui/avatar"
 import { ThemeSwitcher } from "./theme/theme-switcher"
+import { useTheme } from "@/context/theme-provider"
 
 // Define a map for page titles
 const pageTitles: Record<string, string> = {
@@ -28,6 +30,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { activeProfile, profiles, switchProfile } = useProfile();
+  const { setTheme } = useTheme();
+
+  React.useEffect(() => {
+    if (activeProfile?.theme) {
+      setTheme(activeProfile.theme);
+    } else {
+      setTheme('theme-serene-sky'); // Fallback to default
+    }
+  }, [activeProfile, setTheme]);
   
   const getPageTitle = () => {
     return pageTitles[pathname] || "Nexus Lifeline";

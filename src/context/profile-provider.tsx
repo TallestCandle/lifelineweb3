@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -6,22 +7,25 @@ import { Loader } from '@/components/ui/loader';
 import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDocs, addDoc, deleteDoc, updateDoc, query, writeBatch, orderBy } from 'firebase/firestore';
+import type { ThemeId } from './theme-provider';
 
 export interface Profile {
   id: string;
   name: string;
   age: string;
   gender: 'Male' | 'Female' | 'Other';
+  theme?: ThemeId;
 }
 
 interface ProfileContextType {
   profiles: Profile[];
   activeProfile: Profile | null;
   loading: boolean;
-  addProfile: (profileData: Omit<Profile, 'id'>) => Promise<void>;
+  addProfile: (profileData: Omit<Profile, 'id' | 'theme'>) => Promise<void>;
   switchProfile: (profileId: string) => Promise<void>;
   deleteProfile: (profileId: string) => Promise<void>;
-  updateProfile: (profileId: string, profileData: Omit<Profile, 'id'>) => Promise<void>;
+  updateProfile: (profileId: string, profileData: Omit<Profile, 'id' | 'theme'>) => Promise<void>;
+  updateProfileTheme: (themeId: ThemeId) => Promise<void>;
 }
 
 const ProfileContext = createContext<ProfileContextType | null>(null);
@@ -115,14 +119,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   }, [loading, authLoading, user, profiles, pathname, router]);
 
-  const addProfile = async (profileData: Omit<Profile, 'id'>) => {
+  const addProfile = async (profileData: Omit<Profile, 'id' | 'theme'>) => {
     if (!user) throw new Error("User not authenticated");
     if (profiles.length >= 3) {
       throw new Error("Maximum of 3 profiles reached.");
     }
     const profilesCollectionRef = collection(db, `users/${user.uid}/profiles`);
-    const docRef = await addDoc(profilesCollectionRef, profileData);
-    const newProfile: Profile = { ...profileData, id: docRef.id };
+    const newProfileData = { ...profileData, theme: 'theme-serene-sky' as ThemeId };
+    const docRef = await addDoc(profilesCollectionRef, newProfileData);
+    const newProfile: Profile = { ...newProfileData, id: docRef.id };
     
     const updatedProfiles = [...profiles, newProfile].sort((a,b) => a.name.localeCompare(b.name));
     setProfiles(updatedProfiles);
@@ -162,17 +167,30 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateProfile = async (profileId: string, profileData: Omit<Profile, 'id'>) => {
+  const updateProfile = async (profileId: string, profileData: Omit<Profile, 'id' | 'theme'>) => {
     if (!user) throw new Error("User not authenticated");
     const profileDocRef = doc(db, `users/${user.uid}/profiles/${profileId}`);
-    await updateDoc(profileDocRef, profileData);
+    const existingProfile = profiles.find(p => p.id === profileId);
+    const dataToUpdate = { ...profileData, theme: existingProfile?.theme || 'theme-serene-sky' };
     
-    const updatedProfiles = profiles.map(p => p.id === profileId ? { ...profileData, id: profileId } : p).sort((a,b) => a.name.localeCompare(b.name));
+    await updateDoc(profileDocRef, dataToUpdate);
+    
+    const updatedProfiles = profiles.map(p => p.id === profileId ? { ...dataToUpdate, id: profileId } : p).sort((a,b) => a.name.localeCompare(b.name));
     setProfiles(updatedProfiles);
 
     if (activeProfile?.id === profileId) {
-      setActiveProfile({ ...profileData, id: profileId });
+      setActiveProfile({ ...dataToUpdate, id: profileId });
     }
+  };
+
+  const updateProfileTheme = async (themeId: ThemeId) => {
+    if (!user || !activeProfile) throw new Error("No active profile selected.");
+    const profileDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}`);
+    await updateDoc(profileDocRef, { theme: themeId });
+    
+    // Optimistically update local state and reload
+    setActiveProfile(prev => prev ? { ...prev, theme: themeId } : null);
+    window.location.reload();
   };
 
   if (authLoading || (loading && user)) {
@@ -183,7 +201,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       return <Loader />;
   }
   
-  const value = { profiles, activeProfile, loading, addProfile, switchProfile, deleteProfile, updateProfile };
+  const value = { profiles, activeProfile, loading, addProfile, switchProfile, deleteProfile, updateProfile, updateProfileTheme };
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
 }
