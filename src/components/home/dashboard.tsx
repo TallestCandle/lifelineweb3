@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   ListChecks,
   HeartPulse,
@@ -41,7 +41,6 @@ const menuItems: MenuItem[] = [
 ];
 
 export function Dashboard() {
-  const router = useRouter();
   const { activeProfile } = useProfile();
   
   const firstName = activeProfile?.name.split(' ')[0];
@@ -59,12 +58,10 @@ export function Dashboard() {
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
-            <div 
+            <Link 
               key={item.href}
+              href={item.href}
               className="flex flex-col items-center justify-start text-center gap-2 cursor-pointer group"
-              onClick={() => router.push(item.href)}
-              onKeyDown={(e) => e.key === 'Enter' && router.push(item.href)}
-              tabIndex={0}
             >
               <div className={cn(
                 "relative flex items-center justify-center bg-card/50 p-3 rounded-full shadow-lg border border-primary/20 transition-all duration-300 group-hover:-translate-y-1",
@@ -80,7 +77,7 @@ export function Dashboard() {
               <div className="h-8 flex items-center">
                   <p className="text-xs font-bold text-foreground/80 transition-colors duration-300 group-hover:text-foreground">{item.label}</p>
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>
