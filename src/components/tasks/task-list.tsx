@@ -26,7 +26,7 @@ const TaskIcons = {
     Apple,
 };
 
-const defaultTasksRaw: Omit<Task, 'id' | 'completed' | 'iconName'>[] = [
+const defaultTasksRaw: Omit<Task, 'id' | 'completed'>[] = [
     { text: 'Take your blood pressure', iconName: 'HeartPulse' },
     { text: 'Drink a glass of water', iconName: 'GlassWater' },
     { text: 'Stretch for 5 minutes', iconName: 'Move' },
