@@ -63,7 +63,7 @@ export function AuthForm() {
       toast({
         variant: 'destructive',
         title: 'Configuration Error',
-        description: 'Firebase is not configured. Please add your Firebase credentials to a .env.local file.',
+        description: 'Firebase is not configured. Please add your Firebase credentials to the .env file.',
       });
       setIsLoading(false);
       return;
