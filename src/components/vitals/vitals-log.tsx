@@ -1,10 +1,12 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
+import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,136 +14,259 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { HeartPulse, Thermometer } from 'lucide-react';
+import { HeartPulse, Thermometer, Scale, Droplets, Lungs, Pencil, Trash2, PlusCircle, Ban } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { ChartConfig } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const vitalsSchema = z.object({
-  systolic: z.string().min(1, "Required").regex(/^\d+$/, "Must be a number"),
-  diastolic: z.string().min(1, "Required").regex(/^\d+$/, "Must be a number"),
-  heartRate: z.string().min(1, "Required").regex(/^\d+$/, "Must be a number"),
-  temperature: z.string().min(1, "Required").regex(/^\d+(\.\d{1,2})?$/, "Must be a number"),
+  systolic: z.string().regex(/^\d+$/, "Must be a number").optional().or(z.literal('')),
+  diastolic: z.string().regex(/^\d+$/, "Must be a number").optional().or(z.literal('')),
+  oxygenLevel: z.string().regex(/^\d{1,3}(\.\d{1,2})?$/, "Must be a number").optional().or(z.literal('')),
+  temperature: z.string().regex(/^\d{1,3}(\.\d{1,2})?$/, "Must be a number").optional().or(z.literal('')),
+  bloodSugar: z.string().regex(/^\d+$/, "Must be a number").optional().or(z.literal('')),
+  weight: z.string().regex(/^\d{1,4}(\.\d{1,2})?$/, "Must be a number").optional().or(z.literal('')),
+}).refine(data => Object.values(data).some(v => v && v.length > 0), {
+    message: "At least one vital sign must be entered.",
+    path: ["systolic"], 
 });
 
 type VitalsFormValues = z.infer<typeof vitalsSchema>;
 
 interface VitalsEntry extends VitalsFormValues {
-  date: Date;
+  id: string;
+  date: string;
 }
 
-const initialVitals: VitalsEntry[] = [
-  { date: new Date(2023, 10, 20, 8, 5), systolic: '120', diastolic: '80', heartRate: '72', temperature: '98.6' },
-  { date: new Date(2023, 10, 19, 8, 2), systolic: '122', diastolic: '81', heartRate: '75', temperature: '98.7' },
-];
+const LOCAL_STORAGE_KEY = 'nexus-lifeline-vitals';
+
+const bpChartConfig = {
+  systolic: { label: "Systolic", color: "hsl(var(--chart-1))" },
+  diastolic: { label: "Diastolic", color: "hsl(var(--chart-2))" },
+} satisfies ChartConfig;
+
+const singleMetricChartConfig = (label: string, color: string) => ({
+    value: { label, color },
+}) satisfies ChartConfig;
+
 
 export function VitalsLog() {
-  const [vitalsHistory, setVitalsHistory] = useState<VitalsEntry[]>(initialVitals);
+  const [isClient, setIsClient] = useState(false);
+  const [vitalsHistory, setVitalsHistory] = useState<VitalsEntry[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setIsClient(true);
+    try {
+      const storedVitals = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (storedVitals) {
+        setVitalsHistory(JSON.parse(storedVitals));
+      }
+    } catch (error) {
+      console.error("Error reading from localStorage", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if(isClient) {
+      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(vitalsHistory));
+    }
+  }, [vitalsHistory, isClient]);
 
   const form = useForm<VitalsFormValues>({
     resolver: zodResolver(vitalsSchema),
-    defaultValues: { systolic: '', diastolic: '', heartRate: '', temperature: '' },
+    defaultValues: { systolic: '', diastolic: '', oxygenLevel: '', temperature: '', bloodSugar: '', weight: '' },
   });
 
-  function onSubmit(data: VitalsFormValues) {
-    const newEntry = { ...data, date: new Date() };
-    setVitalsHistory([newEntry, ...vitalsHistory]);
+  const onSubmit = (data: VitalsFormValues) => {
+    if (editingId) {
+      setVitalsHistory(vitalsHistory.map(entry => entry.id === editingId ? { ...entry, ...data } : entry));
+      toast({ title: "Vitals Updated", description: "The vital sign entry has been successfully updated." });
+      setEditingId(null);
+    } else {
+      const newEntry: VitalsEntry = { ...data, id: Date.now().toString(), date: new Date().toISOString() };
+      setVitalsHistory([newEntry, ...vitalsHistory]);
+      toast({ title: "Vitals Logged", description: "Your new vital signs have been saved." });
+    }
     form.reset();
-    toast({
-      title: "Vitals Logged",
-      description: "Your new vital signs have been saved.",
-    });
+  };
+  
+  const handleEdit = (entry: VitalsEntry) => {
+    setEditingId(entry.id);
+    form.reset(entry);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  
+  const handleDelete = (id: string) => {
+    setVitalsHistory(vitalsHistory.filter(entry => entry.id !== id));
+    toast({ variant: 'destructive', title: "Entry Deleted", description: "The vital sign entry has been removed." });
+  };
+  
+  const cancelEdit = () => {
+    setEditingId(null);
+    form.reset();
   }
 
+  const chartData = useMemo(() => {
+    return vitalsHistory
+      .map(entry => ({
+        ...entry,
+        date: parseISO(entry.date),
+      }))
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      .map(entry => ({
+        ...entry,
+        date: format(entry.date, 'MMM d'),
+        systolic: entry.systolic ? Number(entry.systolic) : null,
+        diastolic: entry.diastolic ? Number(entry.diastolic) : null,
+        oxygenLevel: entry.oxygenLevel ? Number(entry.oxygenLevel) : null,
+        temperature: entry.temperature ? Number(entry.temperature) : null,
+        bloodSugar: entry.bloodSugar ? Number(entry.bloodSugar) : null,
+        weight: entry.weight ? Number(entry.weight) : null,
+      }));
+  }, [vitalsHistory]);
+
+  const renderChart = useCallback((dataKey: keyof VitalsFormValues, label: string, color: string) => {
+    const data = chartData.filter(d => d[dataKey] !== null);
+    if (data.length < 2) return <div className="flex items-center justify-center h-48 text-muted-foreground">Not enough data to display chart.</div>;
+    
+    return (
+        <ChartContainer config={singleMetricChartConfig(label, color)} className="min-h-[200px] w-full">
+            <LineChart data={data} margin={{ left: 12, right: 12 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
+                <YAxis domain={['dataMin - 5', 'dataMax + 5']} />
+                <Tooltip content={<ChartTooltipContent />} />
+                <Line dataKey={dataKey} type="monotone" stroke={color} strokeWidth={2} dot={true} name="value" />
+            </LineChart>
+        </ChartContainer>
+    );
+  }, [chartData]);
+
+  if (!isClient) return null;
+
   return (
-    <div className="grid md:grid-cols-3 gap-8">
-      <div className="md:col-span-1">
+    <div className="grid lg:grid-cols-3 gap-8 items-start">
+      <div className="lg:col-span-1 space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle>Log New Vitals</CardTitle>
-            <CardDescription>Enter your current measurements below.</CardDescription>
+            <CardTitle className="flex items-center justify-between">
+              <span>{editingId ? 'Edit Vitals' : 'Log New Vitals'}</span>
+              {editingId ? <Pencil className="w-6 h-6"/> : <PlusCircle className="w-6 h-6"/>}
+            </CardTitle>
+            <CardDescription>{editingId ? 'Update the measurements below.' : 'Enter your current measurements below.'}</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="systolic"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Blood Pressure (Systolic)</FormLabel>
-                      <FormControl><Input placeholder="e.g., 120" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="diastolic"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Blood Pressure (Diastolic)</FormLabel>
-                      <FormControl><Input placeholder="e.g., 80" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="heartRate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Heart Rate (BPM)</FormLabel>
-                      <FormControl><Input placeholder="e.g., 72" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="temperature"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Temperature (°F)</FormLabel>
-                      <FormControl><Input placeholder="e.g., 98.6" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full">Save Vitals</Button>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="systolic" render={({ field }) => (<FormItem><FormLabel>Systolic</FormLabel><FormControl><Input placeholder="120" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  <FormField control={form.control} name="diastolic" render={({ field }) => (<FormItem><FormLabel>Diastolic</FormLabel><FormControl><Input placeholder="80" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                </div>
+                <FormField control={form.control} name="oxygenLevel" render={({ field }) => (<FormItem><FormLabel>Oxygen Level (%)</FormLabel><FormControl><Input placeholder="98" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="temperature" render={({ field }) => (<FormItem><FormLabel>Temperature (°F)</FormLabel><FormControl><Input placeholder="98.6" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="bloodSugar" render={({ field }) => (<FormItem><FormLabel>Blood Sugar (mg/dL)</FormLabel><FormControl><Input placeholder="100" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="weight" render={({ field }) => (<FormItem><FormLabel>Weight (lbs)</FormLabel><FormControl><Input placeholder="150" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <div className="flex gap-2 pt-2">
+                    {editingId && <Button type="button" variant="secondary" onClick={cancelEdit} className="w-full"><Ban />Cancel</Button>}
+                    <Button type="submit" className="w-full">{editingId ? 'Update Vitals' : 'Save Vitals'}</Button>
+                </div>
               </form>
             </Form>
           </CardContent>
         </Card>
       </div>
 
-      <div className="md:col-span-2">
+      <div className="lg:col-span-2 space-y-8">
+        <Card>
+            <CardHeader><CardTitle>Vitals Trends</CardTitle></CardHeader>
+            <CardContent>
+                <Tabs defaultValue="bp">
+                    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
+                        <TabsTrigger value="bp">Pressure</TabsTrigger>
+                        <TabsTrigger value="oxygen">Oxygen</TabsTrigger>
+                        <TabsTrigger value="temp">Temp</TabsTrigger>
+                        <TabsTrigger value="sugar">Sugar</TabsTrigger>
+                        <TabsTrigger value="weight">Weight</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="bp" className="pt-4">
+                        {chartData.filter(d => d.systolic || d.diastolic).length < 2 ? <div className="flex items-center justify-center h-48 text-muted-foreground">Not enough data to display chart.</div> :
+                        <ChartContainer config={bpChartConfig} className="min-h-[200px] w-full">
+                            <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
+                                <CartesianGrid vertical={false} />
+                                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
+                                <YAxis domain={['dataMin - 10', 'dataMax + 10']} />
+                                <Tooltip content={<ChartTooltipContent />} />
+                                <Line dataKey="systolic" type="monotone" stroke="var(--color-systolic)" strokeWidth={2} dot={true} />
+                                <Line dataKey="diastolic" type="monotone" stroke="var(--color-diastolic)" strokeWidth={2} dot={true} />
+                            </LineChart>
+                        </ChartContainer>}
+                    </TabsContent>
+                    <TabsContent value="oxygen" className="pt-4">{renderChart('oxygenLevel', 'Oxygen Level', 'hsl(var(--chart-3))')}</TabsContent>
+                    <TabsContent value="temp" className="pt-4">{renderChart('temperature', 'Temperature', 'hsl(var(--chart-4))')}</TabsContent>
+                    <TabsContent value="sugar" className="pt-4">{renderChart('bloodSugar', 'Blood Sugar', 'hsl(var(--chart-5))')}</TabsContent>
+                    <TabsContent value="weight" className="pt-4">{renderChart('weight', 'Weight', 'hsl(var(--chart-1))')}</TabsContent>
+                </Tabs>
+            </CardContent>
+        </Card>
+        
         <Card>
           <CardHeader>
             <CardTitle>Vitals History</CardTitle>
+            <CardDescription>A log of all your previously recorded vital signs.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Blood Pressure</TableHead>
-                  <TableHead>Heart Rate</TableHead>
-                  <TableHead>Temperature</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {vitalsHistory.map((entry, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{format(entry.date, 'MMM d, yyyy, h:mm a')}</TableCell>
-                    <TableCell>{entry.systolic}/{entry.diastolic} mmHg</TableCell>
-                    <TableCell><div className="flex items-center gap-2"><HeartPulse className="w-4 h-4 text-red-500" />{entry.heartRate} bpm</div></TableCell>
-                    <TableCell><div className="flex items-center gap-2"><Thermometer className="w-4 h-4 text-blue-500" />{entry.temperature}°F</div></TableCell>
+            <div className="max-h-[500px] overflow-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-card">
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Vitals</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {vitalsHistory.length > 0 ? vitalsHistory.map(entry => (
+                    <TableRow key={entry.id}>
+                      <TableCell className="font-medium whitespace-nowrap">{format(parseISO(entry.date), 'MMM d, yyyy, h:mm a')}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                            {entry.systolic && entry.diastolic && <span className="flex items-center gap-1"><HeartPulse className="w-4 h-4 text-destructive"/> {entry.systolic}/{entry.diastolic} mmHg</span>}
+                            {entry.oxygenLevel && <span className="flex items-center gap-1"><Lungs className="w-4 h-4 text-primary"/> {entry.oxygenLevel}%</span>}
+                            {entry.temperature && <span className="flex items-center gap-1"><Thermometer className="w-4 h-4 text-accent-foreground"/> {entry.temperature}°F</span>}
+                            {entry.bloodSugar && <span className="flex items-center gap-1"><Droplets className="w-4 h-4 text-yellow-500"/> {entry.bloodSugar} mg/dL</span>}
+                            {entry.weight && <span className="flex items-center gap-1"><Scale className="w-4 h-4 text-green-500"/> {entry.weight} lbs</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)}><Pencil className="w-4 h-4" /></Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon"><Trash2 className="w-4 h-4" /></Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone. This will permanently delete this vitals entry.</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(entry.id)}>Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow><TableCell colSpan={3} className="text-center h-24">No vitals logged yet.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
+
+    
