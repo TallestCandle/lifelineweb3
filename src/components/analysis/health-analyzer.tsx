@@ -15,11 +15,12 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { BrainCircuit, Beaker, Trash2, HeartPulse, Thermometer, Scale, Droplets, Lightbulb, Save, Share2, Camera } from 'lucide-react';
+import { BrainCircuit, Beaker, Trash2, HeartPulse, Thermometer, Scale, Droplets, Lightbulb, Save, Share2, Camera, ShieldCheck, AlertCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
 import { useProfile } from '@/context/profile-provider';
@@ -275,15 +276,45 @@ ${Object.entries(inputData).filter(([key]) => key !== 'imageDataUri').map(([key,
                             </Badge>
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <Alert>
-                            <AlertTitle>Summary</AlertTitle>
-                            <AlertDescription>{analysisResult.summary}</AlertDescription>
-                        </Alert>
-                        <Alert>
-                            <AlertTitle>Advice</AlertTitle>
-                            <AlertDescription>{analysisResult.advice}</AlertDescription>
-                        </Alert>
+                    <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Alert>
+                                <AlertTitle>Summary</AlertTitle>
+                                <AlertDescription>{analysisResult.summary}</AlertDescription>
+                            </Alert>
+                            <Alert>
+                                <AlertTitle>Advice</AlertTitle>
+                                <AlertDescription>{analysisResult.advice}</AlertDescription>
+                            </Alert>
+                        </div>
+                        
+                        {analysisResult.potentialConditions && analysisResult.potentialConditions.length > 0 && (
+                             <div>
+                                <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+                                    <ShieldCheck className="text-primary"/> Potential Conditions Analysis
+                                </h3>
+                                <Alert variant="destructive" className="mb-4">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertTitle>Disclaimer</AlertTitle>
+                                    <AlertDescription>
+                                        This is not a medical diagnosis. It is a probabilistic analysis for informational purposes. Always consult a healthcare professional.
+                                    </AlertDescription>
+                                </Alert>
+                                <div className="space-y-4">
+                                    {analysisResult.potentialConditions.map((item, index) => (
+                                        <div key={index} className="p-4 rounded-lg bg-background/50 border border-primary/20">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <p className="font-bold text-base">{item.condition}</p>
+                                                <span className="font-bold text-primary text-lg">{item.probability}%</span>
+                                            </div>
+                                            <Progress value={item.probability} className="h-2" />
+                                            <p className="text-xs text-muted-foreground mt-2">{item.explanation}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                     </CardContent>
                     <CardFooter className="flex justify-end gap-2">
                         <Button variant="outline" onClick={() => { setAnalysisResult(null); setImageDataUri(null); }}>Discard</Button>
@@ -314,6 +345,18 @@ ${Object.entries(inputData).filter(([key]) => key !== 'imageDataUri').map(([key,
                                     <AccordionContent className="space-y-4 pt-2">
                                         <p><strong className="font-bold">Summary:</strong> {item.analysisResult.summary}</p>
                                         <p><strong className="font-bold">Advice:</strong> {item.analysisResult.advice}</p>
+                                        
+                                        {item.analysisResult.potentialConditions && item.analysisResult.potentialConditions.length > 0 && (
+                                            <div className="space-y-2 pt-2">
+                                                <h4 className="font-bold text-sm">Potential Conditions Analysis:</h4>
+                                                {item.analysisResult.potentialConditions.map((cond, index) => (
+                                                    <div key={index} className="text-xs text-muted-foreground ml-4">
+                                                        - <span className="font-bold">{cond.condition}:</span> {cond.probability}% ({cond.explanation})
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
                                         {item.inputData.imageDataUri && (
                                             <div>
                                                 <p className="font-bold text-sm mb-2">Image Submitted:</p>
