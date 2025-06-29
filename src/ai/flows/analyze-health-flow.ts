@@ -25,6 +25,7 @@ const AnalyzeHealthInputSchema = z.object({
     blood: z.string().optional().describe("Urine blood level (e.g., Negative, Trace, +, ++, +++)"),
     nitrite: z.string().optional().describe("Urine nitrite level (e.g., Negative, Trace)"),
     ph: z.string().optional().describe("Urine pH level (e.g., 5.0, 6.0, 7.0)"),
+    imageDataUri: z.string().optional().describe("An optional image of a health concern (e.g., a rash, wound, or test strip result) as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
 }).describe("A collection of user's health metrics for analysis.");
 
 export type AnalyzeHealthInput = z.infer<typeof AnalyzeHealthInputSchema>;
@@ -48,7 +49,7 @@ const analyzeHealthPrompt = ai.definePrompt({
     name: 'analyzeHealthPrompt',
     input: { schema: AnalyzeHealthInputSchema },
     output: { schema: AnalyzeHealthOutputSchema },
-    prompt: `You are an AI health assistant. Your role is to analyze health data and provide a clear, concise, and easy-to-understand summary for a non-medical user. Do not provide a medical diagnosis. You are providing a summary and advice based on the data given.
+    prompt: `You are an AI health assistant. Your role is to analyze health data and provide a clear, concise, and easy-to-understand summary for a non-medical user. Do not provide a medical diagnosis. You are providing a summary and advice based on the data given, including any provided image.
 
 Based on the following health data, determine if there are any health concerns, red flags, or possible disease indicators.
 
@@ -65,6 +66,7 @@ Health Data:
 {{#if blood}}Urine Blood: {{blood}}{{/if}}
 {{#if nitrite}}Urine Nitrite: {{nitrite}}{{/if}}
 {{#if ph}}Urine pH: {{ph}}{{/if}}
+{{#if imageDataUri}}Image Analysis: An image has been provided. Analyze it in conjunction with the other data. For example, if it's a skin rash, consider its appearance along with the body temperature. If it's a test strip, correlate its colors with the provided values. {{media url=imageDataUri}}{{/if}}
 
 Please provide a response in the required JSON format with three fields:
 1.  'summary': A short, readable summary of the user's health status.

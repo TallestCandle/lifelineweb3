@@ -1,11 +1,12 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, parseISO } from 'date-fns';
+import Image from 'next/image';
 
 import { analyzeHealth, type AnalyzeHealthInput, type AnalyzeHealthOutput } from '@/ai/flows/analyze-health-flow';
 
@@ -14,7 +15,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { BrainCircuit, Beaker, PlusCircle, Trash2, HeartPulse, Thermometer, Scale, Droplets, Activity, Lightbulb, Save, Share2 } from 'lucide-react';
+import { BrainCircuit, Beaker, Trash2, HeartPulse, Thermometer, Scale, Droplets, Lightbulb, Save, Share2, Camera } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -66,6 +67,7 @@ export function HealthAnalyzer() {
     const [analysisResult, setAnalysisResult] = useState<AnalyzeHealthOutput | null>(null);
     const [inputData, setInputData] = useState<AnalyzeHealthInput | null>(null);
     const [history, setHistory] = useState<HealthAnalysisRecord[]>([]);
+    const [imageDataUri, setImageDataUri] = useState<string | null>(null);
 
     const form = useForm<AnalysisFormValues>({
         resolver: zodResolver(analysisSchema),
@@ -88,16 +90,31 @@ export function HealthAnalyzer() {
         fetchHistory();
     }, [user, activeProfile]);
 
+    const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImageDataUri(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+    
     const onSubmit = async (data: AnalysisFormValues) => {
         setIsLoading(true);
         setAnalysisResult(null);
 
-        const filledData = Object.fromEntries(
+        const filledData: AnalyzeHealthInput = Object.fromEntries(
             Object.entries(data).filter(([_, v]) => v && v !== '')
-        ) as AnalyzeHealthInput;
+        );
+
+        if (imageDataUri) {
+            filledData.imageDataUri = imageDataUri;
+        }
 
         if (Object.keys(filledData).length === 0) {
-            toast({ variant: 'destructive', title: "No Data Entered", description: "Please enter at least one health metric to analyze." });
+            toast({ variant: 'destructive', title: "No Data Entered", description: "Please enter at least one health metric or upload an image to analyze." });
             setIsLoading(false);
             return;
         }
@@ -134,6 +151,7 @@ export function HealthAnalyzer() {
         setHistory(prev => [{ ...record, id: docRef.id }, ...prev]);
         setAnalysisResult(null); // Clear the result after saving
         setInputData(null);
+        setImageDataUri(null);
         form.reset();
         
         toast({ title: 'Analysis Saved', description: 'The health evaluation has been saved to your history.' });
@@ -141,6 +159,8 @@ export function HealthAnalyzer() {
 
     const shareAnalysis = (record: HealthAnalysisRecord) => {
         const { inputData, analysisResult, timestamp } = record;
+        const imageIncluded = record.inputData.imageDataUri ? '\n(An image was included in this analysis.)' : '';
+
         const reportText = `
 Health Analysis Report
 Date: ${format(parseISO(timestamp), 'MMM d, yyyy, h:mm a')}
@@ -153,9 +173,9 @@ ${analysisResult.summary}
 
 Advice:
 ${analysisResult.advice}
-
+${imageIncluded}
 --- Input Data ---
-${Object.entries(inputData).map(([key, value]) => `${key}: ${value}`).join('\n')}
+${Object.entries(inputData).filter(([key]) => key !== 'imageDataUri').map(([key, value]) => `${key}: ${value}`).join('\n')}
         `.trim();
 
         if (navigator.share) {
@@ -176,7 +196,7 @@ ${Object.entries(inputData).map(([key, value]) => `${key}: ${value}`).join('\n')
                         <BrainCircuit className="w-8 h-8 text-primary" />
                         <span className="text-2xl">AI-Powered Health Analysis</span>
                     </CardTitle>
-                    <CardDescription>Enter your current health data in one go and get an instant AI-powered analysis of your health status.</CardDescription>
+                    <CardDescription>Enter your current health data, upload an image, and get an instant AI-powered analysis.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Form {...form}>
@@ -217,6 +237,23 @@ ${Object.entries(inputData).map(([key, value]) => `${key}: ${value}`).join('\n')
                                     ))}
                                 </div>
                             </section>
+                            <section>
+                                <h3 className="text-lg font-bold mb-2 flex items-center gap-2"><Camera />Image Upload (Optional)</h3>
+                                <p className="text-sm text-muted-foreground mb-4">You can upload an image of a concern (e.g., a rash, wound, or test strip) for a more comprehensive analysis.</p>
+                                <FormControl>
+                                    <Input type="file" accept="image/*" onChange={handleImageUpload} className="file:text-foreground" />
+                                </FormControl>
+                                {imageDataUri && (
+                                    <div className="mt-4 relative w-fit">
+                                        <p className="text-sm font-bold mb-2">Image Preview:</p>
+                                        <Image src={imageDataUri} alt="Preview" width={200} height={200} className="rounded-md border-2 border-primary" />
+                                        <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 rounded-full h-7 w-7" onClick={() => setImageDataUri(null)}>
+                                            <Trash2 className="h-4 w-4" />
+                                            <span className="sr-only">Remove Image</span>
+                                        </Button>
+                                    </div>
+                                )}
+                            </section>
                             <Button type="submit" className="w-full" disabled={isLoading}>
                                 {isLoading ? 'Analyzing...' : 'Submit & Analyze'}
                             </Button>
@@ -249,7 +286,7 @@ ${Object.entries(inputData).map(([key, value]) => `${key}: ${value}`).join('\n')
                         </Alert>
                     </CardContent>
                     <CardFooter className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setAnalysisResult(null)}>Discard</Button>
+                        <Button variant="outline" onClick={() => { setAnalysisResult(null); setImageDataUri(null); }}>Discard</Button>
                         <Button onClick={saveAnalysis}><Save className="mr-2"/>Save to History</Button>
                     </CardFooter>
                 </Card>
@@ -277,10 +314,16 @@ ${Object.entries(inputData).map(([key, value]) => `${key}: ${value}`).join('\n')
                                     <AccordionContent className="space-y-4 pt-2">
                                         <p><strong className="font-bold">Summary:</strong> {item.analysisResult.summary}</p>
                                         <p><strong className="font-bold">Advice:</strong> {item.analysisResult.advice}</p>
+                                        {item.inputData.imageDataUri && (
+                                            <div>
+                                                <p className="font-bold text-sm mb-2">Image Submitted:</p>
+                                                <Image src={item.inputData.imageDataUri} alt="Analysis image from history" width={100} height={100} className="rounded-md border" />
+                                            </div>
+                                        )}
                                         <details className="text-sm">
                                             <summary className="cursor-pointer font-bold">View Submitted Data</summary>
                                             <pre className="mt-2 p-2 bg-muted rounded-md text-xs whitespace-pre-wrap">
-                                                {JSON.stringify(item.inputData, null, 2)}
+                                                {JSON.stringify(Object.fromEntries(Object.entries(item.inputData).filter(([key]) => key !== 'imageDataUri')), null, 2)}
                                             </pre>
                                         </details>
                                         <div className="flex justify-end gap-2 pt-2">
