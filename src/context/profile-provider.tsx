@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useAuth } from './auth-provider';
 import { Loader } from '@/components/ui/loader';
 import { usePathname, useRouter } from 'next/navigation';
+import { db } from '@/lib/firebase';
+import { collection, doc, getDocs, addDoc, deleteDoc, updateDoc, query, writeBatch, orderBy } from 'firebase/firestore';
 
 export interface Profile {
   id: string;
@@ -24,6 +26,21 @@ interface ProfileContextType {
 
 const ProfileContext = createContext<ProfileContextType | null>(null);
 
+async function deleteCollection(collectionPath: string) {
+    const collectionRef = collection(db, collectionPath);
+    const q = query(collectionRef);
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) return;
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+    
+    await batch.commit();
+}
+
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -33,48 +50,47 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const getProfilesKey = useCallback(() => user ? `nexus-lifeline-${user.uid}-profiles` : null, [user]);
   const getActiveProfileKey = useCallback(() => user ? `nexus-lifeline-${user.uid}-active-profile-id` : null, [user]);
 
   useEffect(() => {
     if (authLoading) return;
 
-    setLoading(true);
-    if (!user) {
-      setProfiles([]);
-      setActiveProfile(null);
-      setLoading(false);
-      return;
-    }
+    const loadProfiles = async () => {
+        setLoading(true);
+        if (!user) {
+            setProfiles([]);
+            setActiveProfile(null);
+            setLoading(false);
+            return;
+        }
 
-    try {
-      const profilesKey = getProfilesKey();
-      const activeProfileIdKey = getActiveProfileKey();
+        try {
+            const profilesCollectionRef = collection(db, `users/${user.uid}/profiles`);
+            const q = query(profilesCollectionRef, orderBy("name"));
+            const querySnapshot = await getDocs(q);
+            const allProfiles: Profile[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Omit<Profile, 'id'>) }));
+            
+            setProfiles(allProfiles);
+            
+            const activeProfileIdKey = getActiveProfileKey();
+            const activeProfileId = activeProfileIdKey ? window.localStorage.getItem(activeProfileIdKey) : null;
+            let currentActiveProfile = allProfiles.find(p => p.id === activeProfileId) || allProfiles[0] || null;
 
-      if (!profilesKey || !activeProfileIdKey) {
-        setLoading(false);
-        return;
-      }
-      
-      const storedProfiles = window.localStorage.getItem(profilesKey);
-      const allProfiles: Profile[] = storedProfiles ? JSON.parse(storedProfiles) : [];
-      setProfiles(allProfiles);
-      
-      const activeProfileId = window.localStorage.getItem(activeProfileIdKey);
-      const currentActiveProfile = allProfiles.find(p => p.id === activeProfileId) || allProfiles[0] || null;
+            setActiveProfile(currentActiveProfile);
 
-      setActiveProfile(currentActiveProfile);
+            if (activeProfileIdKey && currentActiveProfile && activeProfileId !== currentActiveProfile.id) {
+                window.localStorage.setItem(activeProfileIdKey, currentActiveProfile.id);
+            }
 
-      if (!currentActiveProfile && allProfiles.length > 0) {
-        window.localStorage.setItem(activeProfileIdKey, allProfiles[0].id);
-      }
-
-    } catch (error) {
-      console.error("Failed to load profile data from local storage", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, authLoading, getProfilesKey, getActiveProfileKey]);
+        } catch (error) {
+            console.error("Failed to load profiles from Firestore", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    loadProfiles();
+  }, [user, authLoading, getActiveProfileKey]);
 
 
   const switchProfile = async (profileId: string) => {
@@ -86,7 +102,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       
       if (pathname === '/profiles') {
         router.push('/');
-        // Brief delay to allow router to push before reload
         setTimeout(() => window.location.reload(), 100);
       } else {
         window.location.reload();
@@ -95,25 +110,23 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Redirect to profile creation if no profiles exist for the logged-in user
     if (!loading && !authLoading && user && profiles.length === 0 && pathname !== '/profiles' && pathname !== '/auth') {
       router.push('/profiles');
     }
-
   }, [loading, authLoading, user, profiles, pathname, router]);
 
   const addProfile = async (profileData: Omit<Profile, 'id'>) => {
+    if (!user) throw new Error("User not authenticated");
     if (profiles.length >= 3) {
       throw new Error("Maximum of 3 profiles reached.");
     }
-    const newProfile: Profile = { ...profileData, id: `profile-${Date.now()}` };
-    const updatedProfiles = [...profiles, newProfile];
+    const profilesCollectionRef = collection(db, `users/${user.uid}/profiles`);
+    const docRef = await addDoc(profilesCollectionRef, profileData);
+    const newProfile: Profile = { ...profileData, id: docRef.id };
+    
+    const updatedProfiles = [...profiles, newProfile].sort((a,b) => a.name.localeCompare(b.name));
     setProfiles(updatedProfiles);
     
-    const profilesKey = getProfilesKey();
-    if(profilesKey) window.localStorage.setItem(profilesKey, JSON.stringify(updatedProfiles));
-    
-    // Set as active profile if it's the first one, then switch
     if (profiles.length === 0) {
       await switchProfile(newProfile.id);
     }
@@ -121,11 +134,17 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
 
   const deleteProfile = async (profileId: string) => {
+    if (!user) throw new Error("User not authenticated");
+    
+    await deleteDoc(doc(db, `users/${user.uid}/profiles/${profileId}`));
+    
+    const subCollections = ['vitals', 'tasks', 'reminders', 'reminders_history', 'test_strips', 'alerts', 'guardians', 'bookmarked_tips'];
+    for (const sub of subCollections) {
+        await deleteCollection(`users/${user.uid}/profiles/${profileId}/${sub}`);
+    }
+    
     const updatedProfiles = profiles.filter(p => p.id !== profileId);
     setProfiles(updatedProfiles);
-
-    const profilesKey = getProfilesKey();
-    if(profilesKey) window.localStorage.setItem(profilesKey, JSON.stringify(updatedProfiles));
 
     if (activeProfile?.id === profileId) {
       const newActiveProfile = updatedProfiles[0] || null;
@@ -137,17 +156,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           } else {
             setActiveProfile(null);
             window.localStorage.removeItem(activeProfileKey);
-            router.push('/profiles'); // force to creation page
+            router.push('/profiles');
           }
       }
     }
   };
 
   const updateProfile = async (profileId: string, profileData: Omit<Profile, 'id'>) => {
-    const updatedProfiles = profiles.map(p => p.id === profileId ? { ...profileData, id: profileId } : p);
+    if (!user) throw new Error("User not authenticated");
+    const profileDocRef = doc(db, `users/${user.uid}/profiles/${profileId}`);
+    await updateDoc(profileDocRef, profileData);
+    
+    const updatedProfiles = profiles.map(p => p.id === profileId ? { ...profileData, id: profileId } : p).sort((a,b) => a.name.localeCompare(b.name));
     setProfiles(updatedProfiles);
-    const profilesKey = getProfilesKey();
-    if (profilesKey) window.localStorage.setItem(profilesKey, JSON.stringify(updatedProfiles));
 
     if (activeProfile?.id === profileId) {
       setActiveProfile({ ...profileData, id: profileId });
@@ -158,7 +179,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     return <Loader />;
   }
   
-  // If there are no profiles and we are not on the profiles page, show loader until redirect happens.
   if (user && profiles.length === 0 && pathname !== '/profiles') {
       return <Loader />;
   }

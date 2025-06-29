@@ -21,6 +21,8 @@ import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { useAuth } from '@/context/auth-provider';
 import { useProfile } from '@/context/profile-provider';
+import { db } from '@/lib/firebase';
+import { collection, doc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, getDoc } from 'firebase/firestore';
 
 const vitalsSchema = z.object({
   systolic: z.string().regex(/^\d+$/, "Must be a number").optional().or(z.literal('')),
@@ -71,81 +73,55 @@ export function VitalsLog() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
-  
-  const VITALS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-vitals` : null;
-  const ALERTS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-alerts` : null;
-  const GUARDIANS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-guardians` : null;
 
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    if (!user || !activeProfile) return;
 
-  useEffect(() => {
-    if(!isClient || !VITALS_LOCAL_STORAGE_KEY) {
-        setVitalsHistory([]);
-        return;
+    const fetchVitals = async () => {
+        const vitalsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/vitals`);
+        const q = query(vitalsCollectionRef, orderBy('date', 'desc'));
+        const querySnapshot = await getDocs(q);
+        const fetchedVitals = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VitalsEntry));
+        setVitalsHistory(fetchedVitals);
     };
-    try {
-      const storedVitals = window.localStorage.getItem(VITALS_LOCAL_STORAGE_KEY);
-      if (storedVitals) {
-        setVitalsHistory(JSON.parse(storedVitals));
-      }
-    } catch (error) {
-      console.error("Error reading from localStorage", error);
-    }
-  }, [isClient, activeProfile, VITALS_LOCAL_STORAGE_KEY]);
 
-  useEffect(() => {
-    if(isClient && VITALS_LOCAL_STORAGE_KEY) {
-      window.localStorage.setItem(VITALS_LOCAL_STORAGE_KEY, JSON.stringify(vitalsHistory));
-    }
-  }, [vitalsHistory, isClient, VITALS_LOCAL_STORAGE_KEY]);
+    fetchVitals().catch(error => console.error("Error fetching vitals:", error));
+  }, [isClient, user, activeProfile]);
+
 
   const form = useForm<VitalsFormValues>({
     resolver: zodResolver(vitalsSchema),
     defaultValues: { systolic: '', diastolic: '', oxygenLevel: '', temperature: '', bloodSugar: '', weight: '' },
   });
 
-  const checkVitalsForAlerts = useCallback((vitals: VitalsFormValues) => {
-    if (!ALERTS_LOCAL_STORAGE_KEY || !GUARDIANS_LOCAL_STORAGE_KEY) return;
+  const checkVitalsForAlerts = useCallback(async (vitals: VitalsFormValues) => {
+    if (!user || !activeProfile) return;
     
-    const newAlerts: TriggeredAlert[] = [];
+    const newAlertsData: Omit<TriggeredAlert, 'id'>[] = [];
     const timestamp = new Date().toISOString();
 
     const systolic = vitals.systolic ? parseInt(vitals.systolic, 10) : 0;
     if (systolic > 180) {
-        newAlerts.push({
-            id: `alert-${Date.now()}-bp`,
-            message: "Hypertensive Crisis – Call for help",
-            timestamp,
-        });
+        newAlertsData.push({ message: "Hypertensive Crisis – Call for help", timestamp });
     }
 
     const bloodSugar = vitals.bloodSugar ? parseInt(vitals.bloodSugar, 10) : 0;
     if (bloodSugar > 300) {
-        newAlerts.push({
-            id: `alert-${Date.now()}-sugar`,
-            message: "Critical Blood Sugar – Seek medical attention",
-            timestamp,
-        });
+        newAlertsData.push({ message: "Critical Blood Sugar – Seek medical attention", timestamp });
     }
     
     const temperature = vitals.temperature ? parseFloat(vitals.temperature) : 0;
-    if (temperature > 103.1) { // 39.5°C in fahrenheit is ~103.1
-        newAlerts.push({
-            id: `alert-${Date.now()}-temp`,
-            message: "High Fever Detected",
-            timestamp,
-        });
+    if (temperature > 103.1) {
+        newAlertsData.push({ message: "High Fever Detected", timestamp });
     }
 
-    if (newAlerts.length > 0) {
+    if (newAlertsData.length > 0) {
         try {
-            // Save alerts to local storage
-            const storedAlertsRaw = window.localStorage.getItem(ALERTS_LOCAL_STORAGE_KEY);
-            const existingAlerts: TriggeredAlert[] = storedAlertsRaw ? JSON.parse(storedAlertsRaw) : [];
-            const updatedAlerts = [...existingAlerts, ...newAlerts];
-            window.localStorage.setItem(ALERTS_LOCAL_STORAGE_KEY, JSON.stringify(updatedAlerts));
+            const alertsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/alerts`);
+            for (const alertData of newAlertsData) {
+                await addDoc(alertsCollectionRef, alertData);
+            }
 
             toast({
                 variant: "destructive",
@@ -153,13 +129,13 @@ export function VitalsLog() {
                 description: `A critical vital reading was detected. Please check the Emergency page for details.`,
             });
             
-            // Notify guardians
-            const storedGuardiansRaw = window.localStorage.getItem(GUARDIANS_LOCAL_STORAGE_KEY);
-            const guardians: Guardian[] = storedGuardiansRaw ? JSON.parse(storedGuardiansRaw) : [];
+            const guardiansCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/guardians`);
+            const guardiansSnapshot = await getDocs(guardiansCollectionRef);
+            const guardians: Guardian[] = guardiansSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Guardian));
             const userName = activeProfile?.name || user?.email || 'The user';
 
             if (guardians.length > 0) {
-                newAlerts.forEach(alert => {
+                newAlertsData.forEach(alert => {
                     guardians.forEach(guardian => {
                         console.log(
                             `--- SIMULATING GUARDIAN NOTIFICATION (VITALS ALERT) ---
@@ -172,31 +148,36 @@ export function VitalsLog() {
                         );
                     });
                 });
-
                 toast({
                     title: "Guardians Notified",
                     description: `A critical health alert has also been sent to your ${guardians.length} guardian(s).`,
                 });
             }
-
         } catch (error) {
             console.error("Error processing alerts and notifying guardians", error);
         }
     }
-  }, [toast, user, activeProfile, ALERTS_LOCAL_STORAGE_KEY, GUARDIANS_LOCAL_STORAGE_KEY]);
+  }, [user, activeProfile, toast]);
 
-  const onSubmit = (data: VitalsFormValues) => {
+  const onSubmit = async (data: VitalsFormValues) => {
+    if (!user || !activeProfile) return;
+    const vitalsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/vitals`);
+
     if (editingId) {
+      const docRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/vitals`, editingId);
+      await updateDoc(docRef, data);
       setVitalsHistory(vitalsHistory.map(entry => entry.id === editingId ? { ...entry, ...data } : entry));
       toast({ title: "Vitals Updated", description: "The vital sign entry has been successfully updated." });
       setEditingId(null);
     } else {
-      const newEntry: VitalsEntry = { ...data, id: Date.now().toString(), date: new Date().toISOString() };
+      const newEntryData = { ...data, date: new Date().toISOString() };
+      const docRef = await addDoc(vitalsCollectionRef, newEntryData);
+      const newEntry: VitalsEntry = { ...newEntryData, id: docRef.id };
       setVitalsHistory([newEntry, ...vitalsHistory]);
       toast({ title: "Vitals Logged", description: "Your new vital signs have been saved." });
-      checkVitalsForAlerts(data);
+      await checkVitalsForAlerts(data);
     }
-    form.reset();
+    form.reset({ systolic: '', diastolic: '', oxygenLevel: '', temperature: '', bloodSugar: '', weight: '' });
   };
   
   const handleEdit = (entry: VitalsEntry) => {
@@ -205,7 +186,9 @@ export function VitalsLog() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    if (!user || !activeProfile) return;
+    await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/vitals`, id));
     setVitalsHistory(vitalsHistory.filter(entry => entry.id !== id));
     toast({ variant: 'destructive', title: "Entry Deleted", description: "The vital sign entry has been removed." });
   };
@@ -374,5 +357,3 @@ export function VitalsLog() {
     </div>
   );
 }
-
-    

@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -9,6 +10,9 @@ import { format, parseISO, isToday, subDays, formatDistanceToNow } from 'date-fn
 import { cn } from '@/lib/utils';
 import { HealthTips } from './health-tips';
 import { useProfile } from '@/context/profile-provider';
+import { useAuth } from '@/context/auth-provider';
+import { db } from '@/lib/firebase';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 
 interface VitalsEntry {
   id: string;
@@ -36,6 +40,7 @@ interface TriggeredAlert {
 export function Dashboard() {
   const [isClient, setIsClient] = useState(false);
   const { activeProfile } = useProfile();
+  const { user } = useAuth();
 
   const [latestVitals, setLatestVitals] = useState<VitalsEntry | null>(null);
   const [taskProgress, setTaskProgress] = useState({ completed: 0, total: 0 });
@@ -47,65 +52,75 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (isClient && activeProfile) {
-      const VITALS_LOCAL_STORAGE_KEY = `nexus-lifeline-${activeProfile.id}-vitals`;
-      const TASKS_LOCAL_STORAGE_KEY = `nexus-lifeline-${activeProfile.id}-tasks`;
-      const ALERTS_LOCAL_STORAGE_KEY = `nexus-lifeline-${activeProfile.id}-alerts`;
+    if (!isClient || !user || !activeProfile) return;
 
-      const storedVitalsRaw = window.localStorage.getItem(VITALS_LOCAL_STORAGE_KEY);
-      const allVitals: VitalsEntry[] = storedVitalsRaw ? JSON.parse(storedVitalsRaw) : [];
+    const fetchData = async () => {
+        try {
+            const basePath = `users/${user.uid}/profiles/${activeProfile.id}`;
+            const sevenDaysAgo = subDays(new Date(), 7).toISOString();
 
-      const storedTasksRaw = window.localStorage.getItem(TASKS_LOCAL_STORAGE_KEY);
-      const allTasks: Task[] = storedTasksRaw ? JSON.parse(storedTasksRaw) : [];
+            // Fetch Vitals
+            const vitalsQuery = query(collection(db, `${basePath}/vitals`), orderBy('date', 'desc'));
+            const vitalsSnapshot = await getDocs(vitalsQuery);
+            const allVitals: VitalsEntry[] = vitalsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VitalsEntry));
+            
+            // Fetch Tasks
+            const tasksSnapshot = await getDocs(collection(db, `${basePath}/tasks`));
+            const allTasks: Task[] = tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
 
-      const storedAlertsRaw = window.localStorage.getItem(ALERTS_LOCAL_STORAGE_KEY);
-      const allAlerts: TriggeredAlert[] = storedAlertsRaw ? JSON.parse(storedAlertsRaw) : [];
-      
-      const todayVitals = allVitals
-        .filter(v => isToday(parseISO(v.date)))
-        .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
-      setLatestVitals(todayVitals.length > 0 ? todayVitals[0] : null);
+            // Fetch Alerts
+            const alertsQuery = query(collection(db, `${basePath}/alerts`), orderBy('timestamp', 'desc'), limit(1));
+            const alertsSnapshot = await getDocs(alertsQuery);
+            const allAlerts: TriggeredAlert[] = alertsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TriggeredAlert));
 
-      const completedTasks = allTasks.filter(t => t.completed).length;
-      setTaskProgress({ completed: completedTasks, total: allTasks.length });
+            // Set Latest Vitals for Today
+            const todayVitals = allVitals.filter(v => isToday(parseISO(v.date)));
+            setLatestVitals(todayVitals.length > 0 ? todayVitals[0] : null);
 
-      if (allAlerts.length > 0) {
-        const sortedAlerts = allAlerts.sort((a, b) => parseISO(b.timestamp).getTime() - parseISO(a.timestamp).getTime());
-        setLastAlert(sortedAlerts[0]);
-      }
+            // Set Task Progress
+            const completedTasks = allTasks.filter(t => t.completed).length;
+            setTaskProgress({ completed: completedTasks, total: allTasks.length });
 
-      const sevenDaysAgo = subDays(new Date(), 7);
-      const weeklyVitals = allVitals.filter(v => parseISO(v.date) >= sevenDaysAgo);
+            // Set Last Alert
+            setLastAlert(allAlerts.length > 0 ? allAlerts[0] : null);
 
-      let status: 'Good' | 'Unstable' | 'Critical' = 'Good';
-      let reason = "Vitals are stable.";
-      
-      let criticalCount = 0;
-      let unstableCount = 0;
+            // Calculate Weekly Status
+            const weeklyVitals = allVitals.filter(v => v.date >= sevenDaysAgo);
+            let status: 'Good' | 'Unstable' | 'Critical' = 'Good';
+            let reason = "Vitals are stable.";
+            let criticalCount = 0;
+            let unstableCount = 0;
 
-      weeklyVitals.forEach(v => {
-        const systolic = v.systolic ? parseInt(v.systolic, 10) : 0;
-        const bloodSugar = v.bloodSugar ? parseInt(v.bloodSugar, 10) : 0;
-        const temperature = v.temperature ? parseFloat(v.temperature) : 0;
+            weeklyVitals.forEach(v => {
+                const systolic = v.systolic ? parseInt(v.systolic, 10) : 0;
+                const bloodSugar = v.bloodSugar ? parseInt(v.bloodSugar, 10) : 0;
+                const temperature = v.temperature ? parseFloat(v.temperature) : 0;
 
-        if (systolic > 180 || bloodSugar > 300 || temperature > 103.1) {
-          status = 'Critical';
-          criticalCount++;
-        } else if (status !== 'Critical' && (systolic > 140 || systolic < 90 || bloodSugar > 180)) {
-          status = 'Unstable';
-          unstableCount++;
+                if (systolic > 180 || bloodSugar > 300 || temperature > 103.1) {
+                    status = 'Critical';
+                    criticalCount++;
+                } else if (status !== 'Critical' && (systolic > 140 || systolic < 90 || bloodSugar > 180)) {
+                    status = 'Unstable';
+                    unstableCount++;
+                }
+            });
+            
+            if (status === 'Critical') {
+                reason = `Detected ${criticalCount} critical reading(s) this week.`;
+            } else if (status === 'Unstable') {
+                reason = `Detected ${unstableCount} unstable reading(s) this week.`
+            }
+
+            setWeeklyStatus({ status, reason });
+
+        } catch (error) {
+            console.error("Error fetching dashboard data:", error);
         }
-      });
-      
-      if (status === 'Critical') {
-        reason = `Detected ${criticalCount} critical reading(s) this week.`;
-      } else if (status === 'Unstable') {
-        reason = `Detected ${unstableCount} unstable reading(s) this week.`
-      }
+    };
 
-      setWeeklyStatus({ status, reason });
-    }
-  }, [isClient, activeProfile]);
+    fetchData();
+
+  }, [isClient, user, activeProfile]);
 
   const progressPercentage = taskProgress.total > 0 ? (taskProgress.completed / taskProgress.total) * 100 : 0;
 

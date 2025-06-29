@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -18,6 +19,8 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
 import { useProfile } from '@/context/profile-provider';
+import { db } from '@/lib/firebase';
+import { collection, doc, getDocs, addDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 
 const markers = [
     { value: "protein", label: "Protein" },
@@ -75,10 +78,6 @@ export function TestStripLog() {
     const { user } = useAuth();
     const { activeProfile } = useProfile();
 
-    const STRIPS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-test-strips` : null;
-    const ALERTS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-alerts` : null;
-    const GUARDIANS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-guardians` : null;
-
     const form = useForm<StripLogFormValues>({
         resolver: zodResolver(stripLogSchema),
         defaultValues: { marker: "", level: "" },
@@ -86,35 +85,34 @@ export function TestStripLog() {
 
     useEffect(() => {
         setIsClient(true);
-    }, []);
-
-    useEffect(() => {
-        if (!isClient || !STRIPS_LOCAL_STORAGE_KEY) {
+        if (!user || !activeProfile) {
             setStripLogs([]);
             return;
-        };
-        try {
-            const storedLogs = window.localStorage.getItem(STRIPS_LOCAL_STORAGE_KEY);
-            if (storedLogs) setStripLogs(JSON.parse(storedLogs));
-        } catch (error) {
-            console.error("Error reading from localStorage", error);
         }
-    }, [isClient, activeProfile, STRIPS_LOCAL_STORAGE_KEY]);
 
-    useEffect(() => {
-        if (isClient && STRIPS_LOCAL_STORAGE_KEY) {
-            window.localStorage.setItem(STRIPS_LOCAL_STORAGE_KEY, JSON.stringify(stripLogs));
-        }
-    }, [stripLogs, isClient, STRIPS_LOCAL_STORAGE_KEY]);
+        const logsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/test_strips`);
+        const q = query(logsCollectionRef, orderBy('date', 'desc'));
+        
+        getDocs(q)
+            .then(snapshot => {
+                const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StripLogEntry));
+                setStripLogs(logs);
+            })
+            .catch(error => console.error("Error fetching test strip logs:", error));
+
+    }, [isClient, user, activeProfile]);
+
 
     const getLevelConfig = (levelValue: string) => {
         return levels.find(l => l.value === levelValue) || { color: 'bg-gray-400' };
     };
 
-    const notifyGuardians = useCallback((alert: TriggeredAlert) => {
-        if (!GUARDIANS_LOCAL_STORAGE_KEY) return;
-        const storedGuardiansRaw = window.localStorage.getItem(GUARDIANS_LOCAL_STORAGE_KEY);
-        const guardians: Guardian[] = storedGuardiansRaw ? JSON.parse(storedGuardiansRaw) : [];
+    const notifyGuardians = useCallback(async (alert: Omit<TriggeredAlert, 'id'>) => {
+        if (!user || !activeProfile) return;
+        
+        const guardiansCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/guardians`);
+        const snapshot = await getDocs(guardiansCollectionRef);
+        const guardians: Guardian[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Guardian));
         const userName = activeProfile?.name || user?.email || 'The user';
 
         if (guardians.length > 0) {
@@ -134,20 +132,17 @@ export function TestStripLog() {
                 description: `A critical test strip result has also been sent to your ${guardians.length} guardian(s).`,
             });
         }
-    }, [user, activeProfile, toast, GUARDIANS_LOCAL_STORAGE_KEY]);
+    }, [user, activeProfile, toast]);
     
-    const triggerAlert = useCallback((message: string) => {
-        if (!ALERTS_LOCAL_STORAGE_KEY) return;
-        const newAlert: TriggeredAlert = {
-            id: `alert-${Date.now()}`,
+    const triggerAlert = useCallback(async (message: string) => {
+        if (!user || !activeProfile) return;
+        const newAlert = {
             message,
             timestamp: new Date().toISOString(),
         };
 
-        const storedAlertsRaw = window.localStorage.getItem(ALERTS_LOCAL_STORAGE_KEY);
-        const existingAlerts: TriggeredAlert[] = storedAlertsRaw ? JSON.parse(storedAlertsRaw) : [];
-        const updatedAlerts = [...existingAlerts, newAlert];
-        window.localStorage.setItem(ALERTS_LOCAL_STORAGE_KEY, JSON.stringify(updatedAlerts));
+        const alertsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/alerts`);
+        await addDoc(alertsCollectionRef, newAlert);
 
         toast({
             variant: "destructive",
@@ -155,11 +150,11 @@ export function TestStripLog() {
             description: `An abnormal test strip reading was detected. Check the Emergency page.`,
         });
         
-        notifyGuardians(newAlert);
-    }, [toast, notifyGuardians, ALERTS_LOCAL_STORAGE_KEY]);
+        await notifyGuardians(newAlert);
+    }, [toast, notifyGuardians, user, activeProfile]);
 
     const checkForAlerts = useCallback((newLog: StripLogEntry, allLogs: StripLogEntry[]) => {
-        // Immediate alerts for critical single readings
+        // Immediate alerts
         if (newLog.marker === 'glucose' && newLog.level === '+++') {
             triggerAlert("Critical Glucose Level (+++) Detected.");
         }
@@ -169,20 +164,23 @@ export function TestStripLog() {
 
         // Pattern-based alerts
         if (newLog.marker === 'protein' && ['++', '+++'].includes(newLog.level)) {
-            const recentProteinLogs = allLogs
-                .filter(log => log.marker === 'protein')
-                .slice(0, 3); // Check last 3 protein entries
-            const highProteinCount = recentProteinLogs.filter(log => ['++', '+++'].includes(log.level)).length;
-            if (highProteinCount >= 2) {
+            const recentProteinLogs = allLogs.filter(log => log.marker === 'protein').slice(0, 3);
+            if (recentProteinLogs.filter(log => ['++', '+++'].includes(log.level)).length >= 2) {
                 triggerAlert("Consistent High Protein (++/+++) Detected. This could indicate kidney issues.");
             }
         }
     }, [triggerAlert]);
 
-    const onSubmit = (data: StripLogFormValues) => {
-        const newEntry: StripLogEntry = { ...data, id: Date.now().toString(), date: new Date().toISOString() };
+    const onSubmit = async (data: StripLogFormValues) => {
+        if (!user || !activeProfile) return;
+        const newEntryData = { ...data, date: new Date().toISOString() };
+        const logsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/test_strips`);
+        const docRef = await addDoc(logsCollectionRef, newEntryData);
+        
+        const newEntry: StripLogEntry = { ...newEntryData, id: docRef.id };
         const updatedLogs = [newEntry, ...stripLogs];
         setStripLogs(updatedLogs);
+        
         toast({ title: "Test Strip Logged", description: "Your test strip result has been saved." });
         
         checkForAlerts(newEntry, updatedLogs);
@@ -190,7 +188,9 @@ export function TestStripLog() {
         form.reset({marker: "", level: ""});
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
+        if (!user || !activeProfile) return;
+        await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/test_strips`, id));
         setStripLogs(stripLogs.filter(entry => entry.id !== id));
         toast({ variant: 'destructive', title: "Entry Deleted", description: "The log entry has been removed." });
     };

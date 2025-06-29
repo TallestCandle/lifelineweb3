@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -18,6 +19,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/context/auth-provider';
 import { Siren, User, Phone, MapPin, BellRing, CheckCircle, Trash2, UserPlus, Copy } from "lucide-react";
 import { useProfile } from '@/context/profile-provider';
+import { db } from '@/lib/firebase';
+import { collection, doc, getDocs, addDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 
 interface TriggeredAlert {
   id: string;
@@ -53,9 +56,6 @@ export function EmergencyAlert() {
     const [isClient, setIsClient] = useState(false);
     const [callConfirmation, setCallConfirmation] = useState<{ name: string; contact: string } | null>(null);
     
-    const ALERTS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-alerts` : null;
-    const GUARDIANS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-guardians` : null;
-
     const form = useForm<GuardianFormValues>({
         resolver: zodResolver(guardianSchema),
         defaultValues: { name: "", relationship: "", contact: "" },
@@ -63,16 +63,10 @@ export function EmergencyAlert() {
 
     useEffect(() => {
         setIsClient(true);
-
         if ('geolocation' in navigator) {
             navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    setLocation(`${position.coords.latitude}, ${position.coords.longitude}`);
-                    setLocationError(null);
-                },
-                (error) => {
-                    setLocationError(error.message);
-                }
+                (position) => { setLocation(`${position.coords.latitude}, ${position.coords.longitude}`); setLocationError(null); },
+                (error) => { setLocationError(error.message); }
             );
         } else {
             setLocationError("Geolocation is not supported by your browser.");
@@ -80,22 +74,28 @@ export function EmergencyAlert() {
     }, []);
 
     useEffect(() => {
-        if (!isClient || !activeProfile || !ALERTS_LOCAL_STORAGE_KEY || !GUARDIANS_LOCAL_STORAGE_KEY) return;
+        if (!isClient || !user || !activeProfile) return;
         
-        try {
-            const storedAlerts = window.localStorage.getItem(ALERTS_LOCAL_STORAGE_KEY);
-            if (storedAlerts) setAlerts(JSON.parse(storedAlerts));
-            
-            const storedGuardians = window.localStorage.getItem(GUARDIANS_LOCAL_STORAGE_KEY);
-            if (storedGuardians) setGuardians(JSON.parse(storedGuardians));
-        } catch (error) {
-            console.error("Error reading from localStorage", error);
-            setAlerts([]);
-            setGuardians([]);
-        }
-    }, [isClient, activeProfile, ALERTS_LOCAL_STORAGE_KEY, GUARDIANS_LOCAL_STORAGE_KEY]);
+        const alertsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/alerts`);
+        const guardiansCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/guardians`);
+        
+        const fetchAlerts = async () => {
+            const q = query(alertsCollectionRef, orderBy('timestamp', 'desc'));
+            const snapshot = await getDocs(q);
+            setAlerts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TriggeredAlert)));
+        };
+
+        const fetchGuardians = async () => {
+            const snapshot = await getDocs(guardiansCollectionRef);
+            setGuardians(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Guardian)));
+        };
+
+        Promise.all([fetchAlerts(), fetchGuardians()]).catch(error => console.error("Error fetching emergency data:", error));
+
+    }, [isClient, user, activeProfile]);
     
-    const handleSendAlert = () => {
+    const handleSendAlert = async () => {
+        if (!user || !activeProfile) return;
         const userName = activeProfile?.name || user?.email || 'The user';
         const timestamp = new Date().toISOString();
 
@@ -124,36 +124,40 @@ export function EmergencyAlert() {
                 description: `Help is on the way. Consider adding guardians to notify them automatically.`,
             });
         }
+
+        const alertsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/alerts`);
+        const newAlert = {
+            message: "User manually triggered an emergency alert.",
+            timestamp,
+        };
+        const docRef = await addDoc(alertsCollectionRef, newAlert);
+        setAlerts(prev => [{...newAlert, id: docRef.id}, ...prev]);
     };
 
-    const handleAcknowledge = (alertId: string) => {
-        if (!ALERTS_LOCAL_STORAGE_KEY) return;
-        const updatedAlerts = alerts.filter(alert => alert.id !== alertId);
-        setAlerts(updatedAlerts);
-        if (isClient) {
-            window.localStorage.setItem(ALERTS_LOCAL_STORAGE_KEY, JSON.stringify(updatedAlerts));
-            toast({
-                title: "Alert Acknowledged",
-                description: "The alert has been dismissed.",
-            });
-        }
+    const handleAcknowledge = async (alertId: string) => {
+        if (!user || !activeProfile) return;
+        await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/alerts`, alertId));
+        setAlerts(alerts.filter(alert => alert.id !== alertId));
+        toast({
+            title: "Alert Acknowledged",
+            description: "The alert has been dismissed.",
+        });
     };
 
-    const onGuardianSubmit = (data: GuardianFormValues) => {
-        if (!GUARDIANS_LOCAL_STORAGE_KEY) return;
-        const newGuardian: Guardian = { ...data, id: Date.now().toString() };
-        const updatedGuardians = [...guardians, newGuardian];
-        setGuardians(updatedGuardians);
-        window.localStorage.setItem(GUARDIANS_LOCAL_STORAGE_KEY, JSON.stringify(updatedGuardians));
+    const onGuardianSubmit = async (data: GuardianFormValues) => {
+        if (!user || !activeProfile) return;
+        const guardiansCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/guardians`);
+        const docRef = await addDoc(guardiansCollectionRef, data);
+        const newGuardian: Guardian = { ...data, id: docRef.id };
+        setGuardians([...guardians, newGuardian]);
         toast({ title: "Guardian Added", description: `${data.name} has been added to your guardians list.` });
         form.reset();
     };
 
-    const removeGuardian = (id: string) => {
-        if (!GUARDIANS_LOCAL_STORAGE_KEY) return;
-        const updatedGuardians = guardians.filter(g => g.id !== id);
-        setGuardians(updatedGuardians);
-        window.localStorage.setItem(GUARDIANS_LOCAL_STORAGE_KEY, JSON.stringify(updatedGuardians));
+    const removeGuardian = async (id: string) => {
+        if (!user || !activeProfile) return;
+        await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/guardians`, id));
+        setGuardians(guardians.filter(g => g.id !== id));
         toast({ variant: 'destructive', title: "Guardian Removed" });
     };
 

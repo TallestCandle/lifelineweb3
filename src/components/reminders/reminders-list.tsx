@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -16,15 +17,16 @@ import { Badge } from "@/components/ui/badge";
 import { Pill, PlusCircle, Trash2, BellRing, Check, X, CalendarDays } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/context/profile-provider';
+import { useAuth } from '@/context/auth-provider';
+import { db } from '@/lib/firebase';
+import { collection, doc, getDocs, addDoc, deleteDoc, query, orderBy, setDoc } from 'firebase/firestore';
 
-// Zod schema for the form
 const reminderSchema = z.object({
   name: z.string().min(2, "Medication name must be at least 2 characters."),
   time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Please enter a valid time (HH:MM)."),
 });
 type ReminderFormValues = z.infer<typeof reminderSchema>;
 
-// Interfaces
 interface Reminder extends ReminderFormValues {
   id: string;
 }
@@ -34,21 +36,18 @@ type History = Record<string, HistoryLog>; // Date string as key
 export function RemindersList() {
     const [isClient, setIsClient] = useState(false);
     const { activeProfile } = useProfile();
+    const { user } = useAuth();
     
     const [reminders, setReminders] = useState<Reminder[]>([]);
     const [history, setHistory] = useState<History>({});
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
     const { toast } = useToast();
 
-    const REMINDERS_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-reminders` : null;
-    const HISTORY_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-reminders-history` : null;
-
     const form = useForm<ReminderFormValues>({
         resolver: zodResolver(reminderSchema),
         defaultValues: { name: "", time: "" },
     });
 
-    // Load data from localStorage on mount
     useEffect(() => {
         setIsClient(true);
         if ('Notification' in window) {
@@ -57,51 +56,47 @@ export function RemindersList() {
     }, []);
 
     useEffect(() => {
-        if (!isClient || !activeProfile || !REMINDERS_STORAGE_KEY || !HISTORY_STORAGE_KEY) {
+        if (!isClient || !user || !activeProfile) {
             setReminders([]);
             setHistory({});
             return;
+        }
+
+        const fetchReminders = async () => {
+            const remindersCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`);
+            const q = query(remindersCollectionRef, orderBy('time'));
+            const querySnapshot = await getDocs(q);
+            setReminders(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Reminder)));
         };
 
-        try {
-            const storedReminders = window.localStorage.getItem(REMINDERS_STORAGE_KEY);
-            if (storedReminders) setReminders(JSON.parse(storedReminders));
+        const fetchHistory = async () => {
+            const historyCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders_history`);
+            const querySnapshot = await getDocs(historyCollectionRef);
+            const fetchedHistory: History = {};
+            querySnapshot.forEach(doc => {
+                fetchedHistory[doc.id] = doc.data() as HistoryLog;
+            });
+            setHistory(fetchedHistory);
+        };
 
-            const storedHistory = window.localStorage.getItem(HISTORY_STORAGE_KEY);
-            if (storedHistory) setHistory(JSON.parse(storedHistory));
+        Promise.all([fetchReminders(), fetchHistory()]).catch(error => console.error("Error fetching reminder data:", error));
+    }, [isClient, user, activeProfile]);
 
-        } catch (error) {
-            console.error("Error reading from localStorage", error);
-        }
-    }, [isClient, activeProfile, REMINDERS_STORAGE_KEY, HISTORY_STORAGE_KEY]);
-
-    // Save data to localStorage when it changes
-    useEffect(() => {
-        if (isClient && REMINDERS_STORAGE_KEY && HISTORY_STORAGE_KEY) {
-            window.localStorage.setItem(REMINDERS_STORAGE_KEY, JSON.stringify(reminders));
-            window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
-        }
-    }, [reminders, history, isClient, REMINDERS_STORAGE_KEY, HISTORY_STORAGE_KEY]);
-    
-    // Effect for handling notifications
     useEffect(() => {
         if (!isClient || notificationPermission !== 'granted' || reminders.length === 0) return;
 
         const now = new Date();
         const todayStr = format(now, 'yyyy-MM-dd');
         const todayHistory = history[todayStr] || {};
-
         const timeoutIds: NodeJS.Timeout[] = [];
 
         reminders.forEach(reminder => {
-            if (todayHistory[reminder.id]) return; // Skip if already handled
+            if (todayHistory[reminder.id]) return; 
 
             const reminderTime = parse(reminder.time, 'HH:mm', new Date());
             if (reminderTime > now) {
                 const timeoutId = setTimeout(() => {
-                    new Notification('Medication Reminder', {
-                        body: `It's time to take your ${reminder.name}.`,
-                    });
+                    new Notification('Medication Reminder', { body: `It's time to take your ${reminder.name}.` });
                 }, reminderTime.getTime() - now.getTime());
                 timeoutIds.push(timeoutId);
             }
@@ -126,28 +121,32 @@ export function RemindersList() {
         }
     };
 
-    const onSubmit = (data: ReminderFormValues) => {
-        const newReminder: Reminder = { ...data, id: `reminder-${Date.now()}` };
-        setReminders([...reminders, newReminder]);
+    const onSubmit = async (data: ReminderFormValues) => {
+        if (!user || !activeProfile) return;
+        const remindersCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`);
+        const docRef = await addDoc(remindersCollectionRef, data);
+        const newReminder: Reminder = { ...data, id: docRef.id };
+        setReminders([...reminders, newReminder].sort((a, b) => a.time.localeCompare(b.time)));
         toast({ title: "Reminder Added", description: `${data.name} has been added.` });
         form.reset();
     };
 
-    const deleteReminder = (id: string) => {
+    const deleteReminder = async (id: string) => {
+        if (!user || !activeProfile) return;
+        await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`, id));
         setReminders(reminders.filter(r => r.id !== id));
-        // Optional: clean up history for this reminder ID if needed
         toast({ variant: 'destructive', title: "Reminder Removed" });
     };
 
-    const markReminder = (reminderId: string, status: 'taken' | 'missed') => {
+    const markReminder = async (reminderId: string, status: 'taken' | 'missed') => {
+        if (!user || !activeProfile) return;
         const todayStr = format(new Date(), 'yyyy-MM-dd');
-        setHistory(prev => ({
-            ...prev,
-            [todayStr]: {
-                ...prev[todayStr],
-                [reminderId]: status,
-            }
-        }));
+        const updatedHistoryLog = { ...history[todayStr], [reminderId]: status };
+        
+        const historyDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders_history`, todayStr);
+        await setDoc(historyDocRef, updatedHistoryLog, { merge: true });
+
+        setHistory(prev => ({ ...prev, [todayStr]: updatedHistoryLog }));
         toast({ title: `Marked as ${status}` });
     };
 
@@ -159,7 +158,7 @@ export function RemindersList() {
     }, [reminders]);
 
     const pastSevenDays = useMemo(() => {
-        return Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i + 1), 'yyyy-MM-dd'));
+        return Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd')).reverse();
     }, []);
 
     if (!isClient || !activeProfile) return null;
@@ -248,7 +247,7 @@ export function RemindersList() {
 
                                 return (
                                     <AccordionItem value={dateStr} key={dateStr}>
-                                        <AccordionTrigger>{isToday(parseISO(dateStr + 'T12:00:00Z')) ? 'Today' : format(parseISO(dateStr), 'eeee, MMMM d')}</AccordionTrigger>
+                                        <AccordionTrigger>{isToday(parseISO(dateStr)) ? 'Today' : format(parseISO(dateStr), 'eeee, MMMM d')}</AccordionTrigger>
                                         <AccordionContent>
                                             <ul className="space-y-2 pl-4">
                                                 {reminders.map(r => {

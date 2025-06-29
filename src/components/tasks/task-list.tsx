@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -7,60 +8,92 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Apple, GlassWater, HeartPulse, Move } from "lucide-react";
 import { useProfile } from '@/context/profile-provider';
+import { useAuth } from '@/context/auth-provider';
+import { db } from '@/lib/firebase';
+import { collection, doc, getDocs, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 
 interface Task {
   id: string;
   text: string;
-  icon: React.ElementType;
+  iconName: keyof typeof TaskIcons;
   completed: boolean;
 }
 
-const defaultTasks: Task[] = [
-    { id: 'task1', text: 'Take your blood pressure', icon: HeartPulse, completed: false },
-    { id: 'task2', text: 'Drink a glass of water', icon: GlassWater, completed: false },
-    { id: 'task3', text: 'Stretch for 5 minutes', icon: Move, completed: false },
-    { id: 'task4', text: 'Eat fruits', icon: Apple, completed: false },
+const TaskIcons = {
+    HeartPulse,
+    GlassWater,
+    Move,
+    Apple,
+};
+
+const defaultTasksRaw: Omit<Task, 'id' | 'completed' | 'iconName'>[] = [
+    { text: 'Take your blood pressure', iconName: 'HeartPulse' },
+    { text: 'Drink a glass of water', iconName: 'GlassWater' },
+    { text: 'Stretch for 5 minutes', iconName: 'Move' },
+    { text: 'Eat fruits', iconName: 'Apple' },
 ];
 
 export function TaskList() {
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [isClient, setIsClient] = React.useState(false);
   const { activeProfile } = useProfile();
+  const { user } = useAuth();
   
-  const LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-tasks` : null;
-
   React.useEffect(() => {
     setIsClient(true);
   }, []);
 
   React.useEffect(() => {
-    if (isClient && LOCAL_STORAGE_KEY) {
-        try {
-            const storedTasks = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-            if (storedTasks) {
-                setTasks(JSON.parse(storedTasks));
-            } else {
-                setTasks(defaultTasks);
-            }
-        } catch (error) {
-            console.error("Error reading from localStorage", error);
-            setTasks(defaultTasks);
-        }
-    } else if (!activeProfile) {
+    if (!isClient || !user || !activeProfile) {
         setTasks([]);
+        return;
     }
-  }, [isClient, activeProfile, LOCAL_STORAGE_KEY]);
-  
-  React.useEffect(() => {
-    if (isClient && tasks.length > 0 && LOCAL_STORAGE_KEY) {
-      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(tasks));
-    }
-  }, [tasks, isClient, LOCAL_STORAGE_KEY]);
+    
+    const tasksCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/tasks`);
 
-  const handleTaskToggle = (taskId: string) => {
-    setTasks(tasks.map(task =>
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
+    const initializeTasks = async () => {
+        const batch = writeBatch(db);
+        const newTasks: Task[] = [];
+        defaultTasksRaw.forEach((task, index) => {
+            const id = `task${index + 1}`;
+            const taskData = { ...task, completed: false };
+            batch.set(doc(tasksCollectionRef, id), taskData);
+            newTasks.push({ ...taskData, id });
+        });
+        await batch.commit();
+        setTasks(newTasks);
+    };
+
+    const fetchTasks = async () => {
+        const querySnapshot = await getDocs(tasksCollectionRef);
+        if (querySnapshot.empty) {
+            await initializeTasks();
+        } else {
+            const fetchedTasks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+            setTasks(fetchedTasks);
+        }
+    };
+    
+    fetchTasks().catch(error => console.error("Error fetching tasks:", error));
+
+  }, [isClient, user, activeProfile]);
+
+  const handleTaskToggle = async (taskId: string) => {
+    if (!user || !activeProfile) return;
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const newCompletedStatus = !task.completed;
+    const taskDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/tasks`, taskId);
+    
+    try {
+        await updateDoc(taskDocRef, { completed: newCompletedStatus });
+        setTasks(tasks.map(t =>
+          t.id === taskId ? { ...t, completed: newCompletedStatus } : t
+        ));
+    } catch (error) {
+        console.error("Error updating task:", error);
+    }
   };
 
   const completedTasks = tasks.filter(task => task.completed).length;
@@ -87,30 +120,33 @@ export function TaskList() {
           </span>
         </div>
         <div className="space-y-4">
-          {tasks.map((task) => (
-            <div
-              key={task.id}
-              data-completed={task.completed}
-              className="flex items-center space-x-4 p-4 rounded-lg transition-colors hover:bg-secondary/50 data-[completed=true]:bg-accent/20"
-            >
-              <Checkbox
-                id={task.id}
-                checked={task.completed}
-                onCheckedChange={() => handleTaskToggle(task.id)}
-                aria-labelledby={`${task.id}-label`}
-              />
-              <div className="flex items-center gap-3 flex-grow">
-                <task.icon className={`w-6 h-6 transition-colors ${task.completed ? "text-muted-foreground" : "text-primary"}`} />
-                <Label
-                  htmlFor={task.id}
-                  id={`${task.id}-label`}
-                  className={`text-base cursor-pointer transition-colors ${task.completed ? "line-through text-muted-foreground" : ""}`}
+          {tasks.map((task) => {
+            const Icon = TaskIcons[task.iconName];
+            return (
+                <div
+                key={task.id}
+                data-completed={task.completed}
+                className="flex items-center space-x-4 p-4 rounded-lg transition-colors hover:bg-secondary/50 data-[completed=true]:bg-accent/20"
                 >
-                  {task.text}
-                </Label>
-              </div>
-            </div>
-          ))}
+                <Checkbox
+                    id={task.id}
+                    checked={task.completed}
+                    onCheckedChange={() => handleTaskToggle(task.id)}
+                    aria-labelledby={`${task.id}-label`}
+                />
+                <div className="flex items-center gap-3 flex-grow">
+                    <Icon className={`w-6 h-6 transition-colors ${task.completed ? "text-muted-foreground" : "text-primary"}`} />
+                    <Label
+                    htmlFor={task.id}
+                    id={`${task.id}-label`}
+                    className={`text-base cursor-pointer transition-colors ${task.completed ? "line-through text-muted-foreground" : ""}`}
+                    >
+                    {task.text}
+                    </Label>
+                </div>
+                </div>
+            )
+          })}
         </div>
       </CardContent>
     </Card>

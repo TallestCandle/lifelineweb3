@@ -1,10 +1,11 @@
+
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/context/auth-provider';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { format, parseISO, getMonth, getYear, setMonth, setYear } from 'date-fns';
+import { format, parseISO, getMonth, getYear, setMonth, setYear, startOfMonth, endOfMonth } from 'date-fns';
 import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,9 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Loader } from '@/components/ui/loader';
 import { Download, HeartPulse, Thermometer, Scale, Droplets, Activity, Siren } from 'lucide-react';
 import { useProfile } from '@/context/profile-provider';
+import { db } from '@/lib/firebase';
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+
 
 interface VitalsEntry {
   id: string; date: string; systolic?: string; diastolic?: string; oxygenLevel?: string;
@@ -41,8 +45,7 @@ export function HealthReport() {
     const { activeProfile } = useProfile();
     const [isClient, setIsClient] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
-    const [allVitals, setAllVitals] = useState<VitalsEntry[]>([]);
-    const [allAlerts, setAllAlerts] = useState<TriggeredAlert[]>([]);
+    const [monthlyData, setMonthlyData] = useState<{vitals: VitalsEntry[], alerts: TriggeredAlert[]}>({vitals: [], alerts: []});
     const [selectedDate, setSelectedDate] = useState(new Date());
 
     useEffect(() => {
@@ -50,51 +53,46 @@ export function HealthReport() {
     }, []);
 
     useEffect(() => {
-        if (!isClient || !activeProfile) {
-            setAllVitals([]);
-            setAllAlerts([]);
+        if (!isClient || !user || !activeProfile) {
+            setMonthlyData({vitals: [], alerts: []});
             return;
         }
-        try {
-            const VITALS_LOCAL_STORAGE_KEY = `nexus-lifeline-${activeProfile.id}-vitals`;
-            const ALERTS_LOCAL_STORAGE_KEY = `nexus-lifeline-${activeProfile.id}-alerts`;
-
-            const storedVitals = window.localStorage.getItem(VITALS_LOCAL_STORAGE_KEY);
-            if (storedVitals) setAllVitals(JSON.parse(storedVitals));
-
-            const storedAlerts = window.localStorage.getItem(ALERTS_LOCAL_STORAGE_KEY);
-            if (storedAlerts) setAllAlerts(JSON.parse(storedAlerts));
-        } catch (error) {
-            console.error("Error reading from localStorage", error);
-        }
-    }, [isClient, activeProfile]);
-
-    const { filteredVitals, filteredAlerts, chartData } = useMemo(() => {
-        const selectedMonth = getMonth(selectedDate);
-        const selectedYear = getYear(selectedDate);
-
-        const filteredVitals = allVitals.filter(v => {
-            const entryDate = parseISO(v.date);
-            return getMonth(entryDate) === selectedMonth && getYear(entryDate) === selectedYear;
-        });
-
-        const filteredAlerts = allAlerts.filter(a => {
-            const alertDate = parseISO(a.timestamp);
-            return getMonth(alertDate) === selectedMonth && getYear(alertDate) === selectedYear;
-        });
         
-        const chartData = filteredVitals
-            .map(entry => ({ ...entry, date: parseISO(entry.date) }))
-            .sort((a, b) => a.date.getTime() - b.date.getTime())
+        const fetchMonthlyData = async () => {
+            const startDate = startOfMonth(selectedDate).toISOString();
+            const endDate = endOfMonth(selectedDate).toISOString();
+            const basePath = `users/${user.uid}/profiles/${activeProfile.id}`;
+
+            // Fetch Vitals for the month
+            const vitalsCol = collection(db, `${basePath}/vitals`);
+            const vitalsQuery = query(vitalsCol, where('date', '>=', startDate), where('date', '<=', endDate), orderBy('date', 'asc'));
+            const vitalsSnapshot = await getDocs(vitalsQuery);
+            const filteredVitals = vitalsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VitalsEntry));
+
+            // Fetch Alerts for the month
+            const alertsCol = collection(db, `${basePath}/alerts`);
+            const alertsQuery = query(alertsCol, where('timestamp', '>=', startDate), where('timestamp', '<=', endDate), orderBy('timestamp', 'desc'));
+            const alertsSnapshot = await getDocs(alertsQuery);
+            const filteredAlerts = alertsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TriggeredAlert));
+
+            setMonthlyData({ vitals: filteredVitals, alerts: filteredAlerts });
+        };
+        
+        fetchMonthlyData().catch(error => console.error("Error fetching report data:", error));
+
+    }, [isClient, user, activeProfile, selectedDate]);
+    
+    const { filteredVitals, filteredAlerts } = monthlyData;
+
+    const chartData = useMemo(() => {
+        return filteredVitals
             .map(entry => ({
-                date: format(entry.date, 'MMM d'),
+                date: format(parseISO(entry.date), 'MMM d'),
                 systolic: entry.systolic ? Number(entry.systolic) : null,
                 diastolic: entry.diastolic ? Number(entry.diastolic) : null,
                 bloodSugar: entry.bloodSugar ? Number(entry.bloodSugar) : null,
             }));
-
-        return { filteredVitals, filteredAlerts, chartData };
-    }, [selectedDate, allVitals, allAlerts]);
+    }, [filteredVitals]);
 
 
     const handleDownloadPdf = async () => {

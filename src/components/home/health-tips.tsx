@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -7,6 +8,9 @@ import { Lightbulb, Bookmark, BookmarkCheck } from 'lucide-react';
 import { subDays, parseISO, getDayOfYear } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/context/profile-provider';
+import { useAuth } from '@/context/auth-provider';
+import { db } from '@/lib/firebase';
+import { collection, doc, getDocs, setDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
 
 interface VitalsEntry {
   id: string; date: string; systolic?: string; diastolic?: string; oxygenLevel?: string;
@@ -20,17 +24,13 @@ interface HealthTip {
 }
 
 const allTips: HealthTip[] = [
-  // High BP
   { id: 'bp1', category: 'high_bp', text: 'Reduce your salt intake to help manage blood pressure. Try seasoning food with herbs and spices instead.' },
   { id: 'bp2', category: 'high_bp', text: 'Monitor your blood pressure twice daily, once in the morning and once at night, to track its pattern.' },
   { id: 'bp3', category: 'high_bp', text: 'Regular physical activity, like a brisk 30-minute walk, can significantly help lower high blood pressure.' },
-  // Low Oxygen
   { id: 'o2_1', category: 'low_oxygen', text: 'If you feel short of breath, try sitting upright, relax your shoulders, and practice deep, slow breathing.' },
   { id: 'o2_2', category: 'low_oxygen', text: 'Ensure good ventilation in your room. Opening a window for fresh air can be beneficial.' },
-  // High Sugar
   { id: 'sug1', category: 'high_sugar', text: 'Opt for whole grains and fiber-rich vegetables to help stabilize your blood sugar levels.' },
   { id: 'sug2', category: 'high_sugar', text: 'Staying hydrated is key. Drinking plenty of water helps your kidneys flush out excess sugar.' },
-  // General
   { id: 'gen1', category: 'general', text: 'Aim for 7-8 hours of quality sleep per night to support your overall health and recovery.' },
   { id: 'gen2', category: 'general', text: 'Incorporate a variety of colorful fruits and vegetables into your diet for a wide range of nutrients.' },
   { id: 'gen3', category: 'general', text: 'A short 10-minute walk after meals can aid digestion and improve your mood.' },
@@ -39,78 +39,82 @@ const allTips: HealthTip[] = [
 export function HealthTips() {
     const [isClient, setIsClient] = useState(false);
     const { activeProfile } = useProfile();
+    const { user } = useAuth();
 
     const [dailyTip, setDailyTip] = useState<HealthTip | null>(null);
-    const [bookmarkedTips, setBookmarkedTips] = useState<string[]>([]); // array of tip ids
+    const [bookmarkedTips, setBookmarkedTips] = useState<string[]>([]);
     
-    const VITALS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-vitals` : null;
-    const BOOKMARKS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-bookmarked-tips` : null;
-
     useEffect(() => {
         setIsClient(true);
     }, []);
 
     useEffect(() => {
-        if (!isClient || !activeProfile || !VITALS_LOCAL_STORAGE_KEY || !BOOKMARKS_LOCAL_STORAGE_KEY) {
+        if (!isClient || !user || !activeProfile) {
             setDailyTip(null);
             setBookmarkedTips([]);
             return;
         }
 
-        try {
-            const storedBookmarks = window.localStorage.getItem(BOOKMARKS_LOCAL_STORAGE_KEY);
-            if (storedBookmarks) {
-                setBookmarkedTips(JSON.parse(storedBookmarks));
+        const basePath = `users/${user.uid}/profiles/${activeProfile.id}`;
+        const vitalsCollectionRef = collection(db, `${basePath}/vitals`);
+        const bookmarksCollectionRef = collection(db, `${basePath}/bookmarked_tips`);
+
+        const processTips = async () => {
+            try {
+                // Fetch bookmarks
+                const bookmarksSnapshot = await getDocs(bookmarksCollectionRef);
+                const fetchedBookmarks = bookmarksSnapshot.docs.map(doc => doc.id);
+                setBookmarkedTips(fetchedBookmarks);
+
+                // Fetch recent vitals
+                const sevenDaysAgo = subDays(new Date(), 7).toISOString();
+                const vitalsQuery = query(vitalsCollectionRef, where('date', '>=', sevenDaysAgo));
+                const vitalsSnapshot = await getDocs(vitalsQuery);
+                const weeklyVitals: VitalsEntry[] = vitalsSnapshot.docs.map(doc => doc.data() as VitalsEntry);
+                
+                let relevantCategories: HealthTip['category'][] = [];
+                const hasHighBP = weeklyVitals.some(v => parseInt(v.systolic || '0') > 140 || parseInt(v.diastolic || '0') > 90);
+                const hasLowO2 = weeklyVitals.some(v => parseInt(v.oxygenLevel || '100') < 95);
+                const hasHighSugar = weeklyVitals.some(v => parseInt(v.bloodSugar || '0') > 180);
+
+                if (hasHighBP) relevantCategories.push('high_bp');
+                if (hasLowO2) relevantCategories.push('low_oxygen');
+                if (hasHighSugar) relevantCategories.push('high_sugar');
+
+                let applicableTips: HealthTip[];
+                if (relevantCategories.length > 0) {
+                    applicableTips = allTips.filter(tip => relevantCategories.includes(tip.category));
+                } else {
+                    applicableTips = allTips.filter(tip => tip.category === 'general');
+                }
+
+                const dayIndex = getDayOfYear(new Date()) % applicableTips.length;
+                setDailyTip(applicableTips[dayIndex]);
+
+            } catch (error) {
+                console.error("Error processing health tips:", error);
+                const generalTips = allTips.filter(tip => tip.category === 'general');
+                const dayIndex = getDayOfYear(new Date()) % generalTips.length;
+                setDailyTip(generalTips[dayIndex]);
             }
+        };
 
-            const storedVitalsRaw = window.localStorage.getItem(VITALS_LOCAL_STORAGE_KEY);
-            const allVitals: VitalsEntry[] = storedVitalsRaw ? JSON.parse(storedVitalsRaw) : [];
-            
-            // Determine relevant tips
-            const sevenDaysAgo = subDays(new Date(), 7);
-            const weeklyVitals = allVitals.filter(v => parseISO(v.date) >= sevenDaysAgo);
+        processTips();
 
-            let relevantCategories: HealthTip['category'][] = [];
-            
-            const hasHighBP = weeklyVitals.some(v => parseInt(v.systolic || '0') > 140 || parseInt(v.diastolic || '0') > 90);
-            const hasLowO2 = weeklyVitals.some(v => parseInt(v.oxygenLevel || '100') < 95);
-            const hasHighSugar = weeklyVitals.some(v => parseInt(v.bloodSugar || '0') > 180);
+    }, [isClient, user, activeProfile]);
 
-            if (hasHighBP) relevantCategories.push('high_bp');
-            if (hasLowO2) relevantCategories.push('low_oxygen');
-            if (hasHighSugar) relevantCategories.push('high_sugar');
 
-            let applicableTips: HealthTip[];
-            if (relevantCategories.length > 0) {
-                applicableTips = allTips.filter(tip => relevantCategories.includes(tip.category));
-            } else {
-                applicableTips = allTips.filter(tip => tip.category === 'general');
-            }
-
-            // Rotate daily
-            const dayIndex = getDayOfYear(new Date()) % applicableTips.length;
-            setDailyTip(applicableTips[dayIndex]);
-
-        } catch (error) {
-            console.error("Error processing health tips:", error);
-            const generalTips = allTips.filter(tip => tip.category === 'general');
-            const dayIndex = getDayOfYear(new Date()) % generalTips.length;
-            setDailyTip(generalTips[dayIndex]);
+    const toggleBookmark = async (tip: HealthTip) => {
+        if (!user || !activeProfile) return;
+        const bookmarksCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/bookmarked_tips`);
+        
+        if (bookmarkedTips.includes(tip.id)) {
+            await deleteDoc(doc(bookmarksCollectionRef, tip.id));
+            setBookmarkedTips(prev => prev.filter(id => id !== tip.id));
+        } else {
+            await setDoc(doc(bookmarksCollectionRef, tip.id), tip);
+            setBookmarkedTips(prev => [...prev, tip.id]);
         }
-    }, [isClient, activeProfile, VITALS_LOCAL_STORAGE_KEY, BOOKMARKS_LOCAL_STORAGE_KEY]);
-
-    useEffect(() => {
-        if (isClient && BOOKMARKS_LOCAL_STORAGE_KEY) {
-            window.localStorage.setItem(BOOKMARKS_LOCAL_STORAGE_KEY, JSON.stringify(bookmarkedTips));
-        }
-    }, [bookmarkedTips, isClient, BOOKMARKS_LOCAL_STORAGE_KEY]);
-
-    const toggleBookmark = (tipId: string) => {
-        setBookmarkedTips(prev => 
-            prev.includes(tipId)
-                ? prev.filter(id => id !== tipId)
-                : [...prev, tipId]
-        );
     };
 
     const isBookmarked = (tipId: string) => bookmarkedTips.includes(tipId);
@@ -137,7 +141,7 @@ export function HealthTips() {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => toggleBookmark(dailyTip.id)}
+                                onClick={() => toggleBookmark(dailyTip)}
                                 title={isBookmarked(dailyTip.id) ? "Remove Bookmark" : "Bookmark Tip"}
                             >
                                 {isBookmarked(dailyTip.id) ? (
