@@ -10,12 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/context/auth-provider';
-import { Siren, User, Phone, MapPin, BellRing, CheckCircle, Trash2, UserPlus } from "lucide-react";
+import { Siren, User, Phone, MapPin, BellRing, CheckCircle, Trash2, UserPlus, Copy } from "lucide-react";
 import { useProfile } from '@/context/profile-provider';
 
 interface TriggeredAlert {
@@ -50,6 +51,7 @@ export function EmergencyAlert() {
     const [alerts, setAlerts] = useState<TriggeredAlert[]>([]);
     const [guardians, setGuardians] = useState<Guardian[]>([]);
     const [isClient, setIsClient] = useState(false);
+    const [callConfirmation, setCallConfirmation] = useState<{ name: string; contact: string } | null>(null);
     
     const ALERTS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-alerts` : null;
     const GUARDIANS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-guardians` : null;
@@ -153,6 +155,21 @@ export function EmergencyAlert() {
         setGuardians(updatedGuardians);
         window.localStorage.setItem(GUARDIANS_LOCAL_STORAGE_KEY, JSON.stringify(updatedGuardians));
         toast({ variant: 'destructive', title: "Guardian Removed" });
+    };
+
+    const handleCopy = (text: string) => {
+        navigator.clipboard.writeText(text).then(() => {
+            toast({ title: "Copied to clipboard!", description: text });
+        }, (err) => {
+            toast({ variant: 'destructive', title: "Failed to copy", description: err.message });
+        });
+    };
+
+    const handleInitiateCall = () => {
+        if (callConfirmation) {
+            window.location.href = `tel:${callConfirmation.contact.replace(/\s|-|\(|\)/g, '')}`;
+        }
+        setCallConfirmation(null);
     };
 
 
@@ -286,6 +303,71 @@ export function EmergencyAlert() {
                     )}
                 </CardContent>
             </Card>
+
+            <Dialog>
+                <DialogTrigger asChild>
+                    <Button variant="destructive" className="fixed bottom-8 right-8 rounded-full h-16 w-16 shadow-lg z-50">
+                        <Siren className="h-8 w-8" />
+                        <span className="sr-only">SOS</span>
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Quick Emergency Actions</DialogTitle>
+                        <DialogDescription>
+                            Contact your guardians or send a help signal immediately.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4 max-h-[50vh] overflow-y-auto">
+                        {guardians.length > 0 ? guardians.map(guardian => (
+                            <div key={guardian.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                                <div>
+                                    <p className="font-semibold">{guardian.name}</p>
+                                    <p className="text-sm text-muted-foreground">{guardian.contact}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                     <Button variant="outline" size="icon" onClick={() => setCallConfirmation({ name: guardian.name, contact: guardian.contact })}>
+                                        <Phone className="w-4 h-4" />
+                                        <span className="sr-only">Call {guardian.name}</span>
+                                    </Button>
+                                    <Button variant="outline" size="icon" onClick={() => handleCopy(guardian.contact)}>
+                                        <Copy className="w-4 h-4" />
+                                        <span className="sr-only">Copy contact</span>
+                                    </Button>
+                                </div>
+                            </div>
+                        )) : (
+                            <p className="text-sm text-center text-muted-foreground">No guardians to contact. Please add guardians first.</p>
+                        )}
+                    </div>
+                    <DialogFooter className="sm:justify-between gap-2">
+                        <DialogClose asChild>
+                            <Button type="button" variant="secondary">
+                                Close
+                            </Button>
+                        </DialogClose>
+                        <Button type="button" variant="destructive" onClick={handleSendAlert} disabled={guardians.length === 0}>
+                            <Siren className="mr-2 h-4 w-4"/>
+                            Send Help Signal
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <AlertDialog open={!!callConfirmation} onOpenChange={(isOpen) => !isOpen && setCallConfirmation(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirm Call</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to call {callConfirmation?.name} at {callConfirmation?.contact}?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setCallConfirmation(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleInitiateCall}>Call</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
