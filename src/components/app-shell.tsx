@@ -36,7 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (activeProfile?.theme) {
       setTheme(activeProfile.theme);
     } else {
-      setTheme('theme-serene-sky'); // Fallback to default
+      setTheme('theme-cool-flash'); // Fallback to default
     }
   }, [activeProfile, setTheme]);
   

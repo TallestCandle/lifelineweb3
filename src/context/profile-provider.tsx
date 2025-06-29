@@ -125,7 +125,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Maximum of 3 profiles reached.");
     }
     const profilesCollectionRef = collection(db, `users/${user.uid}/profiles`);
-    const newProfileData = { ...profileData, theme: 'theme-serene-sky' as ThemeId };
+    const newProfileData = { ...profileData, theme: 'theme-cool-flash' as ThemeId };
     const docRef = await addDoc(profilesCollectionRef, newProfileData);
     const newProfile: Profile = { ...newProfileData, id: docRef.id };
     
@@ -171,7 +171,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (!user) throw new Error("User not authenticated");
     const profileDocRef = doc(db, `users/${user.uid}/profiles/${profileId}`);
     const existingProfile = profiles.find(p => p.id === profileId);
-    const dataToUpdate = { ...profileData, theme: existingProfile?.theme || 'theme-serene-sky' };
+    const dataToUpdate = { ...profileData, theme: existingProfile?.theme || 'theme-cool-flash' };
     
     await updateDoc(profileDocRef, dataToUpdate);
     
