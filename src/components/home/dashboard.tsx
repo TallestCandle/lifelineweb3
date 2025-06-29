@@ -13,22 +13,27 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { cn } from '@/lib/utils';
 
 interface MenuItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  color: string;
+  border: string;
+  shadow: string;
+  glow: string;
 }
 
 const menuItems: MenuItem[] = [
-  { href: "/tasks", label: "Daily Tasks", icon: ListChecks },
-  { href: "/vitals", label: "Vitals Log", icon: HeartPulse },
-  { href: "/test-strips", label: "Test Strips", icon: Beaker },
-  { href: "/reminders", label: "Medication", icon: Pill },
-  { href: "/analysis", label: "AI Analysis", icon: BrainCircuit },
-  { href: "/report", label: "Health Report", icon: FileText },
-  { href: "/emergency", label: "Emergency", icon: Siren },
-  { href: "/profiles", label: "Profiles", icon: Users },
+    { href: "/tasks", label: "Daily Tasks", icon: ListChecks, color: "text-green-400", border: "group-hover:border-green-400", shadow: "group-hover:shadow-lg group-hover:shadow-green-400/40", glow: "bg-green-400/10" },
+    { href: "/vitals", label: "Vitals Log", icon: HeartPulse, color: "text-red-500", border: "group-hover:border-red-500", shadow: "group-hover:shadow-lg group-hover:shadow-red-500/40", glow: "bg-red-500/10" },
+    { href: "/test-strips", label: "Test Strips", icon: Beaker, color: "text-purple-400", border: "group-hover:border-purple-400", shadow: "group-hover:shadow-lg group-hover:shadow-purple-400/40", glow: "bg-purple-400/10" },
+    { href: "/reminders", label: "Medication", icon: Pill, color: "text-orange-400", border: "group-hover:border-orange-400", shadow: "group-hover:shadow-lg group-hover:shadow-orange-400/40", glow: "bg-orange-400/10" },
+    { href: "/analysis", label: "AI Analysis", icon: BrainCircuit, color: "text-cyan-400", border: "group-hover:border-cyan-400", shadow: "group-hover:shadow-lg group-hover:shadow-cyan-400/40", glow: "bg-cyan-400/10" },
+    { href: "/report", label: "Health Report", icon: FileText, color: "text-indigo-400", border: "group-hover:border-indigo-400", shadow: "group-hover:shadow-lg group-hover:shadow-indigo-400/40", glow: "bg-indigo-400/10" },
+    { href: "/emergency", label: "Emergency", icon: Siren, color: "text-red-600", border: "group-hover:border-red-600", shadow: "group-hover:shadow-lg group-hover:shadow-red-600/40", glow: "bg-red-600/10" },
+    { href: "/profiles", label: "Profiles", icon: Users, color: "text-yellow-400", border: "group-hover:border-yellow-400", shadow: "group-hover:shadow-lg group-hover:shadow-yellow-400/40", glow: "bg-yellow-400/10" },
 ];
 
 export function Dashboard() {
@@ -51,9 +56,16 @@ export function Dashboard() {
               onKeyDown={(e) => e.key === 'Enter' && router.push(item.href)}
               tabIndex={0}
             >
-              <div className="relative flex items-center justify-center bg-card/50 p-3 rounded-full shadow-lg border border-primary/20 transition-all duration-300 group-hover:border-primary group-hover:shadow-[0_0_15px_hsl(var(--primary))] group-hover:-translate-y-1">
-                <div className="absolute inset-0 bg-primary/10 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <Icon className="w-6 h-6 text-primary transition-colors duration-300" />
+              <div className={cn(
+                "relative flex items-center justify-center bg-card/50 p-3 rounded-full shadow-lg border border-primary/20 transition-all duration-300 group-hover:-translate-y-1",
+                item.border,
+                item.shadow
+              )}>
+                <div className={cn(
+                  "absolute inset-0 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+                  item.glow
+                )} />
+                <Icon className={cn("w-6 h-6 transition-colors duration-300", item.color)} />
               </div>
               <div className="h-8 flex items-center">
                   <p className="text-xs font-medium text-foreground/80 transition-colors duration-300 group-hover:text-foreground">{item.label}</p>
