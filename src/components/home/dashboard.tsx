@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   ListChecks,
   HeartPulse,
@@ -42,7 +42,7 @@ export function Dashboard() {
         <h1 className="text-3xl font-bold">Welcome to Nexus Lifeline</h1>
         <p className="text-muted-foreground">Your personal health and wellness companion. Select an option to get started.</p>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -53,15 +53,15 @@ export function Dashboard() {
               onKeyDown={(e) => e.key === 'Enter' && router.push(item.href)}
               tabIndex={0}
             >
-              <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-                <div className="bg-primary/10 p-3 rounded-lg">
-                    <Icon className="w-6 h-6 text-primary" />
+              <CardContent className="flex flex-col items-center justify-center text-center p-6 gap-4">
+                 <div className="bg-primary/10 p-4 rounded-full">
+                    <Icon className="w-8 h-8 text-primary" />
                 </div>
                 <div>
-                  <CardTitle>{item.label}</CardTitle>
-                  <CardDescription className="mt-1">{item.description}</CardDescription>
+                  <p className="font-semibold">{item.label}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
                 </div>
-              </CardHeader>
+              </CardContent>
             </Card>
           );
         })}
