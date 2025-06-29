@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { HeartPulse, Thermometer, Scale, Droplets, Lungs, Pencil, Trash2, PlusCircle, Ban } from 'lucide-react';
+import { HeartPulse, Thermometer, Scale, Droplets, Activity, Pencil, Trash2, PlusCircle, Ban } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ChartConfig } from "@/components/ui/chart";
@@ -39,7 +39,15 @@ interface VitalsEntry extends VitalsFormValues {
   date: string;
 }
 
-const LOCAL_STORAGE_KEY = 'nexus-lifeline-vitals';
+interface TriggeredAlert {
+    id: string;
+    message: string;
+    timestamp: string;
+}
+
+const VITALS_LOCAL_STORAGE_KEY = 'nexus-lifeline-vitals';
+const ALERTS_LOCAL_STORAGE_KEY = 'nexus-lifeline-alerts';
+
 
 const bpChartConfig = {
   systolic: { label: "Systolic", color: "hsl(var(--chart-1))" },
@@ -60,7 +68,7 @@ export function VitalsLog() {
   useEffect(() => {
     setIsClient(true);
     try {
-      const storedVitals = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+      const storedVitals = window.localStorage.getItem(VITALS_LOCAL_STORAGE_KEY);
       if (storedVitals) {
         setVitalsHistory(JSON.parse(storedVitals));
       }
@@ -71,7 +79,7 @@ export function VitalsLog() {
 
   useEffect(() => {
     if(isClient) {
-      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(vitalsHistory));
+      window.localStorage.setItem(VITALS_LOCAL_STORAGE_KEY, JSON.stringify(vitalsHistory));
     }
   }, [vitalsHistory, isClient]);
 
@@ -79,6 +87,55 @@ export function VitalsLog() {
     resolver: zodResolver(vitalsSchema),
     defaultValues: { systolic: '', diastolic: '', oxygenLevel: '', temperature: '', bloodSugar: '', weight: '' },
   });
+
+  const checkVitalsForAlerts = useCallback((vitals: VitalsFormValues) => {
+    const newAlerts: TriggeredAlert[] = [];
+    const timestamp = new Date().toISOString();
+
+    const systolic = vitals.systolic ? parseInt(vitals.systolic, 10) : 0;
+    if (systolic > 180) {
+        newAlerts.push({
+            id: `alert-${Date.now()}-bp`,
+            message: "Hypertensive Crisis – Call for help",
+            timestamp,
+        });
+    }
+
+    const bloodSugar = vitals.bloodSugar ? parseInt(vitals.bloodSugar, 10) : 0;
+    if (bloodSugar > 300) {
+        newAlerts.push({
+            id: `alert-${Date.now()}-sugar`,
+            message: "Critical Blood Sugar – Seek medical attention",
+            timestamp,
+        });
+    }
+    
+    const temperature = vitals.temperature ? parseFloat(vitals.temperature) : 0;
+    if (temperature > 103.1) { // 39.5°C
+        newAlerts.push({
+            id: `alert-${Date.now()}-temp`,
+            message: "High Fever Detected",
+            timestamp,
+        });
+    }
+
+    if (newAlerts.length > 0) {
+        try {
+            const storedAlertsRaw = window.localStorage.getItem(ALERTS_LOCAL_STORAGE_KEY);
+            const existingAlerts: TriggeredAlert[] = storedAlertsRaw ? JSON.parse(storedAlertsRaw) : [];
+            const updatedAlerts = [...existingAlerts, ...newAlerts];
+            window.localStorage.setItem(ALERTS_LOCAL_STORAGE_KEY, JSON.stringify(updatedAlerts));
+
+            toast({
+                variant: "destructive",
+                title: "Health Alert Triggered!",
+                description: `A critical vital reading was detected. Please check the Emergency page for details.`,
+            });
+        } catch (error) {
+            console.error("Error saving alerts to localStorage", error);
+        }
+    }
+  }, [toast]);
 
   const onSubmit = (data: VitalsFormValues) => {
     if (editingId) {
@@ -89,6 +146,7 @@ export function VitalsLog() {
       const newEntry: VitalsEntry = { ...data, id: Date.now().toString(), date: new Date().toISOString() };
       setVitalsHistory([newEntry, ...vitalsHistory]);
       toast({ title: "Vitals Logged", description: "Your new vital signs have been saved." });
+      checkVitalsForAlerts(data);
     }
     form.reset();
   };
@@ -234,7 +292,7 @@ export function VitalsLog() {
                       <TableCell>
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
                             {entry.systolic && entry.diastolic && <span className="flex items-center gap-1"><HeartPulse className="w-4 h-4 text-destructive"/> {entry.systolic}/{entry.diastolic} mmHg</span>}
-                            {entry.oxygenLevel && <span className="flex items-center gap-1"><Lungs className="w-4 h-4 text-primary"/> {entry.oxygenLevel}%</span>}
+                            {entry.oxygenLevel && <span className="flex items-center gap-1"><Activity className="w-4 h-4 text-primary"/> {entry.oxygenLevel}%</span>}
                             {entry.temperature && <span className="flex items-center gap-1"><Thermometer className="w-4 h-4 text-accent-foreground"/> {entry.temperature}°F</span>}
                             {entry.bloodSugar && <span className="flex items-center gap-1"><Droplets className="w-4 h-4 text-yellow-500"/> {entry.bloodSugar} mg/dL</span>}
                             {entry.weight && <span className="flex items-center gap-1"><Scale className="w-4 h-4 text-green-500"/> {entry.weight} lbs</span>}
