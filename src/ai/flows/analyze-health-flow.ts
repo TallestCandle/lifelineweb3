@@ -12,7 +12,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
 // Zod schema for the input data. All fields are optional strings.
-export const AnalyzeHealthInputSchema = z.object({
+const AnalyzeHealthInputSchema = z.object({
     systolic: z.string().optional().describe("Systolic blood pressure in mmHg"),
     diastolic: z.string().optional().describe("Diastolic blood pressure in mmHg"),
     bloodSugar: z.string().optional().describe("Blood sugar level in mg/dL"),
@@ -30,7 +30,7 @@ export const AnalyzeHealthInputSchema = z.object({
 export type AnalyzeHealthInput = z.infer<typeof AnalyzeHealthInputSchema>;
 
 // Zod schema for the structured output from the AI.
-export const AnalyzeHealthOutputSchema = z.object({
+const AnalyzeHealthOutputSchema = z.object({
     summary: z.string().describe("A short, readable summary of the health status based on the provided data. This should be easily understandable for a non-medical user."),
     advice: z.string().describe("Specific, actionable advice for the user based on the health data. Keep it concise and clear."),
     urgency: z.enum(['Good', 'Mild', 'Moderate', 'Critical']).describe("An urgency level classification. 'Good' for no issues, 'Mild' for minor concerns, 'Moderate' for issues that need attention, and 'Critical' for serious red flags requiring immediate action."),
