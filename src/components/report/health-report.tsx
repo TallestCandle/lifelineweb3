@@ -82,7 +82,7 @@ export function HealthReport() {
 
     }, [isClient, user, activeProfile, selectedDate]);
     
-    const { filteredVitals, filteredAlerts } = monthlyData;
+    const { vitals: filteredVitals, alerts: filteredAlerts } = monthlyData;
 
     const chartData = useMemo(() => {
         return filteredVitals
