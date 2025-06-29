@@ -19,6 +19,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { useAuth } from '@/context/auth-provider';
 
 const vitalsSchema = z.object({
   systolic: z.string().regex(/^\d+$/, "Must be a number").optional().or(z.literal('')),
@@ -45,8 +46,16 @@ interface TriggeredAlert {
     timestamp: string;
 }
 
+interface Guardian {
+    id: string;
+    name: string;
+    relationship: string;
+    contact: string;
+}
+
 const VITALS_LOCAL_STORAGE_KEY = 'nexus-lifeline-vitals';
 const ALERTS_LOCAL_STORAGE_KEY = 'nexus-lifeline-alerts';
+const GUARDIANS_LOCAL_STORAGE_KEY = 'nexus-lifeline-guardians';
 
 
 const bpChartConfig = {
@@ -64,6 +73,7 @@ export function VitalsLog() {
   const [vitalsHistory, setVitalsHistory] = useState<VitalsEntry[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     setIsClient(true);
@@ -111,7 +121,7 @@ export function VitalsLog() {
     }
     
     const temperature = vitals.temperature ? parseFloat(vitals.temperature) : 0;
-    if (temperature > 103.1) { // 39.5°C
+    if (temperature > 103.1) { // 39.5°C in fahrenheit is ~103.1
         newAlerts.push({
             id: `alert-${Date.now()}-temp`,
             message: "High Fever Detected",
@@ -121,6 +131,7 @@ export function VitalsLog() {
 
     if (newAlerts.length > 0) {
         try {
+            // Save alerts to local storage
             const storedAlertsRaw = window.localStorage.getItem(ALERTS_LOCAL_STORAGE_KEY);
             const existingAlerts: TriggeredAlert[] = storedAlertsRaw ? JSON.parse(storedAlertsRaw) : [];
             const updatedAlerts = [...existingAlerts, ...newAlerts];
@@ -131,11 +142,38 @@ export function VitalsLog() {
                 title: "Health Alert Triggered!",
                 description: `A critical vital reading was detected. Please check the Emergency page for details.`,
             });
+            
+            // Notify guardians
+            const storedGuardiansRaw = window.localStorage.getItem(GUARDIANS_LOCAL_STORAGE_KEY);
+            const guardians: Guardian[] = storedGuardiansRaw ? JSON.parse(storedGuardiansRaw) : [];
+            const userName = user?.displayName || user?.email || 'The user';
+
+            if (guardians.length > 0) {
+                newAlerts.forEach(alert => {
+                    guardians.forEach(guardian => {
+                        console.log(
+                            `--- SIMULATING GUARDIAN NOTIFICATION (VITALS ALERT) ---
+                            To: ${guardian.contact}
+                            Guardian: ${guardian.name}
+                            From: ${userName}
+                            Alert: ${alert.message}
+                            Time: ${format(parseISO(alert.timestamp), 'MMM d, yyyy, h:mm a')}
+                            --- END SIMULATION ---`
+                        );
+                    });
+                });
+
+                toast({
+                    title: "Guardians Notified",
+                    description: `A critical health alert has also been sent to your ${guardians.length} guardian(s).`,
+                });
+            }
+
         } catch (error) {
-            console.error("Error saving alerts to localStorage", error);
+            console.error("Error processing alerts and notifying guardians", error);
         }
     }
-  }, [toast]);
+  }, [toast, user]);
 
   const onSubmit = (data: VitalsFormValues) => {
     if (editingId) {

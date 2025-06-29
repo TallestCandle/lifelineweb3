@@ -1,22 +1,24 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
-import { Siren, User, Phone, MapPin, BellRing, CheckCircle } from "lucide-react";
-import { formatDistanceToNow, parseISO } from 'date-fns';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { format, formatDistanceToNow, parseISO } from 'date-fns';
 
-const emergencyContacts = [
-    { name: "Jane Doe", relationship: "Spouse", phone: "555-123-4567" },
-    { name: "John Smith", relationship: "Son", phone: "555-987-6543" },
-    { name: "Dr. Williams", relationship: "Primary Care Physician", phone: "555-555-5555" },
-];
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from '@/context/auth-provider';
+import { Siren, User, Phone, MapPin, BellRing, CheckCircle, Trash2, UserPlus } from "lucide-react";
 
 const ALERTS_LOCAL_STORAGE_KEY = 'nexus-lifeline-alerts';
+const GUARDIANS_LOCAL_STORAGE_KEY = 'nexus-lifeline-guardians';
 
 interface TriggeredAlert {
   id: string;
@@ -24,12 +26,35 @@ interface TriggeredAlert {
   timestamp: string;
 }
 
+const guardianSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  relationship: z.string().min(2, { message: "Relationship must be at least 2 characters." }),
+  contact: z.string().min(5, { message: "Contact info is required." })
+    .refine(
+        (value) => z.string().email().safeParse(value).success || /^\+?\d{10,15}$/.test(value.replace(/\s|-|\(|\)/g, '')),
+        "Must be a valid email or phone number."
+    ),
+});
+
+type GuardianFormValues = z.infer<typeof guardianSchema>;
+
+interface Guardian extends GuardianFormValues {
+    id: string;
+}
+
 export function EmergencyAlert() {
     const { toast } = useToast();
+    const { user } = useAuth();
     const [location, setLocation] = useState<string | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
     const [alerts, setAlerts] = useState<TriggeredAlert[]>([]);
+    const [guardians, setGuardians] = useState<Guardian[]>([]);
     const [isClient, setIsClient] = useState(false);
+
+    const form = useForm<GuardianFormValues>({
+        resolver: zodResolver(guardianSchema),
+        defaultValues: { name: "", relationship: "", contact: "" },
+    });
 
     useEffect(() => {
         setIsClient(true);
@@ -50,20 +75,44 @@ export function EmergencyAlert() {
         
         try {
             const storedAlerts = window.localStorage.getItem(ALERTS_LOCAL_STORAGE_KEY);
-            if (storedAlerts) {
-                setAlerts(JSON.parse(storedAlerts));
-            }
+            if (storedAlerts) setAlerts(JSON.parse(storedAlerts));
+            
+            const storedGuardians = window.localStorage.getItem(GUARDIANS_LOCAL_STORAGE_KEY);
+            if (storedGuardians) setGuardians(JSON.parse(storedGuardians));
         } catch (error) {
-            console.error("Error reading alerts from localStorage", error);
+            console.error("Error reading from localStorage", error);
         }
     }, []);
     
     const handleSendAlert = () => {
-        toast({
-            variant: "destructive",
-            title: "Emergency Alert Sent!",
-            description: `Notified contacts with your location: ${location || 'Unavailable'}. Help is on the way.`,
-        });
+        const userName = user?.displayName || user?.email || 'The user';
+        const timestamp = new Date().toISOString();
+
+        if (guardians.length > 0) {
+            guardians.forEach(guardian => {
+                console.log(
+                    `--- SIMULATING GUARDIAN NOTIFICATION (MANUAL ALERT) ---
+                    To: ${guardian.contact}
+                    Guardian: ${guardian.name}
+                    From: ${userName}
+                    Alert: User has manually triggered an emergency alert.
+                    Location: ${location || 'Unavailable'}
+                    Time: ${format(parseISO(timestamp), 'MMM d, yyyy, h:mm a')}
+                    --- END SIMULATION ---`
+                );
+            });
+             toast({
+                variant: "destructive",
+                title: "Emergency Alert Sent!",
+                description: `Notified ${guardians.length} guardian(s) with your location. Help is on the way.`,
+            });
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Emergency Alert Sent!",
+                description: `Help is on the way. Consider adding guardians to notify them automatically.`,
+            });
+        }
     };
 
     const handleAcknowledge = (alertId: string) => {
@@ -78,6 +127,23 @@ export function EmergencyAlert() {
         }
     };
 
+    const onGuardianSubmit = (data: GuardianFormValues) => {
+        const newGuardian: Guardian = { ...data, id: Date.now().toString() };
+        const updatedGuardians = [...guardians, newGuardian];
+        setGuardians(updatedGuardians);
+        window.localStorage.setItem(GUARDIANS_LOCAL_STORAGE_KEY, JSON.stringify(updatedGuardians));
+        toast({ title: "Guardian Added", description: `${data.name} has been added to your guardians list.` });
+        form.reset();
+    };
+
+    const removeGuardian = (id: string) => {
+        const updatedGuardians = guardians.filter(g => g.id !== id);
+        setGuardians(updatedGuardians);
+        window.localStorage.setItem(GUARDIANS_LOCAL_STORAGE_KEY, JSON.stringify(updatedGuardians));
+        toast({ variant: 'destructive', title: "Guardian Removed" });
+    };
+
+
     if (!isClient) return null;
     
     return (
@@ -91,7 +157,7 @@ export function EmergencyAlert() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="text-center space-y-4">
-                        <p className="text-lg">If you are in a crisis, press the button below to immediately notify your emergency contacts.</p>
+                        <p className="text-lg">If you are in a crisis, press the button below to immediately notify your emergency contacts and guardians.</p>
                         
                         <div className="p-3 bg-secondary rounded-lg text-sm">
                             <div className="flex items-center justify-center gap-2 font-medium">
@@ -112,7 +178,7 @@ export function EmergencyAlert() {
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        This will immediately send an alert with your current location to all of your emergency contacts.
+                                        This will immediately send an alert with your current location to all of your guardians.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -126,30 +192,45 @@ export function EmergencyAlert() {
                     </CardContent>
                 </Card>
 
-                <Card>
+                 <Card>
                     <CardHeader>
-                        <CardTitle>Your Emergency Contacts</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                            <UserPlus className="w-6 h-6"/>
+                            <span>Guardian Management</span>
+                        </CardTitle>
+                        <CardDescription>Add or remove guardians who will be notified during emergencies.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <ul className="space-y-4">
-                            {emergencyContacts.map((contact, index) => (
-                                <li key={index} className="flex items-center justify-between p-2 rounded-md hover:bg-secondary">
+                        <Form {...form}>
+                            <form onSubmit={form.handleSubmit(onGuardianSubmit)} className="space-y-4 mb-6">
+                                <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input placeholder="Jane Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="relationship" render={({ field }) => (<FormItem><FormLabel>Relationship</FormLabel><FormControl><Input placeholder="Spouse" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="contact" render={({ field }) => (<FormItem><FormLabel>Email or Phone</FormLabel><FormControl><Input placeholder="user@example.com or 555-123-4567" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <Button type="submit" className="w-full">Add Guardian</Button>
+                            </form>
+                        </Form>
+                        <h3 className="text-lg font-medium mb-4">Your Guardians</h3>
+                        <ul className="space-y-4 max-h-60 overflow-y-auto pr-2">
+                            {guardians.length > 0 ? guardians.map((guardian) => (
+                                <li key={guardian.id} className="flex items-center justify-between p-2 rounded-md hover:bg-secondary">
                                     <div className="flex items-center gap-4">
                                         <Avatar>
-                                            <AvatarFallback><User/></AvatarFallback>
+                                            <AvatarFallback>{guardian.name.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <div>
-                                            <p className="font-semibold">{contact.name}</p>
-                                            <p className="text-sm text-muted-foreground">{contact.relationship}</p>
+                                            <p className="font-semibold">{guardian.name}</p>
+                                            <p className="text-sm text-muted-foreground">{guardian.relationship}</p>
+                                            <p className="text-sm text-muted-foreground">{guardian.contact}</p>
                                         </div>
                                     </div>
-                                    <Button variant="ghost" size="icon" asChild>
-                                        <a href={`tel:${contact.phone}`} aria-label={`Call ${contact.name}`}>
-                                            <Phone className="w-5 h-5 text-primary" />
-                                        </a>
+                                    <Button variant="ghost" size="icon" onClick={() => removeGuardian(guardian.id)}>
+                                        <Trash2 className="w-5 h-5 text-destructive" />
+                                        <span className="sr-only">Remove {guardian.name}</span>
                                     </Button>
                                 </li>
-                            ))}
+                            )) : (
+                                <p className="text-sm text-muted-foreground text-center py-4">No guardians added yet.</p>
+                            )}
                         </ul>
                     </CardContent>
                 </Card>
