@@ -1,6 +1,7 @@
+
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ListChecks,
@@ -40,12 +41,28 @@ const menuItems: MenuItem[] = [
 export function Dashboard() {
   const router = useRouter();
   const { activeProfile } = useProfile();
+  const [greeting, setGreeting] = useState('');
+
+  useEffect(() => {
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        const name = activeProfile?.name || 'User';
+        if (hour < 12) {
+            return `Good morning, ${name}.`;
+        } else if (hour < 18) {
+            return `Good afternoon, ${name}.`;
+        } else {
+            return `Good evening, ${name}.`;
+        }
+    };
+    setGreeting(getGreeting());
+  }, [activeProfile]);
 
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h1 className="text-3xl font-bold animated-text-shine">
-          Welcome, {activeProfile?.name || 'User'}
+        <h1 className="text-3xl font-bold">
+          {greeting}
         </h1>
         <p className="text-muted-foreground">Here's your command center for a healthier life.</p>
       </div>
