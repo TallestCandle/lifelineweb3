@@ -14,8 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { HeartPulse, Thermometer, Scale, Droplets, Activity, Pencil, Trash2, PlusCircle, Ban, Eye } from 'lucide-react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { HeartPulse, Thermometer, Scale, Droplets, Activity, PlusCircle, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ChartConfig } from "@/components/ui/chart";
@@ -23,7 +22,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { useAuth } from '@/context/auth-provider';
 import { useProfile } from '@/context/profile-provider';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDocs, addDoc, updateDoc, deleteDoc, query, orderBy, getDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, query, orderBy } from 'firebase/firestore';
 
 const vitalsSchema = z.object({
   systolic: z.string().regex(/^\d+$/, "Must be a number").optional().or(z.literal('')),
@@ -71,7 +70,6 @@ const NeonGlowFilter = () => (
 export function VitalsLog() {
   const [isClient, setIsClient] = useState(false);
   const [vitalsHistory, setVitalsHistory] = useState<VitalsEntry[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedVital, setSelectedVital] = useState<VitalsEntry | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -102,39 +100,17 @@ export function VitalsLog() {
     if (!user || !activeProfile) return;
     const vitalsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/vitals`);
 
-    if (editingId) {
-      const docRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/vitals`, editingId);
-      await updateDoc(docRef, data);
-      setVitalsHistory(vitalsHistory.map(entry => entry.id === editingId ? { ...entry, ...data } : entry));
-      toast({ title: "Vitals Updated", description: "The vital sign entry has been successfully updated." });
-      setEditingId(null);
-    } else {
-      const newEntryData = { ...data, date: new Date().toISOString() };
-      const docRef = await addDoc(vitalsCollectionRef, newEntryData);
-      const newEntry: VitalsEntry = { ...newEntryData, id: docRef.id };
-      setVitalsHistory([newEntry, ...vitalsHistory]);
-      toast({ title: "Vitals Logged", description: "Your new vital signs have been saved." });
-    }
+    const newEntryData = { ...data, date: new Date().toISOString() };
+    const docRef = await addDoc(vitalsCollectionRef, newEntryData);
+    const newEntry: VitalsEntry = { ...newEntryData, id: docRef.id };
+
+    const updatedHistory = [...vitalsHistory, newEntry].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    setVitalsHistory(updatedHistory);
+    
+    toast({ title: "Vitals Logged", description: "Your new vital signs have been saved." });
+    
     form.reset({ systolic: '', diastolic: '', oxygenLevel: '', temperature: '', bloodSugar: '', weight: '' });
   };
-  
-  const handleEdit = (entry: VitalsEntry) => {
-    setEditingId(entry.id);
-    form.reset(entry);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-  
-  const handleDelete = async (id: string) => {
-    if (!user || !activeProfile) return;
-    await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/vitals`, id));
-    setVitalsHistory(vitalsHistory.filter(entry => entry.id !== id));
-    toast({ variant: 'destructive', title: "Entry Deleted", description: "The vital sign entry has been removed." });
-  };
-  
-  const cancelEdit = () => {
-    setEditingId(null);
-    form.reset();
-  }
 
   const chartData = useMemo(() => {
     return vitalsHistory
@@ -180,10 +156,10 @@ export function VitalsLog() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between text-glow">
-              <span>{editingId ? 'Edit Vitals' : 'Log New Vitals'}</span>
-              {editingId ? <Pencil className="w-6 h-6 text-primary"/> : <PlusCircle className="w-6 h-6 text-primary"/>}
+              <span>Log New Vitals</span>
+              <PlusCircle className="w-6 h-6 text-primary"/>
             </CardTitle>
-            <CardDescription>{editingId ? 'Update the measurements below.' : 'Enter your current measurements below.'}</CardDescription>
+            <CardDescription>Enter your current measurements below.</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -197,8 +173,7 @@ export function VitalsLog() {
                 <FormField control={form.control} name="bloodSugar" render={({ field }) => (<FormItem><FormLabel>Blood Sugar (mg/dL)</FormLabel><FormControl><Input placeholder="100" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="weight" render={({ field }) => (<FormItem><FormLabel>Weight (lbs)</FormLabel><FormControl><Input placeholder="150" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <div className="flex gap-2 pt-2">
-                    {editingId && <Button type="button" variant="secondary" onClick={cancelEdit} className="w-full"><Ban />Cancel</Button>}
-                    <Button type="submit" className="w-full">{editingId ? 'Update Vitals' : 'Save Vitals'}</Button>
+                    <Button type="submit" className="w-full">Save Vitals</Button>
                 </div>
               </form>
             </Form>
@@ -235,7 +210,7 @@ export function VitalsLog() {
                     <TabsContent value="oxygen" className="pt-4">{renderChart('oxygenLevel', 'Oxygen Level', 'hsl(var(--chart-3))')}</TabsContent>
                     <TabsContent value="temp" className="pt-4">{renderChart('temperature', 'Temperature', 'hsl(var(--chart-4))')}</TabsContent>
                     <TabsContent value="sugar" className="pt-4">{renderChart('bloodSugar', 'Blood Sugar', 'hsl(var(--chart-5))')}</TabsContent>
-                    <TabsContent value="weight" className="pt-4">{renderChart('weight', 'hsl(var(--chart-1))')}</TabsContent>
+                    <TabsContent value="weight" className="pt-4">{renderChart('weight', 'Weight', 'hsl(var(--chart-1))')}</TabsContent>
                 </Tabs>
             </CardContent>
         </Card>
@@ -243,7 +218,7 @@ export function VitalsLog() {
         <Card>
           <CardHeader>
             <CardTitle>Vitals History</CardTitle>
-            <CardDescription>A log of all your previously recorded vital signs.</CardDescription>
+            <CardDescription>A log of all your previously recorded vital signs. History is read-only.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -271,21 +246,6 @@ export function VitalsLog() {
                         <Button variant="ghost" size="icon" onClick={() => setSelectedVital(entry)} title="View Details">
                             <Eye className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Edit">
-                            <Pencil className="w-4 h-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" title="Delete"><Trash2 className="w-4 h-4" /></Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone. This will permanently delete this vitals entry.</AlertDialogDescription></AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDelete(entry.id)}>Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
                       </TableCell>
                     </TableRow>
                   )) : (

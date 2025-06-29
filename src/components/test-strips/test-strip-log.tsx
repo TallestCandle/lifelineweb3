@@ -13,14 +13,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Beaker, Trash2, PlusCircle } from 'lucide-react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Beaker, PlusCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
 import { useProfile } from '@/context/profile-provider';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDocs, addDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, getDocs, addDoc, query, orderBy } from 'firebase/firestore';
 
 const markers = [
     { value: "protein", label: "Protein" },
@@ -109,13 +108,6 @@ export function TestStripLog() {
         
         form.reset({marker: "", level: ""});
     };
-
-    const handleDelete = async (id: string) => {
-        if (!user || !activeProfile) return;
-        await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/test_strips`, id));
-        setStripLogs(stripLogs.filter(entry => entry.id !== id));
-        toast({ variant: 'destructive', title: "Entry Deleted", description: "The log entry has been removed." });
-    };
     
     const relevantLevels = markers.find(m => m.value === form.watch('marker'))?.value === 'ph'
         ? levels.filter(l => !isNaN(parseFloat(l.value)))
@@ -193,7 +185,7 @@ export function TestStripLog() {
                             <Beaker className="w-6 h-6"/>
                             Test Strip History
                         </CardTitle>
-                        <CardDescription>A log of your previous test strip results.</CardDescription>
+                        <CardDescription>A log of your previous test strip results. History is read-only.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="max-h-[600px] overflow-auto">
@@ -203,7 +195,6 @@ export function TestStripLog() {
                                         <TableHead>Date</TableHead>
                                         <TableHead>Marker</TableHead>
                                         <TableHead>Result</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -217,23 +208,9 @@ export function TestStripLog() {
                                                     <span>{entry.level}</span>
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-right">
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="icon"><Trash2 className="w-4 h-4" /></Button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action will permanently delete this log entry.</AlertDialogDescription></AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDelete(entry.id)}>Delete</AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
-                                            </TableCell>
                                         </TableRow>
                                     )) : (
-                                        <TableRow><TableCell colSpan={4} className="text-center h-24">No results logged yet.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={3} className="text-center h-24">No results logged yet.</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>

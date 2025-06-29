@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
 import { useProfile } from '@/context/profile-provider';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDocs, addDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, getDocs, addDoc, query, orderBy } from 'firebase/firestore';
 
 const markers = [
     { value: "protein", label: "Protein" }, { value: "glucose", label: "Glucose" }, { value: "ketones", label: "Ketones" },
@@ -137,13 +137,6 @@ export function HealthAnalyzer() {
         form.reset();
         
         toast({ title: 'Analysis Saved', description: 'The health evaluation has been saved to your history.' });
-    };
-
-    const deleteAnalysis = async (id: string) => {
-        if (!user || !activeProfile) return;
-        await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/health_analyses`, id));
-        setHistory(prev => prev.filter(item => item.id !== id));
-        toast({ variant: 'destructive', title: 'Analysis Deleted' });
     };
 
     const shareAnalysis = (record: HealthAnalysisRecord) => {
@@ -265,7 +258,7 @@ ${Object.entries(inputData).map(([key, value]) => `${key}: ${value}`).join('\n')
             <Card>
                 <CardHeader>
                     <CardTitle>Health Evaluations History</CardTitle>
-                    <CardDescription>Review your past AI-powered health analyses.</CardDescription>
+                    <CardDescription>Review your past AI-powered health analyses. History is read-only.</CardDescription>
                 </CardHeader>
                 <CardContent>
                      {history.length > 0 ? (
@@ -292,7 +285,6 @@ ${Object.entries(inputData).map(([key, value]) => `${key}: ${value}`).join('\n')
                                         </details>
                                         <div className="flex justify-end gap-2 pt-2">
                                             <Button variant="ghost" size="icon" onClick={() => shareAnalysis(item)}><Share2 className="w-4 h-4" /></Button>
-                                            <Button variant="destructive" size="icon" onClick={() => deleteAnalysis(item.id)}><Trash2 className="w-4 h-4" /></Button>
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
