@@ -85,27 +85,53 @@ export function RemindersList() {
     useEffect(() => {
         if (!isClient || notificationPermission !== 'granted' || reminders.length === 0) return;
 
-        const now = new Date();
-        const todayStr = format(now, 'yyyy-MM-dd');
-        const todayHistory = history[todayStr] || {};
-        const timeoutIds: NodeJS.Timeout[] = [];
+        const notifiedRemindersKey = `notified-reminders-${format(new Date(), 'yyyy-MM-dd')}`;
 
-        reminders.forEach(reminder => {
-            if (todayHistory[reminder.id]) return; 
-
-            const reminderTime = parse(reminder.time, 'HH:mm', new Date());
-            if (reminderTime > now) {
-                const timeoutId = setTimeout(() => {
-                    new Notification('Medication Reminder', { body: `It's time to take your ${reminder.name}.` });
-                }, reminderTime.getTime() - now.getTime());
-                timeoutIds.push(timeoutId);
+        const getNotifiedToday = (): string[] => {
+            try {
+                return JSON.parse(sessionStorage.getItem(notifiedRemindersKey) || '[]');
+            } catch {
+                return [];
             }
-        });
+        }
+        
+        const markAsNotified = (reminderId: string) => {
+            const notified = getNotifiedToday();
+            if (!notified.includes(reminderId)) {
+                sessionStorage.setItem(notifiedRemindersKey, JSON.stringify([...notified, reminderId]));
+            }
+        }
+
+        const checkReminders = () => {
+            const now = new Date();
+            const todayStr = format(now, 'yyyy-MM-dd');
+            const todayHistory = history[todayStr] || {};
+            const notifiedToday = getNotifiedToday();
+            
+            reminders.forEach(reminder => {
+                if (todayHistory[reminder.id] || notifiedToday.includes(reminder.id)) {
+                    return;
+                }
+
+                const [hour, minute] = reminder.time.split(':').map(Number);
+                if (now.getHours() === hour && now.getMinutes() === minute) {
+                    new Notification('Medication Reminder', { 
+                        body: `It's time to take your ${reminder.name}.`,
+                        tag: `${todayStr}-${reminder.id}` // Unique tag for each reminder each day
+                    });
+                    markAsNotified(reminder.id);
+                }
+            });
+        };
+
+        // Check immediately on load and then every minute
+        checkReminders();
+        const intervalId = setInterval(checkReminders, 60000); // Check every 60 seconds
 
         return () => {
-            timeoutIds.forEach(clearTimeout);
+            clearInterval(intervalId);
         };
-    }, [reminders, history, isClient, notificationPermission]);
+    }, [isClient, notificationPermission, reminders, history]);
 
     const handleRequestNotificationPermission = async () => {
         if (!('Notification' in window)) {
