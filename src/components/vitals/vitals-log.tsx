@@ -16,7 +16,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { HeartPulse, Thermometer, Scale, Droplets, Activity, PlusCircle, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { useAuth } from '@/context/auth-provider';
@@ -71,6 +70,7 @@ export function VitalsLog() {
   const [isClient, setIsClient] = useState(false);
   const [vitalsHistory, setVitalsHistory] = useState<VitalsEntry[]>([]);
   const [selectedVital, setSelectedVital] = useState<VitalsEntry | null>(null);
+  const [activeChart, setActiveChart] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
@@ -184,41 +184,35 @@ export function VitalsLog() {
       <div className="lg:col-span-2 space-y-8">
         <NeonGlowFilter />
         <Card>
-            <CardHeader><CardTitle className="text-glow">Vitals Trends</CardTitle></CardHeader>
+            <CardHeader>
+                <CardTitle className="text-glow">Vitals Trends</CardTitle>
+                <CardDescription>Click a vital to see its trend chart in a popup.</CardDescription>
+            </CardHeader>
             <CardContent>
-                <Tabs defaultValue="bp">
-                    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
-                        <TabsTrigger value="bp">Pressure</TabsTrigger>
-                        <TabsTrigger value="oxygen">Oxygen</TabsTrigger>
-                        <TabsTrigger value="temp">Temp</TabsTrigger>
-                        <TabsTrigger value="sugar">Sugar</TabsTrigger>
-                        <TabsTrigger value="weight">Weight</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="bp" className="pt-4">
-                        {chartData.filter(d => d.systolic || d.diastolic).length < 2 ? <div className="flex items-center justify-center h-48 text-muted-foreground">Not enough data to display chart.</div> :
-                        <ChartContainer config={bpChartConfig} className="min-h-[200px] w-full">
-                            <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
-                                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--foreground) / 0.1)" />
-                                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
-                                <YAxis domain={['dataMin - 10', 'dataMax + 10']} tickLine={false} axisLine={false}/>
-                                <Tooltip content={<ChartTooltipContent />} cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}/>
-                                <Line dataKey="systolic" type="monotone" stroke="var(--color-systolic)" strokeWidth={2.5} dot={false} filter="url(#neon-glow)" />
-                                <Line dataKey="diastolic" type="monotone" stroke="var(--color-diastolic)" strokeWidth={2.5} dot={false} filter="url(#neon-glow)" />
-                            </LineChart>
-                        </ChartContainer>}
-                    </TabsContent>
-                    <TabsContent value="oxygen" className="pt-4">{renderChart('oxygenLevel', 'Oxygen Level', 'hsl(var(--chart-3))')}</TabsContent>
-                    <TabsContent value="temp" className="pt-4">{renderChart('temperature', 'Temperature', 'hsl(var(--chart-4))')}</TabsContent>
-                    <TabsContent value="sugar" className="pt-4">{renderChart('bloodSugar', 'Blood Sugar', 'hsl(var(--chart-5))')}</TabsContent>
-                    <TabsContent value="weight" className="pt-4">{renderChart('weight', 'Weight', 'hsl(var(--chart-1))')}</TabsContent>
-                </Tabs>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <Button variant="outline" onClick={() => setActiveChart('bp')}>
+                        <HeartPulse className="mr-2"/> Blood Pressure
+                    </Button>
+                    <Button variant="outline" onClick={() => setActiveChart('oxygen')}>
+                        <Activity className="mr-2"/> Oxygen
+                    </Button>
+                    <Button variant="outline" onClick={() => setActiveChart('temp')}>
+                        <Thermometer className="mr-2"/> Temperature
+                    </Button>
+                    <Button variant="outline" onClick={() => setActiveChart('sugar')}>
+                        <Droplets className="mr-2"/> Blood Sugar
+                    </Button>
+                    <Button variant="outline" onClick={() => setActiveChart('weight')}>
+                        <Scale className="mr-2"/> Weight
+                    </Button>
+                </div>
             </CardContent>
         </Card>
         
         <Card>
           <CardHeader>
             <CardTitle>Vitals History</CardTitle>
-            <CardDescription>A log of all your previously recorded vital signs. History is read-only.</CardDescription>
+            <CardDescription>A read-only log of all your previously recorded vital signs.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -318,6 +312,70 @@ export function VitalsLog() {
                         <Button type="button" variant="secondary">Close</Button>
                     </DialogClose>
                 </DialogFooter>
+            </DialogContent>
+        </Dialog>
+      )}
+
+      {activeChart && (
+        <Dialog open={!!activeChart} onOpenChange={(isOpen) => !isOpen && setActiveChart(null)}>
+            <DialogContent className="sm:max-w-xl">
+                {activeChart === 'bp' && (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle>Blood Pressure Trend</DialogTitle>
+                            <DialogDescription>Systolic and diastolic pressure over time.</DialogDescription>
+                        </DialogHeader>
+                        <div className="pt-4">
+                            {chartData.filter(d => d.systolic || d.diastolic).length < 2 ? <div className="flex items-center justify-center h-48 text-muted-foreground">Not enough data to display chart.</div> :
+                            <ChartContainer config={bpChartConfig} className="min-h-[200px] w-full">
+                                <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
+                                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--foreground) / 0.1)" />
+                                    <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
+                                    <YAxis domain={['dataMin - 10', 'dataMax + 10']} tickLine={false} axisLine={false}/>
+                                    <Tooltip content={<ChartTooltipContent />} cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}/>
+                                    <Line dataKey="systolic" type="monotone" stroke="var(--color-systolic)" strokeWidth={2.5} dot={false} filter="url(#neon-glow)" />
+                                    <Line dataKey="diastolic" type="monotone" stroke="var(--color-diastolic)" strokeWidth={2.5} dot={false} filter="url(#neon-glow)" />
+                                </LineChart>
+                            </ChartContainer>}
+                        </div>
+                    </>
+                )}
+                {activeChart === 'oxygen' && (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle>Oxygen Level Trend</DialogTitle>
+                            <DialogDescription>SpO2 percentage over time.</DialogDescription>
+                        </DialogHeader>
+                        <div className="pt-4">{renderChart('oxygenLevel', 'Oxygen Level', 'hsl(var(--chart-3))')}</div>
+                    </>
+                )}
+                {activeChart === 'temp' && (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle>Temperature Trend</DialogTitle>
+                            <DialogDescription>Body temperature over time.</DialogDescription>
+                        </DialogHeader>
+                        <div className="pt-4">{renderChart('temperature', 'Temperature', 'hsl(var(--chart-4))')}</div>
+                    </>
+                )}
+                {activeChart === 'sugar' && (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle>Blood Sugar Trend</DialogTitle>
+                            <DialogDescription>Blood glucose level over time.</DialogDescription>
+                        </DialogHeader>
+                        <div className="pt-4">{renderChart('bloodSugar', 'Blood Sugar', 'hsl(var(--chart-5))')}</div>
+                    </>
+                )}
+                {activeChart === 'weight' && (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle>Weight Trend</DialogTitle>
+                            <DialogDescription>Body weight over time.</DialogDescription>
+                        </DialogHeader>
+                        <div className="pt-4">{renderChart('weight', 'Weight', 'hsl(var(--chart-1))')}</div>
+                    </>
+                )}
             </DialogContent>
         </Dialog>
       )}
