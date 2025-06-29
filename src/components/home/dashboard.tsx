@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { HeartPulse, ListChecks, Siren, ShieldCheck, ShieldAlert, ShieldX, Thermometer, Droplets, Activity, Scale } from "lucide-react";
 import { format, parseISO, isToday, subDays, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { HealthTips } from './health-tips';
 
 interface VitalsEntry {
   id: string;
@@ -222,6 +223,8 @@ export function Dashboard() {
             )}
         </CardContent>
       </Card>
+
+      <HealthTips />
     </div>
   );
 }
