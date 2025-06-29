@@ -28,28 +28,15 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeId>('theme-serene-sky');
-  const [isMounted, setIsMounted] = useState(false);
+  const [theme, setTheme] = useState<ThemeId>('theme-serene-sky');
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isMounted) {
-      document.documentElement.className = theme;
-    }
-  }, [theme, isMounted]);
-
-  const setTheme = (newTheme: ThemeId) => {
-    setThemeState(newTheme);
-  };
+    // This effect runs on the client and applies the theme to the document.
+    // It runs whenever the `theme` state changes.
+    document.documentElement.className = theme;
+  }, [theme]);
 
   const value = useMemo(() => ({ theme, setTheme }), [theme]);
-
-  if (!isMounted) {
-    return null;
-  }
 
   return (
     <ThemeContext.Provider value={value}>
