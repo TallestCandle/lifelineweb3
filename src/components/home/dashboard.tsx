@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -45,7 +44,9 @@ export function Dashboard() {
 
   useEffect(() => {
     const getGreeting = () => {
-        const hour = new Date().getHours();
+        const now = new Date();
+        // WAT is UTC+1, so we get UTC hours and add 1.
+        const hour = (now.getUTCHours() + 1) % 24;
         const name = activeProfile?.name || 'User';
         if (hour < 12) {
             return `Good morning, ${name}.`;
