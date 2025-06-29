@@ -16,9 +16,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/context/auth-provider';
 import { Siren, User, Phone, MapPin, BellRing, CheckCircle, Trash2, UserPlus } from "lucide-react";
-
-const ALERTS_LOCAL_STORAGE_KEY = 'nexus-lifeline-alerts';
-const GUARDIANS_LOCAL_STORAGE_KEY = 'nexus-lifeline-guardians';
+import { useProfile } from '@/context/profile-provider';
 
 interface TriggeredAlert {
   id: string;
@@ -45,11 +43,16 @@ interface Guardian extends GuardianFormValues {
 export function EmergencyAlert() {
     const { toast } = useToast();
     const { user } = useAuth();
+    const { activeProfile } = useProfile();
+
     const [location, setLocation] = useState<string | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
     const [alerts, setAlerts] = useState<TriggeredAlert[]>([]);
     const [guardians, setGuardians] = useState<Guardian[]>([]);
     const [isClient, setIsClient] = useState(false);
+    
+    const ALERTS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-alerts` : null;
+    const GUARDIANS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-guardians` : null;
 
     const form = useForm<GuardianFormValues>({
         resolver: zodResolver(guardianSchema),
@@ -72,6 +75,10 @@ export function EmergencyAlert() {
         } else {
             setLocationError("Geolocation is not supported by your browser.");
         }
+    }, []);
+
+    useEffect(() => {
+        if (!isClient || !activeProfile || !ALERTS_LOCAL_STORAGE_KEY || !GUARDIANS_LOCAL_STORAGE_KEY) return;
         
         try {
             const storedAlerts = window.localStorage.getItem(ALERTS_LOCAL_STORAGE_KEY);
@@ -81,11 +88,13 @@ export function EmergencyAlert() {
             if (storedGuardians) setGuardians(JSON.parse(storedGuardians));
         } catch (error) {
             console.error("Error reading from localStorage", error);
+            setAlerts([]);
+            setGuardians([]);
         }
-    }, []);
+    }, [isClient, activeProfile, ALERTS_LOCAL_STORAGE_KEY, GUARDIANS_LOCAL_STORAGE_KEY]);
     
     const handleSendAlert = () => {
-        const userName = user?.displayName || user?.email || 'The user';
+        const userName = activeProfile?.name || user?.email || 'The user';
         const timestamp = new Date().toISOString();
 
         if (guardians.length > 0) {
@@ -116,6 +125,7 @@ export function EmergencyAlert() {
     };
 
     const handleAcknowledge = (alertId: string) => {
+        if (!ALERTS_LOCAL_STORAGE_KEY) return;
         const updatedAlerts = alerts.filter(alert => alert.id !== alertId);
         setAlerts(updatedAlerts);
         if (isClient) {
@@ -128,6 +138,7 @@ export function EmergencyAlert() {
     };
 
     const onGuardianSubmit = (data: GuardianFormValues) => {
+        if (!GUARDIANS_LOCAL_STORAGE_KEY) return;
         const newGuardian: Guardian = { ...data, id: Date.now().toString() };
         const updatedGuardians = [...guardians, newGuardian];
         setGuardians(updatedGuardians);
@@ -137,6 +148,7 @@ export function EmergencyAlert() {
     };
 
     const removeGuardian = (id: string) => {
+        if (!GUARDIANS_LOCAL_STORAGE_KEY) return;
         const updatedGuardians = guardians.filter(g => g.id !== id);
         setGuardians(updatedGuardians);
         window.localStorage.setItem(GUARDIANS_LOCAL_STORAGE_KEY, JSON.stringify(updatedGuardians));
@@ -144,7 +156,7 @@ export function EmergencyAlert() {
     };
 
 
-    if (!isClient) return null;
+    if (!isClient || !activeProfile) return null;
     
     return (
         <div className="space-y-8">

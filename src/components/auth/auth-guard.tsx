@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useAuth } from '@/context/auth-provider';
 import { Loader } from '@/components/ui/loader';
 import { AppShell } from '@/components/app-shell';
+import { ProfileProvider } from '@/context/profile-provider';
 
 const publicPaths = ['/auth'];
 
@@ -30,7 +31,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    return <AppShell>{children}</AppShell>;
+    // Wrap AppShell with ProfileProvider
+    return (
+      <ProfileProvider>
+        <AppShell>{children}</AppShell>
+      </ProfileProvider>
+    );
   }
 
   return <>{children}</>;

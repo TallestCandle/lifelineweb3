@@ -15,10 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Pill, PlusCircle, Trash2, BellRing, Check, X, CalendarDays } from "lucide-react";
 import { cn } from '@/lib/utils';
-
-// Local storage keys
-const REMINDERS_STORAGE_KEY = 'nexus-lifeline-reminders';
-const HISTORY_STORAGE_KEY = 'nexus-lifeline-reminders-history';
+import { useProfile } from '@/context/profile-provider';
 
 // Zod schema for the form
 const reminderSchema = z.object({
@@ -36,10 +33,16 @@ type History = Record<string, HistoryLog>; // Date string as key
 
 export function RemindersList() {
     const [isClient, setIsClient] = useState(false);
+    const { activeProfile } = useProfile();
+    
     const [reminders, setReminders] = useState<Reminder[]>([]);
     const [history, setHistory] = useState<History>({});
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
     const { toast } = useToast();
+
+    const REMINDERS_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-reminders` : null;
+    const HISTORY_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-reminders-history` : null;
+
     const form = useForm<ReminderFormValues>({
         resolver: zodResolver(reminderSchema),
         defaultValues: { name: "", time: "" },
@@ -48,6 +51,18 @@ export function RemindersList() {
     // Load data from localStorage on mount
     useEffect(() => {
         setIsClient(true);
+        if ('Notification' in window) {
+            setNotificationPermission(Notification.permission);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!isClient || !activeProfile || !REMINDERS_STORAGE_KEY || !HISTORY_STORAGE_KEY) {
+            setReminders([]);
+            setHistory({});
+            return;
+        };
+
         try {
             const storedReminders = window.localStorage.getItem(REMINDERS_STORAGE_KEY);
             if (storedReminders) setReminders(JSON.parse(storedReminders));
@@ -55,21 +70,18 @@ export function RemindersList() {
             const storedHistory = window.localStorage.getItem(HISTORY_STORAGE_KEY);
             if (storedHistory) setHistory(JSON.parse(storedHistory));
 
-            if ('Notification' in window) {
-                setNotificationPermission(Notification.permission);
-            }
         } catch (error) {
             console.error("Error reading from localStorage", error);
         }
-    }, []);
+    }, [isClient, activeProfile, REMINDERS_STORAGE_KEY, HISTORY_STORAGE_KEY]);
 
     // Save data to localStorage when it changes
     useEffect(() => {
-        if (isClient) {
+        if (isClient && REMINDERS_STORAGE_KEY && HISTORY_STORAGE_KEY) {
             window.localStorage.setItem(REMINDERS_STORAGE_KEY, JSON.stringify(reminders));
             window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
         }
-    }, [reminders, history, isClient]);
+    }, [reminders, history, isClient, REMINDERS_STORAGE_KEY, HISTORY_STORAGE_KEY]);
     
     // Effect for handling notifications
     useEffect(() => {
@@ -150,7 +162,7 @@ export function RemindersList() {
         return Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i + 1), 'yyyy-MM-dd'));
     }, []);
 
-    if (!isClient) return null;
+    if (!isClient || !activeProfile) return null;
 
     return (
         <div className="grid lg:grid-cols-3 gap-8 items-start">

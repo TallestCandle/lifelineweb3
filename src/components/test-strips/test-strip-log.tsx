@@ -17,11 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
-
-// Define constants
-const STRIPS_LOCAL_STORAGE_KEY = 'nexus-lifeline-test-strips';
-const ALERTS_LOCAL_STORAGE_KEY = 'nexus-lifeline-alerts';
-const GUARDIANS_LOCAL_STORAGE_KEY = 'nexus-lifeline-guardians';
+import { useProfile } from '@/context/profile-provider';
 
 const markers = [
     { value: "protein", label: "Protein" },
@@ -77,6 +73,11 @@ export function TestStripLog() {
     const [stripLogs, setStripLogs] = useState<StripLogEntry[]>([]);
     const { toast } = useToast();
     const { user } = useAuth();
+    const { activeProfile } = useProfile();
+
+    const STRIPS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-test-strips` : null;
+    const ALERTS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-alerts` : null;
+    const GUARDIANS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-guardians` : null;
 
     const form = useForm<StripLogFormValues>({
         resolver: zodResolver(stripLogSchema),
@@ -85,28 +86,36 @@ export function TestStripLog() {
 
     useEffect(() => {
         setIsClient(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isClient || !STRIPS_LOCAL_STORAGE_KEY) {
+            setStripLogs([]);
+            return;
+        };
         try {
             const storedLogs = window.localStorage.getItem(STRIPS_LOCAL_STORAGE_KEY);
             if (storedLogs) setStripLogs(JSON.parse(storedLogs));
         } catch (error) {
             console.error("Error reading from localStorage", error);
         }
-    }, []);
+    }, [isClient, activeProfile, STRIPS_LOCAL_STORAGE_KEY]);
 
     useEffect(() => {
-        if (isClient) {
+        if (isClient && STRIPS_LOCAL_STORAGE_KEY) {
             window.localStorage.setItem(STRIPS_LOCAL_STORAGE_KEY, JSON.stringify(stripLogs));
         }
-    }, [stripLogs, isClient]);
+    }, [stripLogs, isClient, STRIPS_LOCAL_STORAGE_KEY]);
 
     const getLevelConfig = (levelValue: string) => {
         return levels.find(l => l.value === levelValue) || { color: 'bg-gray-400' };
     };
 
     const notifyGuardians = useCallback((alert: TriggeredAlert) => {
+        if (!GUARDIANS_LOCAL_STORAGE_KEY) return;
         const storedGuardiansRaw = window.localStorage.getItem(GUARDIANS_LOCAL_STORAGE_KEY);
         const guardians: Guardian[] = storedGuardiansRaw ? JSON.parse(storedGuardiansRaw) : [];
-        const userName = user?.displayName || user?.email || 'The user';
+        const userName = activeProfile?.name || user?.email || 'The user';
 
         if (guardians.length > 0) {
             guardians.forEach(guardian => {
@@ -125,9 +134,10 @@ export function TestStripLog() {
                 description: `A critical test strip result has also been sent to your ${guardians.length} guardian(s).`,
             });
         }
-    }, [user, toast]);
+    }, [user, activeProfile, toast, GUARDIANS_LOCAL_STORAGE_KEY]);
     
     const triggerAlert = useCallback((message: string) => {
+        if (!ALERTS_LOCAL_STORAGE_KEY) return;
         const newAlert: TriggeredAlert = {
             id: `alert-${Date.now()}`,
             message,
@@ -146,7 +156,7 @@ export function TestStripLog() {
         });
         
         notifyGuardians(newAlert);
-    }, [toast, notifyGuardians]);
+    }, [toast, notifyGuardians, ALERTS_LOCAL_STORAGE_KEY]);
 
     const checkForAlerts = useCallback((newLog: StripLogEntry, allLogs: StripLogEntry[]) => {
         // Immediate alerts for critical single readings
@@ -189,7 +199,7 @@ export function TestStripLog() {
         ? levels.filter(l => !isNaN(parseFloat(l.value)))
         : levels.filter(l => isNaN(parseFloat(l.value)));
 
-    if (!isClient) return null;
+    if (!isClient || !activeProfile) return null;
 
     return (
         <div className="grid lg:grid-cols-3 gap-8 items-start">
@@ -211,7 +221,7 @@ export function TestStripLog() {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Marker</FormLabel>
-                                            <Select onValueChange={(value) => { field.onChange(value); form.setValue('level', ''); }} defaultValue={field.value}>
+                                            <Select onValueChange={(value) => { field.onChange(value); form.setValue('level', ''); }} value={field.value} defaultValue={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger><SelectValue placeholder="Select a marker" /></SelectTrigger>
                                                 </FormControl>

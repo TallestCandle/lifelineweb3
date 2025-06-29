@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Lightbulb, Bookmark, BookmarkCheck } from 'lucide-react';
 import { subDays, parseISO, getDayOfYear } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useProfile } from '@/context/profile-provider';
 
 interface VitalsEntry {
   id: string; date: string; systolic?: string; diastolic?: string; oxygenLevel?: string;
@@ -35,16 +36,27 @@ const allTips: HealthTip[] = [
   { id: 'gen3', category: 'general', text: 'A short 10-minute walk after meals can aid digestion and improve your mood.' },
 ];
 
-const VITALS_LOCAL_STORAGE_KEY = 'nexus-lifeline-vitals';
-const BOOKMARKS_LOCAL_STORAGE_KEY = 'nexus-lifeline-bookmarked-tips';
-
 export function HealthTips() {
     const [isClient, setIsClient] = useState(false);
+    const { activeProfile } = useProfile();
+
     const [dailyTip, setDailyTip] = useState<HealthTip | null>(null);
     const [bookmarkedTips, setBookmarkedTips] = useState<string[]>([]); // array of tip ids
+    
+    const VITALS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-vitals` : null;
+    const BOOKMARKS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-bookmarked-tips` : null;
 
     useEffect(() => {
         setIsClient(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isClient || !activeProfile || !VITALS_LOCAL_STORAGE_KEY || !BOOKMARKS_LOCAL_STORAGE_KEY) {
+            setDailyTip(null);
+            setBookmarkedTips([]);
+            return;
+        }
+
         try {
             const storedBookmarks = window.localStorage.getItem(BOOKMARKS_LOCAL_STORAGE_KEY);
             if (storedBookmarks) {
@@ -85,13 +97,13 @@ export function HealthTips() {
             const dayIndex = getDayOfYear(new Date()) % generalTips.length;
             setDailyTip(generalTips[dayIndex]);
         }
-    }, []);
+    }, [isClient, activeProfile, VITALS_LOCAL_STORAGE_KEY, BOOKMARKS_LOCAL_STORAGE_KEY]);
 
     useEffect(() => {
-        if (isClient) {
+        if (isClient && BOOKMARKS_LOCAL_STORAGE_KEY) {
             window.localStorage.setItem(BOOKMARKS_LOCAL_STORAGE_KEY, JSON.stringify(bookmarkedTips));
         }
-    }, [bookmarkedTips, isClient]);
+    }, [bookmarkedTips, isClient, BOOKMARKS_LOCAL_STORAGE_KEY]);
 
     const toggleBookmark = (tipId: string) => {
         setBookmarkedTips(prev => 
@@ -107,7 +119,7 @@ export function HealthTips() {
         return allTips.filter(tip => bookmarkedTips.includes(tip.id));
     }, [bookmarkedTips]);
 
-    if (!isClient) return null;
+    if (!isClient || !activeProfile) return null;
 
     return (
         <div className="space-y-6">

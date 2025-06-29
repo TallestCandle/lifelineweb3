@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { useAuth } from '@/context/auth-provider';
+import { useProfile } from '@/context/profile-provider';
 
 const vitalsSchema = z.object({
   systolic: z.string().regex(/^\d+$/, "Must be a number").optional().or(z.literal('')),
@@ -53,11 +54,6 @@ interface Guardian {
     contact: string;
 }
 
-const VITALS_LOCAL_STORAGE_KEY = 'nexus-lifeline-vitals';
-const ALERTS_LOCAL_STORAGE_KEY = 'nexus-lifeline-alerts';
-const GUARDIANS_LOCAL_STORAGE_KEY = 'nexus-lifeline-guardians';
-
-
 const bpChartConfig = {
   systolic: { label: "Systolic", color: "hsl(var(--chart-1))" },
   diastolic: { label: "Diastolic", color: "hsl(var(--chart-2))" },
@@ -74,9 +70,21 @@ export function VitalsLog() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { activeProfile } = useProfile();
+  
+  const VITALS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-vitals` : null;
+  const ALERTS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-alerts` : null;
+  const GUARDIANS_LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-guardians` : null;
 
   useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if(!isClient || !VITALS_LOCAL_STORAGE_KEY) {
+        setVitalsHistory([]);
+        return;
+    };
     try {
       const storedVitals = window.localStorage.getItem(VITALS_LOCAL_STORAGE_KEY);
       if (storedVitals) {
@@ -85,13 +93,13 @@ export function VitalsLog() {
     } catch (error) {
       console.error("Error reading from localStorage", error);
     }
-  }, []);
+  }, [isClient, activeProfile, VITALS_LOCAL_STORAGE_KEY]);
 
   useEffect(() => {
-    if(isClient) {
+    if(isClient && VITALS_LOCAL_STORAGE_KEY) {
       window.localStorage.setItem(VITALS_LOCAL_STORAGE_KEY, JSON.stringify(vitalsHistory));
     }
-  }, [vitalsHistory, isClient]);
+  }, [vitalsHistory, isClient, VITALS_LOCAL_STORAGE_KEY]);
 
   const form = useForm<VitalsFormValues>({
     resolver: zodResolver(vitalsSchema),
@@ -99,6 +107,8 @@ export function VitalsLog() {
   });
 
   const checkVitalsForAlerts = useCallback((vitals: VitalsFormValues) => {
+    if (!ALERTS_LOCAL_STORAGE_KEY || !GUARDIANS_LOCAL_STORAGE_KEY) return;
+    
     const newAlerts: TriggeredAlert[] = [];
     const timestamp = new Date().toISOString();
 
@@ -146,7 +156,7 @@ export function VitalsLog() {
             // Notify guardians
             const storedGuardiansRaw = window.localStorage.getItem(GUARDIANS_LOCAL_STORAGE_KEY);
             const guardians: Guardian[] = storedGuardiansRaw ? JSON.parse(storedGuardiansRaw) : [];
-            const userName = user?.displayName || user?.email || 'The user';
+            const userName = activeProfile?.name || user?.email || 'The user';
 
             if (guardians.length > 0) {
                 newAlerts.forEach(alert => {
@@ -173,7 +183,7 @@ export function VitalsLog() {
             console.error("Error processing alerts and notifying guardians", error);
         }
     }
-  }, [toast, user]);
+  }, [toast, user, activeProfile, ALERTS_LOCAL_STORAGE_KEY, GUARDIANS_LOCAL_STORAGE_KEY]);
 
   const onSubmit = (data: VitalsFormValues) => {
     if (editingId) {
@@ -241,7 +251,7 @@ export function VitalsLog() {
     );
   }, [chartData]);
 
-  if (!isClient) return null;
+  if (!isClient || !activeProfile) return null;
 
   return (
     <div className="grid lg:grid-cols-3 gap-8 items-start">

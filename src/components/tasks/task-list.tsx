@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Apple, GlassWater, HeartPulse, Move } from "lucide-react";
+import { useProfile } from '@/context/profile-provider';
 
 interface Task {
   id: string;
@@ -21,32 +22,40 @@ const defaultTasks: Task[] = [
     { id: 'task4', text: 'Eat fruits', icon: Apple, completed: false },
 ];
 
-const LOCAL_STORAGE_KEY = 'nexus-lifeline-tasks';
-
 export function TaskList() {
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [isClient, setIsClient] = React.useState(false);
+  const { activeProfile } = useProfile();
+  
+  const LOCAL_STORAGE_KEY = activeProfile ? `nexus-lifeline-${activeProfile.id}-tasks` : null;
 
   React.useEffect(() => {
     setIsClient(true);
-    try {
-      const storedTasks = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (storedTasks) {
-        setTasks(JSON.parse(storedTasks));
-      } else {
-        setTasks(defaultTasks);
-      }
-    } catch (error) {
-      console.error("Error reading from localStorage", error);
-      setTasks(defaultTasks);
-    }
   }, []);
+
+  React.useEffect(() => {
+    if (isClient && LOCAL_STORAGE_KEY) {
+        try {
+            const storedTasks = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (storedTasks) {
+                setTasks(JSON.parse(storedTasks));
+            } else {
+                setTasks(defaultTasks);
+            }
+        } catch (error) {
+            console.error("Error reading from localStorage", error);
+            setTasks(defaultTasks);
+        }
+    } else if (!activeProfile) {
+        setTasks([]);
+    }
+  }, [isClient, activeProfile, LOCAL_STORAGE_KEY]);
   
   React.useEffect(() => {
-    if (isClient && tasks.length > 0) {
+    if (isClient && tasks.length > 0 && LOCAL_STORAGE_KEY) {
       window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(tasks));
     }
-  }, [tasks, isClient]);
+  }, [tasks, isClient, LOCAL_STORAGE_KEY]);
 
   const handleTaskToggle = (taskId: string) => {
     setTasks(tasks.map(task =>
@@ -57,6 +66,10 @@ export function TaskList() {
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
   const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+  if (!isClient || !activeProfile) {
+    return null;
+  }
 
   return (
     <Card>

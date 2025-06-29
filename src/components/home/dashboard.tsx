@@ -8,6 +8,7 @@ import { HeartPulse, ListChecks, Siren, ShieldCheck, ShieldAlert, ShieldX, Therm
 import { format, parseISO, isToday, subDays, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { HealthTips } from './health-tips';
+import { useProfile } from '@/context/profile-provider';
 
 interface VitalsEntry {
   id: string;
@@ -32,12 +33,10 @@ interface TriggeredAlert {
   timestamp: string;
 }
 
-const VITALS_LOCAL_STORAGE_KEY = 'nexus-lifeline-vitals';
-const TASKS_LOCAL_STORAGE_KEY = 'nexus-lifeline-tasks';
-const ALERTS_LOCAL_STORAGE_KEY = 'nexus-lifeline-alerts';
-
 export function Dashboard() {
   const [isClient, setIsClient] = useState(false);
+  const { activeProfile } = useProfile();
+
   const [latestVitals, setLatestVitals] = useState<VitalsEntry | null>(null);
   const [taskProgress, setTaskProgress] = useState({ completed: 0, total: 0 });
   const [lastAlert, setLastAlert] = useState<TriggeredAlert | null>(null);
@@ -48,7 +47,11 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (isClient) {
+    if (isClient && activeProfile) {
+      const VITALS_LOCAL_STORAGE_KEY = `nexus-lifeline-${activeProfile.id}-vitals`;
+      const TASKS_LOCAL_STORAGE_KEY = `nexus-lifeline-${activeProfile.id}-tasks`;
+      const ALERTS_LOCAL_STORAGE_KEY = `nexus-lifeline-${activeProfile.id}-alerts`;
+
       const storedVitalsRaw = window.localStorage.getItem(VITALS_LOCAL_STORAGE_KEY);
       const allVitals: VitalsEntry[] = storedVitalsRaw ? JSON.parse(storedVitalsRaw) : [];
 
@@ -102,7 +105,7 @@ export function Dashboard() {
 
       setWeeklyStatus({ status, reason });
     }
-  }, [isClient]);
+  }, [isClient, activeProfile]);
 
   const progressPercentage = taskProgress.total > 0 ? (taskProgress.completed / taskProgress.total) * 100 : 0;
 
@@ -141,7 +144,7 @@ export function Dashboard() {
     );
   }, [weeklyStatus]);
 
-  if (!isClient) {
+  if (!isClient || !activeProfile) {
     return (
         <div className="flex flex-col gap-8">
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

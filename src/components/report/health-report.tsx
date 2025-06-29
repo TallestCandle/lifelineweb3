@@ -16,9 +16,7 @@ import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Loader } from '@/components/ui/loader';
 import { Download, HeartPulse, Thermometer, Scale, Droplets, Activity, Siren } from 'lucide-react';
-
-const VITALS_LOCAL_STORAGE_KEY = 'nexus-lifeline-vitals';
-const ALERTS_LOCAL_STORAGE_KEY = 'nexus-lifeline-alerts';
+import { useProfile } from '@/context/profile-provider';
 
 interface VitalsEntry {
   id: string; date: string; systolic?: string; diastolic?: string; oxygenLevel?: string;
@@ -40,6 +38,7 @@ const years = Array.from({ length: 5 }, (_, i) => getYear(new Date()) - i);
 
 export function HealthReport() {
     const { user } = useAuth();
+    const { activeProfile } = useProfile();
     const [isClient, setIsClient] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [allVitals, setAllVitals] = useState<VitalsEntry[]>([]);
@@ -48,7 +47,18 @@ export function HealthReport() {
 
     useEffect(() => {
         setIsClient(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isClient || !activeProfile) {
+            setAllVitals([]);
+            setAllAlerts([]);
+            return;
+        }
         try {
+            const VITALS_LOCAL_STORAGE_KEY = `nexus-lifeline-${activeProfile.id}-vitals`;
+            const ALERTS_LOCAL_STORAGE_KEY = `nexus-lifeline-${activeProfile.id}-alerts`;
+
             const storedVitals = window.localStorage.getItem(VITALS_LOCAL_STORAGE_KEY);
             if (storedVitals) setAllVitals(JSON.parse(storedVitals));
 
@@ -57,7 +67,7 @@ export function HealthReport() {
         } catch (error) {
             console.error("Error reading from localStorage", error);
         }
-    }, []);
+    }, [isClient, activeProfile]);
 
     const { filteredVitals, filteredAlerts, chartData } = useMemo(() => {
         const selectedMonth = getMonth(selectedDate);
@@ -117,7 +127,7 @@ export function HealthReport() {
                 heightLeft -= pdfHeight;
             }
             
-            const fileName = `Health_Report_${format(selectedDate, 'MMMM_yyyy')}.pdf`;
+            const fileName = `Health_Report_${activeProfile?.name}_${format(selectedDate, 'MMMM_yyyy')}.pdf`;
             pdf.save(fileName);
 
         } catch (error) {
@@ -127,7 +137,7 @@ export function HealthReport() {
         }
     };
     
-    if (!isClient) return <Loader />;
+    if (!isClient || !activeProfile) return <Loader />;
 
     return (
         <div className="space-y-6">
@@ -178,8 +188,9 @@ export function HealthReport() {
                     <h1 className="text-3xl font-bold text-primary">Health Report</h1>
                     <p className="text-lg text-muted-foreground">{format(selectedDate, 'MMMM yyyy')}</p>
                     <div className="mt-4">
-                        <p><span className="font-semibold">Patient:</span> {user?.displayName || user?.email || 'N/A'}</p>
-                        <p><span className="font-semibold">Email:</span> {user?.email || 'N/A'}</p>
+                        <p><span className="font-semibold">Patient:</span> {activeProfile?.name || 'N/A'}</p>
+                        <p><span className="font-semibold">Age:</span> {activeProfile?.age || 'N/A'}</p>
+                        <p><span className="font-semibold">Gender:</span> {activeProfile?.gender || 'N/A'}</p>
                     </div>
                 </header>
 
