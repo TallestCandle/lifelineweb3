@@ -55,6 +55,7 @@ export function RemindersList() {
         }
     }, []);
 
+    // Effect for fetching data
     useEffect(() => {
         if (!isClient || !user || !activeProfile) {
             setReminders([]);
@@ -62,26 +63,37 @@ export function RemindersList() {
             return;
         }
 
-        const fetchReminders = async () => {
-            const remindersCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`);
-            const q = query(remindersCollectionRef, orderBy('time'));
-            const querySnapshot = await getDocs(q);
-            setReminders(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Reminder)));
+        const loadData = async () => {
+            try {
+                // Fetch reminders
+                const remindersCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`);
+                const qReminders = query(remindersCollectionRef, orderBy('time'));
+                const remindersSnapshot = await getDocs(qReminders);
+                setReminders(remindersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Reminder)));
+
+                // Fetch history
+                const historyCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders_history`);
+                const historySnapshot = await getDocs(historyCollectionRef);
+                const fetchedHistory: History = {};
+                historySnapshot.forEach(doc => {
+                    fetchedHistory[doc.id] = doc.data() as HistoryLog;
+                });
+                setHistory(fetchedHistory);
+
+            } catch (error) {
+                console.error("Error fetching reminder data:", error);
+                toast({
+                    variant: 'destructive',
+                    title: 'Error Loading Data',
+                    description: 'Could not load your reminders. Please check your connection and try again.',
+                });
+            }
         };
 
-        const fetchHistory = async () => {
-            const historyCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders_history`);
-            const querySnapshot = await getDocs(historyCollectionRef);
-            const fetchedHistory: History = {};
-            querySnapshot.forEach(doc => {
-                fetchedHistory[doc.id] = doc.data() as HistoryLog;
-            });
-            setHistory(fetchedHistory);
-        };
+        loadData();
+    }, [isClient, user, activeProfile, toast]);
 
-        Promise.all([fetchReminders(), fetchHistory()]).catch(error => console.error("Error fetching reminder data:", error));
-    }, [isClient, user, activeProfile]);
-
+    // Effect for notifications
     useEffect(() => {
         if (!isClient || notificationPermission !== 'granted' || reminders.length === 0) return;
 
@@ -124,7 +136,6 @@ export function RemindersList() {
             });
         };
 
-        checkReminders();
         const intervalId = setInterval(checkReminders, 60000); 
 
         return () => {
@@ -148,19 +159,37 @@ export function RemindersList() {
 
     const onSubmit = useCallback(async (data: ReminderFormValues) => {
         if (!user || !activeProfile) return;
-        const remindersCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`);
-        const docRef = await addDoc(remindersCollectionRef, data);
-        const newReminder: Reminder = { ...data, id: docRef.id };
-        setReminders(prev => [...prev, newReminder].sort((a, b) => a.time.localeCompare(b.time)));
-        toast({ title: "Reminder Added", description: `${data.name} has been added.` });
-        form.reset();
+        try {
+            const remindersCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`);
+            const docRef = await addDoc(remindersCollectionRef, data);
+            const newReminder: Reminder = { ...data, id: docRef.id };
+            setReminders(prev => [...prev, newReminder].sort((a, b) => a.time.localeCompare(b.time)));
+            toast({ title: "Reminder Added", description: `${data.name} has been added.` });
+            form.reset();
+        } catch (error) {
+            console.error("Error adding reminder:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Error Saving Reminder',
+                description: 'Could not save your new reminder. Please try again.',
+            });
+        }
     }, [user, activeProfile, toast, form]);
 
     const deleteReminder = useCallback(async (id: string) => {
         if (!user || !activeProfile) return;
-        await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`, id));
-        setReminders(prev => prev.filter(r => r.id !== id));
-        toast({ variant: 'destructive', title: "Reminder Removed" });
+        try {
+            await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`, id));
+            setReminders(prev => prev.filter(r => r.id !== id));
+            toast({ variant: 'destructive', title: "Reminder Removed" });
+        } catch (error) {
+            console.error("Error deleting reminder:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Error Deleting Reminder',
+                description: 'Could not remove the reminder. Please try again.',
+            });
+        }
     }, [user, activeProfile, toast]);
 
     const markReminder = useCallback(async (reminderId: string, status: 'taken' | 'missed') => {
@@ -169,11 +198,20 @@ export function RemindersList() {
         
         const updatedHistoryLog = { ...(history[todayStr] || {}), [reminderId]: status };
         
-        const historyDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders_history`, todayStr);
-        await setDoc(historyDocRef, updatedHistoryLog, { merge: true });
+        try {
+            const historyDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders_history`, todayStr);
+            await setDoc(historyDocRef, updatedHistoryLog, { merge: true });
 
-        setHistory(prev => ({ ...prev, [todayStr]: updatedHistoryLog }));
-        toast({ title: `Marked as ${status}` });
+            setHistory(prev => ({ ...prev, [todayStr]: updatedHistoryLog }));
+            toast({ title: `Marked as ${status}` });
+        } catch (error) {
+            console.error("Error updating reminder status:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Error Updating Status',
+                description: 'Could not update the reminder status. Please try again.',
+            });
+        }
     }, [user, activeProfile, history, toast]);
 
     const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -298,5 +336,3 @@ export function RemindersList() {
         </div>
     );
 }
-
-    
