@@ -1,10 +1,11 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root, .theme-cool-flash {
-    /* "Cool Flash" Dark Theme (Default) */
+  :root {
+    /* "Cool Flash" Dark Theme (Default Fallback) */
     --background: 242 36% 9%;
     --foreground: 240 8% 95%;
     --card: 242 36% 12%;
@@ -34,6 +35,38 @@
     --chart-6: 50 100% 50%; /* Gold */
     --chart-7: 210 100% 50%; /* Sky Blue */
     --chart-8: 300 100% 50%; /* Magenta */
+  }
+
+  .theme-cool-flash {
+    --background: 242 36% 9%;
+    --foreground: 240 8% 95%;
+    --card: 242 36% 12%;
+    --card-foreground: 240 8% 95%;
+    --popover: 242 36% 9%;
+    --popover-foreground: 240 8% 95%;
+    --primary: 195 100% 50%; /* Electric Blue */
+    --primary-foreground: 242 36% 9%;
+    --secondary: 242 36% 15%;
+    --secondary-foreground: 240 8% 95%;
+    --muted: 242 36% 15%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 328 100% 54%; /* Hot Pink */
+    --accent-foreground: 240 8% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 195 100% 50%;
+    --input: 242 36% 15%;
+    --ring: 328 100% 54%;
+    --radius: 0.75rem;
+
+    --chart-1: 120 61% 50%;
+    --chart-2: 282 100% 61%;
+    --chart-3: 328 100% 54%;
+    --chart-4: 39 100% 50%;
+    --chart-5: 195 100% 50%;
+    --chart-6: 50 100% 50%;
+    --chart-7: 210 100% 50%;
+    --chart-8: 300 100% 50%;
   }
 
   .theme-serene-sky {
