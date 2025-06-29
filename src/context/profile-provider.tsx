@@ -184,14 +184,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateProfileTheme = async (themeId: ThemeId) => {
-    if (!user || !activeProfile) throw new Error("No active profile selected.");
+    if (!user || !activeProfile) {
+      throw new Error("No active profile selected.");
+    }
     const profileDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}`);
     await updateDoc(profileDocRef, { theme: themeId });
-    
-    // Optimistically update local state and reload
-    setActiveProfile(prev => prev ? { ...prev, theme: themeId } : null);
-    window.location.reload();
+    // Update local state optimistically in case of re-render before reload
+    setActiveProfile(prev => (prev ? { ...prev, theme: themeId } : null));
   };
+
 
   if (authLoading || (loading && user)) {
     return <Loader />;

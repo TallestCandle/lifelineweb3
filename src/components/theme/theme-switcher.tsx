@@ -13,10 +13,12 @@ export function ThemeSwitcher() {
   const { toast } = useToast();
 
   const handleThemeChange = async (themeId: ThemeId) => {
+    if (activeProfile?.theme === themeId) return;
+    
     try {
-      if (activeProfile?.theme === themeId) return;
       await updateProfileTheme(themeId);
-      // The page will reload inside updateProfileTheme
+      // Reload the page to apply the new theme globally
+      window.location.reload();
     } catch (error) {
       console.error("Failed to update theme", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Could not save theme preference.' });
