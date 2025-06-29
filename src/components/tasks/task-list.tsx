@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -11,6 +10,7 @@ import { useProfile } from '@/context/profile-provider';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDocs, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import Confetti from 'react-confetti';
 
 interface Task {
   id: string;
@@ -33,11 +33,36 @@ const defaultTasksRaw: Omit<Task, 'id' | 'completed'>[] = [
     { text: 'Eat fruits', iconName: 'Apple' },
 ];
 
+const useWindowDimensions = () => {
+    const [windowDimensions, setWindowDimensions] = React.useState({
+        width: 0,
+        height: 0,
+    });
+
+    React.useEffect(() => {
+        function handleResize() {
+            setWindowDimensions({
+                width: window.innerWidth,
+                height: window.innerHeight,
+            });
+        }
+        if (typeof window !== 'undefined') {
+            handleResize();
+            window.addEventListener('resize', handleResize);
+            return () => window.removeEventListener('resize', handleResize);
+        }
+    }, []);
+
+    return windowDimensions;
+};
+
 export function TaskList() {
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [isClient, setIsClient] = React.useState(false);
+  const [showConfetti, setShowConfetti] = React.useState(false);
   const { activeProfile } = useProfile();
   const { user } = useAuth();
+  const { width, height } = useWindowDimensions();
   
   React.useEffect(() => {
     setIsClient(true);
@@ -88,9 +113,19 @@ export function TaskList() {
     
     try {
         await updateDoc(taskDocRef, { completed: newCompletedStatus });
-        setTasks(tasks.map(t =>
+        const updatedTasks = tasks.map(t =>
           t.id === taskId ? { ...t, completed: newCompletedStatus } : t
-        ));
+        );
+        setTasks(updatedTasks);
+        
+        if (newCompletedStatus) {
+            const allTasksCompleted = updatedTasks.every(t => t.completed);
+            if(allTasksCompleted) {
+                setShowConfetti(true);
+                setTimeout(() => setShowConfetti(false), 5000);
+            }
+        }
+
     } catch (error) {
         console.error("Error updating task:", error);
     }
@@ -105,50 +140,53 @@ export function TaskList() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Daily Health Tasks</CardTitle>
-        <CardDescription>
-          {completedTasks} of {totalTasks} tasks completed. Keep it up!
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Progress value={progressPercentage} className="w-full" />
-          <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-            {Math.round(progressPercentage)}%
-          </span>
-        </div>
-        <div className="space-y-4">
-          {tasks.map((task) => {
-            const Icon = TaskIcons[task.iconName];
-            return (
-                <div
-                key={task.id}
-                data-completed={task.completed}
-                className="flex items-center space-x-4 p-4 rounded-lg transition-colors hover:bg-secondary/50 data-[completed=true]:bg-accent/20"
-                >
-                <Checkbox
-                    id={task.id}
-                    checked={task.completed}
-                    onCheckedChange={() => handleTaskToggle(task.id)}
-                    aria-labelledby={`${task.id}-label`}
-                />
-                <div className="flex items-center gap-3 flex-grow">
-                    <Icon className={`w-6 h-6 transition-colors ${task.completed ? "text-muted-foreground" : "text-primary"}`} />
-                    <Label
-                    htmlFor={task.id}
-                    id={`${task.id}-label`}
-                    className={`text-base cursor-pointer transition-colors ${task.completed ? "line-through text-muted-foreground" : ""}`}
-                    >
-                    {task.text}
-                    </Label>
-                </div>
-                </div>
-            )
-          })}
-        </div>
-      </CardContent>
-    </Card>
+    <>
+      {showConfetti && <Confetti width={width} height={height} recycle={false} numberOfPieces={500} gravity={0.2} />}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-glow">Daily Health Tasks</CardTitle>
+          <CardDescription>
+            {completedTasks} of {totalTasks} tasks completed. Keep it up!
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Progress value={progressPercentage} className="w-full" />
+            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+              {Math.round(progressPercentage)}%
+            </span>
+          </div>
+          <div className="space-y-4">
+            {tasks.map((task) => {
+              const Icon = TaskIcons[task.iconName];
+              return (
+                  <div
+                    key={task.id}
+                    data-completed={task.completed}
+                    className="flex items-center space-x-4 p-4 rounded-lg transition-colors border border-transparent data-[completed=true]:border-primary/50 data-[completed=true]:bg-primary/10"
+                  >
+                    <Checkbox
+                        id={task.id}
+                        checked={task.completed}
+                        onCheckedChange={() => handleTaskToggle(task.id)}
+                        aria-labelledby={`${task.id}-label`}
+                    />
+                    <div className="flex items-center gap-3 flex-grow">
+                        <Icon className={`w-6 h-6 transition-colors ${task.completed ? "text-primary/50" : "text-primary"}`} />
+                        <Label
+                          htmlFor={task.id}
+                          id={`${task.id}-label`}
+                          className={`text-base cursor-pointer transition-colors ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}
+                        >
+                          {task.text}
+                        </Label>
+                    </div>
+                  </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </>
   );
 }

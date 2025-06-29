@@ -37,8 +37,8 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h1 className="text-3xl font-bold">Welcome to Nexus Lifeline</h1>
-        <p className="text-muted-foreground">Your personal health and wellness companion.</p>
+        <h1 className="text-3xl font-bold text-glow">Welcome to Nexus Lifeline</h1>
+        <p className="text-muted-foreground">Your futuristic health and wellness companion.</p>
       </div>
       <div className="grid grid-cols-4 gap-4 pt-4">
         {menuItems.map((item) => {
@@ -46,15 +46,18 @@ export function Dashboard() {
           return (
             <div 
               key={item.href}
-              className="flex flex-col items-center justify-start text-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-accent/50 transition-colors"
+              className="flex flex-col items-center justify-start text-center gap-2 cursor-pointer group"
               onClick={() => router.push(item.href)}
               onKeyDown={(e) => e.key === 'Enter' && router.push(item.href)}
               tabIndex={0}
             >
-              <div className="bg-card p-3 rounded-full shadow-sm border">
-                  <Icon className="w-6 h-6 text-primary" />
+              <div className="relative flex items-center justify-center bg-card/50 p-3 rounded-full shadow-lg border border-primary/20 transition-all duration-300 group-hover:border-primary group-hover:shadow-[0_0_15px_hsl(var(--primary))] group-hover:-translate-y-1">
+                <div className="absolute inset-0 bg-primary/10 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <Icon className="w-6 h-6 text-primary transition-colors duration-300" />
               </div>
-              <p className="text-xs font-medium text-foreground h-8 flex items-center">{item.label}</p>
+              <div className="h-8 flex items-center">
+                  <p className="text-xs font-medium text-foreground/80 transition-colors duration-300 group-hover:text-foreground">{item.label}</p>
+              </div>
             </div>
           );
         })}

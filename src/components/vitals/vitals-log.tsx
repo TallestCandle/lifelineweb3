@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -51,6 +50,20 @@ const bpChartConfig = {
 const singleMetricChartConfig = (label: string, color: string) => ({
     value: { label, color },
 }) satisfies ChartConfig;
+
+const NeonGlowFilter = () => (
+    <svg style={{ width: 0, height: 0, position: 'absolute' }}>
+      <defs>
+        <filter id="neon-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+    </svg>
+);
 
 
 export function VitalsLog() {
@@ -146,11 +159,11 @@ export function VitalsLog() {
     return (
         <ChartContainer config={singleMetricChartConfig(label, color)} className="min-h-[200px] w-full">
             <LineChart data={data} margin={{ left: 12, right: 12 }}>
-                <CartesianGrid vertical={false} />
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--foreground) / 0.1)" />
                 <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
-                <YAxis domain={['dataMin - 5', 'dataMax + 5']} />
-                <Tooltip content={<ChartTooltipContent />} />
-                <Line dataKey={dataKey} type="monotone" stroke={color} strokeWidth={2} dot={true} name="value" />
+                <YAxis domain={['dataMin - 5', 'dataMax + 5']} tickLine={false} axisLine={false} />
+                <Tooltip content={<ChartTooltipContent />} cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}/>
+                <Line dataKey={dataKey} type="monotone" stroke={color} strokeWidth={2.5} dot={false} name="value" filter="url(#neon-glow)" />
             </LineChart>
         </ChartContainer>
     );
@@ -163,9 +176,9 @@ export function VitalsLog() {
       <div className="lg:col-span-1 space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
+            <CardTitle className="flex items-center justify-between text-glow">
               <span>{editingId ? 'Edit Vitals' : 'Log New Vitals'}</span>
-              {editingId ? <Pencil className="w-6 h-6"/> : <PlusCircle className="w-6 h-6"/>}
+              {editingId ? <Pencil className="w-6 h-6 text-primary"/> : <PlusCircle className="w-6 h-6 text-primary"/>}
             </CardTitle>
             <CardDescription>{editingId ? 'Update the measurements below.' : 'Enter your current measurements below.'}</CardDescription>
           </CardHeader>
@@ -191,8 +204,9 @@ export function VitalsLog() {
       </div>
 
       <div className="lg:col-span-2 space-y-8">
+        <NeonGlowFilter />
         <Card>
-            <CardHeader><CardTitle>Vitals Trends</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-glow">Vitals Trends</CardTitle></CardHeader>
             <CardContent>
                 <Tabs defaultValue="bp">
                     <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
@@ -206,19 +220,19 @@ export function VitalsLog() {
                         {chartData.filter(d => d.systolic || d.diastolic).length < 2 ? <div className="flex items-center justify-center h-48 text-muted-foreground">Not enough data to display chart.</div> :
                         <ChartContainer config={bpChartConfig} className="min-h-[200px] w-full">
                             <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
-                                <CartesianGrid vertical={false} />
+                                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--foreground) / 0.1)" />
                                 <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
-                                <YAxis domain={['dataMin - 10', 'dataMax + 10']} />
-                                <Tooltip content={<ChartTooltipContent />} />
-                                <Line dataKey="systolic" type="monotone" stroke="var(--color-systolic)" strokeWidth={2} dot={true} />
-                                <Line dataKey="diastolic" type="monotone" stroke="var(--color-diastolic)" strokeWidth={2} dot={true} />
+                                <YAxis domain={['dataMin - 10', 'dataMax + 10']} tickLine={false} axisLine={false}/>
+                                <Tooltip content={<ChartTooltipContent />} cursor={{ stroke: 'hsl(var(--accent))', strokeWidth: 1, strokeDasharray: '3 3' }}/>
+                                <Line dataKey="systolic" type="monotone" stroke="var(--color-systolic)" strokeWidth={2.5} dot={false} filter="url(#neon-glow)" />
+                                <Line dataKey="diastolic" type="monotone" stroke="var(--color-diastolic)" strokeWidth={2.5} dot={false} filter="url(#neon-glow)" />
                             </LineChart>
                         </ChartContainer>}
                     </TabsContent>
                     <TabsContent value="oxygen" className="pt-4">{renderChart('oxygenLevel', 'Oxygen Level', 'hsl(var(--chart-3))')}</TabsContent>
                     <TabsContent value="temp" className="pt-4">{renderChart('temperature', 'Temperature', 'hsl(var(--chart-4))')}</TabsContent>
                     <TabsContent value="sugar" className="pt-4">{renderChart('bloodSugar', 'Blood Sugar', 'hsl(var(--chart-5))')}</TabsContent>
-                    <TabsContent value="weight" className="pt-4">{renderChart('weight', 'Weight', 'hsl(var(--chart-1))')}</TabsContent>
+                    <TabsContent value="weight" className="pt-4">{renderChart('weight', 'hsl(var(--chart-1))')}</TabsContent>
                 </Tabs>
             </CardContent>
         </Card>
@@ -243,11 +257,11 @@ export function VitalsLog() {
                       <TableCell className="font-medium whitespace-nowrap">{format(parseISO(entry.date), 'MMM d, yyyy, h:mm a')}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                            {entry.systolic && entry.diastolic && <span className="flex items-center gap-1"><HeartPulse className="w-4 h-4 text-destructive"/> {entry.systolic}/{entry.diastolic} mmHg</span>}
-                            {entry.oxygenLevel && <span className="flex items-center gap-1"><Activity className="w-4 h-4 text-primary"/> {entry.oxygenLevel}%</span>}
-                            {entry.temperature && <span className="flex items-center gap-1"><Thermometer className="w-4 h-4 text-accent-foreground"/> {entry.temperature}°F</span>}
-                            {entry.bloodSugar && <span className="flex items-center gap-1"><Droplets className="w-4 h-4 text-yellow-500"/> {entry.bloodSugar} mg/dL</span>}
-                            {entry.weight && <span className="flex items-center gap-1"><Scale className="w-4 h-4 text-green-500"/> {entry.weight} lbs</span>}
+                            {entry.systolic && entry.diastolic && <span className="flex items-center gap-1"><HeartPulse className="w-4 h-4 text-red-400"/> {entry.systolic}/{entry.diastolic} mmHg</span>}
+                            {entry.oxygenLevel && <span className="flex items-center gap-1"><Activity className="w-4 h-4 text-cyan-400"/> {entry.oxygenLevel}%</span>}
+                            {entry.temperature && <span className="flex items-center gap-1"><Thermometer className="w-4 h-4 text-orange-400"/> {entry.temperature}°F</span>}
+                            {entry.bloodSugar && <span className="flex items-center gap-1"><Droplets className="w-4 h-4 text-yellow-400"/> {entry.bloodSugar} mg/dL</span>}
+                            {entry.weight && <span className="flex items-center gap-1"><Scale className="w-4 h-4 text-green-400"/> {entry.weight} lbs</span>}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">

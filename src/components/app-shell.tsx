@@ -45,9 +45,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen w-full flex flex-col">
-      <header className="flex items-center justify-between p-4 border-b bg-background sticky top-0 z-10">
+      <header className="flex items-center justify-between p-4 border-b border-primary/20 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
           <div className="flex items-center gap-4">
-            <a href="/" className="flex items-center gap-2 text-primary">
+            <a href="/" className="flex items-center gap-2 text-primary text-glow">
                 <Stethoscope className="w-8 h-8" />
                 <h1 className="text-xl font-headline font-bold hidden sm:block">Nexus Lifeline</h1>
             </a>
@@ -96,7 +96,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               )}
           </div>
       </header>
-      <main className="flex-1 p-4 md:p-6 lg:p-8 bg-secondary/20">
+      <main className="flex-1 p-4 md:p-6 lg:p-8 animated-gradient-bg">
           {children}
       </main>
     </div>
