@@ -19,19 +19,18 @@ import type { LucideIcon } from "lucide-react";
 interface MenuItem {
   href: string;
   label: string;
-  description: string;
   icon: LucideIcon;
 }
 
 const menuItems: MenuItem[] = [
-  { href: "/tasks", label: "Daily Tasks", description: "Track your daily health activities.", icon: ListChecks },
-  { href: "/vitals", label: "Vitals Log", description: "Log and monitor your vital signs.", icon: HeartPulse },
-  { href: "/test-strips", label: "Test Strips", description: "Record urine test strip results.", icon: Beaker },
-  { href: "/reminders", label: "Medication", description: "Manage your medication schedule.", icon: Pill },
-  { href: "/analysis", label: "AI Analysis", description: "Get AI-powered health insights.", icon: BrainCircuit },
-  { href: "/report", label: "Health Report", description: "Generate and view monthly reports.", icon: FileText },
-  { href: "/emergency", label: "Emergency", description: "Access emergency contacts and alerts.", icon: Siren },
-  { href: "/profiles", label: "Profiles", description: "Manage user profiles.", icon: Users },
+  { href: "/tasks", label: "Daily Tasks", icon: ListChecks },
+  { href: "/vitals", label: "Vitals Log", icon: HeartPulse },
+  { href: "/test-strips", label: "Test Strips", icon: Beaker },
+  { href: "/reminders", label: "Medication", icon: Pill },
+  { href: "/analysis", label: "AI Analysis", icon: BrainCircuit },
+  { href: "/report", label: "Health Report", icon: FileText },
+  { href: "/emergency", label: "Emergency", icon: Siren },
+  { href: "/profiles", label: "Profiles", icon: Users },
 ];
 
 export function Dashboard() {
@@ -41,9 +40,9 @@ export function Dashboard() {
     <div className="space-y-6">
       <div className="text-center">
         <h1 className="text-3xl font-bold">Welcome to Nexus Lifeline</h1>
-        <p className="text-muted-foreground">Your personal health and wellness companion. Select an option to get started.</p>
+        <p className="text-muted-foreground">Your personal health and wellness companion.</p>
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-4 gap-3">
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -54,13 +53,12 @@ export function Dashboard() {
               onKeyDown={(e) => e.key === 'Enter' && router.push(item.href)}
               tabIndex={0}
             >
-              <CardContent className="flex flex-col items-center justify-center text-center p-4 gap-2">
-                 <div className="bg-primary/10 p-3 rounded-full">
-                    <Icon className="w-6 h-6 text-primary" />
+              <CardContent className="flex flex-col items-center justify-center text-center p-3 gap-2">
+                 <div className="bg-primary/10 p-2 rounded-full">
+                    <Icon className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <p className="font-semibold text-base">{item.label}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
+                  <p className="font-semibold text-sm">{item.label}</p>
                 </div>
               </CardContent>
             </Card>
