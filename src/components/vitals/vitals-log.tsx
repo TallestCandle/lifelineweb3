@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -13,8 +14,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { HeartPulse, Thermometer, Scale, Droplets, Activity, Pencil, Trash2, PlusCircle, Ban } from 'lucide-react';
+import { HeartPulse, Thermometer, Scale, Droplets, Activity, Pencil, Trash2, PlusCircle, Ban, Eye } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -70,6 +72,7 @@ export function VitalsLog() {
   const [isClient, setIsClient] = useState(false);
   const [vitalsHistory, setVitalsHistory] = useState<VitalsEntry[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedVital, setSelectedVital] = useState<VitalsEntry | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const { activeProfile } = useProfile();
@@ -247,28 +250,33 @@ export function VitalsLog() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
-                    <TableHead>Vitals</TableHead>
+                    <TableHead>Logged Vitals</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {vitalsHistory.length > 0 ? vitalsHistory.map(entry => (
                     <TableRow key={entry.id}>
-                      <TableCell className="font-medium whitespace-nowrap">{format(parseISO(entry.date), 'MMM d, yyyy, h:mm a')}</TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{format(parseISO(entry.date), 'MMM d, yyyy')}</TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                            {entry.systolic && entry.diastolic && <span className="flex items-center gap-1"><HeartPulse className="w-4 h-4 text-red-400"/> {entry.systolic}/{entry.diastolic} mmHg</span>}
-                            {entry.oxygenLevel && <span className="flex items-center gap-1"><Activity className="w-4 h-4 text-cyan-400"/> {entry.oxygenLevel}%</span>}
-                            {entry.temperature && <span className="flex items-center gap-1"><Thermometer className="w-4 h-4 text-orange-400"/> {entry.temperature}°F</span>}
-                            {entry.bloodSugar && <span className="flex items-center gap-1"><Droplets className="w-4 h-4 text-yellow-400"/> {entry.bloodSugar} mg/dL</span>}
-                            {entry.weight && <span className="flex items-center gap-1"><Scale className="w-4 h-4 text-green-400"/> {entry.weight} lbs</span>}
+                        <div className="flex flex-wrap items-center gap-2">
+                            {entry.systolic && entry.diastolic && <HeartPulse className="w-4 h-4 text-red-400" title="Blood Pressure"/>}
+                            {entry.oxygenLevel && <Activity className="w-4 h-4 text-cyan-400" title="Oxygen Level"/>}
+                            {entry.temperature && <Thermometer className="w-4 h-4 text-orange-400" title="Temperature"/>}
+                            {entry.bloodSugar && <Droplets className="w-4 h-4 text-yellow-400" title="Blood Sugar"/>}
+                            {entry.weight && <Scale className="w-4 h-4 text-green-400" title="Weight"/>}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)}><Pencil className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => setSelectedVital(entry)} title="View Details">
+                            <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} title="Edit">
+                            <Pencil className="w-4 h-4" />
+                        </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon"><Trash2 className="w-4 h-4" /></Button>
+                            <Button variant="ghost" size="icon" title="Delete"><Trash2 className="w-4 h-4" /></Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone. This will permanently delete this vitals entry.</AlertDialogDescription></AlertDialogHeader>
@@ -288,6 +296,71 @@ export function VitalsLog() {
           </CardContent>
         </Card>
       </div>
+      
+      {selectedVital && (
+        <Dialog open={!!selectedVital} onOpenChange={(isOpen) => !isOpen && setSelectedVital(null)}>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Vitals on {format(parseISO(selectedVital.date), 'MMM d, yyyy, h:mm a')}</DialogTitle>
+                    <DialogDescription>
+                        A detailed look at the vitals recorded for this entry.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-4 py-4">
+                    {selectedVital.systolic && selectedVital.diastolic && (
+                        <div className="flex items-start gap-3">
+                            <HeartPulse className="w-5 h-5 text-red-400 mt-1" />
+                            <div>
+                                <div className="text-sm text-muted-foreground">Blood Pressure</div>
+                                <div className="font-semibold">{selectedVital.systolic}/{selectedVital.diastolic} mmHg</div>
+                            </div>
+                        </div>
+                    )}
+                    {selectedVital.oxygenLevel && (
+                        <div className="flex items-start gap-3">
+                            <Activity className="w-5 h-5 text-cyan-400 mt-1" />
+                            <div>
+                                <div className="text-sm text-muted-foreground">Oxygen Saturation</div>
+                                <div className="font-semibold">{selectedVital.oxygenLevel}%</div>
+                            </div>
+                        </div>
+                    )}
+                    {selectedVital.temperature && (
+                        <div className="flex items-start gap-3">
+                            <Thermometer className="w-5 h-5 text-orange-400 mt-1" />
+                            <div>
+                                <div className="text-sm text-muted-foreground">Temperature</div>
+                                <div className="font-semibold">{selectedVital.temperature}°F</div>
+                            </div>
+                        </div>
+                    )}
+                    {selectedVital.bloodSugar && (
+                        <div className="flex items-start gap-3">
+                            <Droplets className="w-5 h-5 text-yellow-400 mt-1" />
+                            <div>
+                                <div className="text-sm text-muted-foreground">Blood Sugar</div>
+                                <div className="font-semibold">{selectedVital.bloodSugar} mg/dL</div>
+                            </div>
+                        </div>
+                    )}
+                    {selectedVital.weight && (
+                        <div className="flex items-start gap-3">
+                            <Scale className="w-5 h-5 text-green-400 mt-1" />
+                            <div>
+                                <div className="text-sm text-muted-foreground">Weight</div>
+                                <div className="font-semibold">{selectedVital.weight} lbs</div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="secondary">Close</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
