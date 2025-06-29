@@ -21,7 +21,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<ThemeId>('theme-cool-flash');
 
   useEffect(() => {
-    document.documentElement.className = theme;
+    const themeClasses = themes.map(t => t.id);
+    document.documentElement.classList.remove(...themeClasses);
+    document.documentElement.classList.add(theme);
   }, [theme]);
 
   const value = useMemo(() => ({ theme, setTheme }), [theme]);
