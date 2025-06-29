@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from '@/lib/utils';
+import { useProfile } from '@/context/profile-provider';
 
 interface MenuItem {
   href: string;
@@ -38,12 +39,15 @@ const menuItems: MenuItem[] = [
 
 export function Dashboard() {
   const router = useRouter();
+  const { activeProfile } = useProfile();
 
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h1 className="text-3xl font-bold text-glow">Welcome to Nexus Lifeline</h1>
-        <p className="text-muted-foreground">Your futuristic health and wellness companion.</p>
+        <h1 className="text-3xl font-bold animated-text-shine">
+          Welcome, {activeProfile?.name || 'User'}
+        </h1>
+        <p className="text-muted-foreground">Here's your command center for a healthier life.</p>
       </div>
       <div className="grid grid-cols-4 gap-4 pt-4">
         {menuItems.map((item) => {

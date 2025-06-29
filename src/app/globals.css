@@ -96,8 +96,11 @@
     will-change: background-position;
   }
   
-  .text-glow {
-    text-shadow: 0 0 8px hsl(var(--primary));
+  .animated-text-shine {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(to right, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--primary)));
+    background-size: 200% auto;
+    animation: text-shine 4s linear infinite;
   }
 
   .button-flash {
@@ -117,6 +120,12 @@
     transform: scale(1, 1) translate(-50%, -50%);
     transform-origin: 50% 50%;
     animation: ripple 0.5s ease-out;
+  }
+}
+
+@keyframes text-shine {
+  to {
+    background-position: -200% center;
   }
 }
 
