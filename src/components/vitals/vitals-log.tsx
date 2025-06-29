@@ -250,7 +250,7 @@ export function VitalsLog() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField control={form.control} name="systolic" render={({ field }) => (<FormItem><FormLabel>Systolic</FormLabel><FormControl><Input placeholder="120" {...field} /></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={form.control} name="diastolic" render={({ field }) => (<FormItem><FormLabel>Diastolic</FormLabel><FormControl><Input placeholder="80" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
@@ -307,9 +307,8 @@ export function VitalsLog() {
             <CardDescription>A log of all your previously recorded vital signs.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="max-h-[500px] overflow-auto">
-              <Table>
-                <TableHeader className="sticky top-0 bg-card">
+            <Table>
+                <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Vitals</TableHead>
@@ -349,8 +348,7 @@ export function VitalsLog() {
                     <TableRow><TableCell colSpan={3} className="text-center h-24">No vitals logged yet.</TableCell></TableRow>
                   )}
                 </TableBody>
-              </Table>
-            </div>
+            </Table>
           </CardContent>
         </Card>
       </div>

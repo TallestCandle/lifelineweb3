@@ -206,14 +206,14 @@ export function RemindersList() {
                                 const status = todayLog[reminder.id];
                                 return (
                                     <li key={reminder.id} className="flex items-center justify-between p-3 rounded-md bg-secondary/50">
-                                        <div className="flex items-center gap-4">
-                                            <Pill className={cn("w-6 h-6", status ? 'text-muted-foreground' : 'text-primary')} />
-                                            <div>
-                                                <p className={cn("font-semibold", status && "line-through text-muted-foreground")}>{reminder.name}</p>
+                                        <div className="flex items-center gap-4 min-w-0">
+                                            <Pill className={cn("w-6 h-6 flex-shrink-0", status ? 'text-muted-foreground' : 'text-primary')} />
+                                            <div className="min-w-0">
+                                                <p className={cn("font-semibold truncate", status && "line-through text-muted-foreground")}>{reminder.name}</p>
                                                 <p className="text-sm text-muted-foreground">{reminder.time}</p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-shrink-0">
                                             {status === 'taken' && <Badge variant="outline" className="border-green-500 text-green-600">Taken</Badge>}
                                             {status === 'missed' && <Badge variant="destructive">Missed</Badge>}
                                             {!status && (

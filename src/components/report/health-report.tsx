@@ -146,17 +146,17 @@ export function HealthReport() {
                 </div>
             )}
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <CardTitle>Monthly Health Report</CardTitle>
                         <CardDescription>Review and download a summary of your health data.</CardDescription>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                         <Select
                             value={String(getMonth(selectedDate))}
                             onValueChange={(value) => setSelectedDate(current => setMonth(current, Number(value)))}
                         >
-                            <SelectTrigger className="w-[140px]">
+                            <SelectTrigger className="w-full sm:w-[140px]">
                                 <SelectValue placeholder="Select Month" />
                             </SelectTrigger>
                             <SelectContent>
@@ -167,21 +167,21 @@ export function HealthReport() {
                             value={String(getYear(selectedDate))}
                             onValueChange={(value) => setSelectedDate(current => setYear(current, Number(value)))}
                         >
-                            <SelectTrigger className="w-[100px]">
+                            <SelectTrigger className="w-full sm:w-[100px]">
                                 <SelectValue placeholder="Select Year" />
                             </SelectTrigger>
                             <SelectContent>
                                 {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
                             </SelectContent>
                         </Select>
-                        <Button onClick={handleDownloadPdf} disabled={isGenerating}>
+                        <Button onClick={handleDownloadPdf} disabled={isGenerating} className="w-full sm:w-auto">
                             <Download className="mr-2" /> Download PDF
                         </Button>
                     </div>
                 </CardHeader>
             </Card>
 
-            <Card id="report-content" className="p-8">
+            <Card id="report-content" className="p-4 md:p-8">
                 <header className="border-b pb-4 mb-8">
                     <h1 className="text-3xl font-bold text-primary">Health Report</h1>
                     <p className="text-lg text-muted-foreground">{format(selectedDate, 'MMMM yyyy')}</p>
@@ -229,32 +229,30 @@ export function HealthReport() {
                 
                 <section className="mb-8">
                     <h2 className="text-2xl font-semibold mb-4">Vitals Log</h2>
-                    <div className="border rounded-lg">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Date & Time</TableHead>
-                                    <TableHead>Vitals</TableHead>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date & Time</TableHead>
+                                <TableHead>Vitals</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredVitals.length > 0 ? filteredVitals.map(entry => (
+                                <TableRow key={entry.id}>
+                                    <TableCell>{format(parseISO(entry.date), 'MMM d, yyyy, h:mm a')}</TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                                            {entry.systolic && entry.diastolic && <span className="flex items-center gap-1"><HeartPulse className="w-4 h-4 text-destructive"/> {entry.systolic}/{entry.diastolic} mmHg</span>}
+                                            {entry.oxygenLevel && <span className="flex items-center gap-1"><Activity className="w-4 h-4 text-primary"/> {entry.oxygenLevel}%</span>}
+                                            {entry.temperature && <span className="flex items-center gap-1"><Thermometer className="w-4 h-4 text-accent-foreground"/> {entry.temperature}°F</span>}
+                                            {entry.bloodSugar && <span className="flex items-center gap-1"><Droplets className="w-4 h-4 text-yellow-500"/> {entry.bloodSugar} mg/dL</span>}
+                                            {entry.weight && <span className="flex items-center gap-1"><Scale className="w-4 h-4 text-green-500"/> {entry.weight} lbs</span>}
+                                        </div>
+                                    </TableCell>
                                 </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredVitals.length > 0 ? filteredVitals.map(entry => (
-                                    <TableRow key={entry.id}>
-                                        <TableCell>{format(parseISO(entry.date), 'MMM d, yyyy, h:mm a')}</TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                                                {entry.systolic && entry.diastolic && <span className="flex items-center gap-1"><HeartPulse className="w-4 h-4 text-destructive"/> {entry.systolic}/{entry.diastolic} mmHg</span>}
-                                                {entry.oxygenLevel && <span className="flex items-center gap-1"><Activity className="w-4 h-4 text-primary"/> {entry.oxygenLevel}%</span>}
-                                                {entry.temperature && <span className="flex items-center gap-1"><Thermometer className="w-4 h-4 text-accent-foreground"/> {entry.temperature}°F</span>}
-                                                {entry.bloodSugar && <span className="flex items-center gap-1"><Droplets className="w-4 h-4 text-yellow-500"/> {entry.bloodSugar} mg/dL</span>}
-                                                {entry.weight && <span className="flex items-center gap-1"><Scale className="w-4 h-4 text-green-500"/> {entry.weight} lbs</span>}
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                )) : <TableRow><TableCell colSpan={2} className="text-center h-24">No vitals logged this month.</TableCell></TableRow>}
-                            </TableBody>
-                        </Table>
-                    </div>
+                            )) : <TableRow><TableCell colSpan={2} className="text-center h-24">No vitals logged this month.</TableCell></TableRow>}
+                        </TableBody>
+                    </Table>
                 </section>
 
                 <section>
