@@ -137,7 +137,7 @@ export function VitalsLog() {
     
     return (
         <ChartContainer config={singleMetricChartConfig(label, color)} className="min-h-[200px] w-full">
-            <LineChart data={data} margin={{ left: -10, right: 12 }}>
+            <LineChart data={data} margin={{ left: -30, right: 10 }}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--foreground) / 0.1)" />
                 <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
                 <YAxis domain={['dataMin - 5', 'dataMax + 5']} tickLine={false} axisLine={false} />
@@ -318,17 +318,17 @@ export function VitalsLog() {
 
       {activeChart && (
         <Dialog open={!!activeChart} onOpenChange={(isOpen) => !isOpen && setActiveChart(null)}>
-            <DialogContent className="sm:max-w-xl">
+            <DialogContent className="sm:max-w-xl p-0">
                 {activeChart === 'bp' && (
                     <>
-                        <DialogHeader>
+                        <DialogHeader className="p-6 pb-2">
                             <DialogTitle>Blood Pressure Trend</DialogTitle>
                             <DialogDescription>Systolic and diastolic pressure over time.</DialogDescription>
                         </DialogHeader>
-                        <div className="pt-4">
+                        <div className="px-2">
                             {chartData.filter(d => d.systolic || d.diastolic).length < 2 ? <div className="flex items-center justify-center h-48 text-muted-foreground">Not enough data to display chart.</div> :
                             <ChartContainer config={bpChartConfig} className="min-h-[200px] w-full">
-                                <LineChart data={chartData} margin={{ left: -10, right: 12 }}>
+                                <LineChart data={chartData} margin={{ left: -30, right: 10 }}>
                                     <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--foreground) / 0.1)" />
                                     <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
                                     <YAxis domain={['dataMin - 10', 'dataMax + 10']} tickLine={false} axisLine={false}/>
@@ -342,38 +342,38 @@ export function VitalsLog() {
                 )}
                 {activeChart === 'oxygen' && (
                     <>
-                        <DialogHeader>
+                        <DialogHeader className="p-6 pb-2">
                             <DialogTitle>Oxygen Level Trend</DialogTitle>
                             <DialogDescription>SpO2 percentage over time.</DialogDescription>
                         </DialogHeader>
-                        <div className="pt-4">{renderChart('oxygenLevel', 'Oxygen Level', 'hsl(var(--chart-3))')}</div>
+                        <div className="px-2">{renderChart('oxygenLevel', 'Oxygen Level', 'hsl(var(--chart-3))')}</div>
                     </>
                 )}
                 {activeChart === 'temp' && (
                     <>
-                        <DialogHeader>
+                        <DialogHeader className="p-6 pb-2">
                             <DialogTitle>Temperature Trend</DialogTitle>
                             <DialogDescription>Body temperature over time.</DialogDescription>
                         </DialogHeader>
-                        <div className="pt-4">{renderChart('temperature', 'Temperature', 'hsl(var(--chart-4))')}</div>
+                        <div className="px-2">{renderChart('temperature', 'Temperature', 'hsl(var(--chart-4))')}</div>
                     </>
                 )}
                 {activeChart === 'sugar' && (
                     <>
-                        <DialogHeader>
+                        <DialogHeader className="p-6 pb-2">
                             <DialogTitle>Blood Sugar Trend</DialogTitle>
                             <DialogDescription>Blood glucose level over time.</DialogDescription>
                         </DialogHeader>
-                        <div className="pt-4">{renderChart('bloodSugar', 'Blood Sugar', 'hsl(var(--chart-5))')}</div>
+                        <div className="px-2">{renderChart('bloodSugar', 'Blood Sugar', 'hsl(var(--chart-5))')}</div>
                     </>
                 )}
                 {activeChart === 'weight' && (
                     <>
-                        <DialogHeader>
+                        <DialogHeader className="p-6 pb-2">
                             <DialogTitle>Weight Trend</DialogTitle>
                             <DialogDescription>Body weight over time.</DialogDescription>
                         </DialogHeader>
-                        <div className="pt-4">{renderChart('weight', 'Weight', 'hsl(var(--chart-1))')}</div>
+                        <div className="px-2">{renderChart('weight', 'Weight', 'hsl(var(--chart-1))')}</div>
                     </>
                 )}
             </DialogContent>
