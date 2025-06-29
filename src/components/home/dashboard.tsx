@@ -1,9 +1,7 @@
-
 "use client";
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent } from "@/components/ui/card";
 import {
   ListChecks,
   HeartPulse,
@@ -42,26 +40,22 @@ export function Dashboard() {
         <h1 className="text-3xl font-bold">Welcome to Nexus Lifeline</h1>
         <p className="text-muted-foreground">Your personal health and wellness companion.</p>
       </div>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-4 gap-4 pt-4">
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
-            <Card 
+            <div 
               key={item.href}
-              className="cursor-pointer hover:bg-accent/50 transition-colors"
+              className="flex flex-col items-center justify-start text-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-accent/50 transition-colors"
               onClick={() => router.push(item.href)}
               onKeyDown={(e) => e.key === 'Enter' && router.push(item.href)}
               tabIndex={0}
             >
-              <CardContent className="flex flex-col items-center justify-center text-center p-3 gap-2">
-                 <div className="bg-primary/10 p-2 rounded-full">
-                    <Icon className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-semibold text-sm">{item.label}</p>
-                </div>
-              </CardContent>
-            </Card>
+              <div className="bg-card p-3 rounded-full shadow-sm border">
+                  <Icon className="w-6 h-6 text-primary" />
+              </div>
+              <p className="text-xs font-medium text-foreground h-8 flex items-center">{item.label}</p>
+            </div>
           );
         })}
       </div>
