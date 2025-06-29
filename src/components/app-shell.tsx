@@ -10,10 +10,13 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarTrigger
+  SidebarTrigger,
+  SidebarFooter
 } from "@/components/ui/sidebar"
-import { Home, ListChecks, HeartPulse, Siren, Stethoscope } from "lucide-react"
-import { usePathname } from "next/navigation"
+import { Home, ListChecks, HeartPulse, Siren, Stethoscope, LogOut } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { signOut } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
@@ -24,11 +27,23 @@ const navItems = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   
   const getPageTitle = () => {
     const currentItem = navItems.find(item => item.href === pathname);
     return currentItem ? currentItem.label : "Nexus Lifeline";
   }
+
+  const handleLogout = async () => {
+    try {
+      if (auth) {
+        await signOut(auth);
+      }
+      router.push('/auth');
+    } catch (error) {
+      console.error("Error signing out: ", error);
+    }
+  };
 
   return (
     <SidebarProvider>
@@ -57,6 +72,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </SidebarMenu>
         </SidebarContent>
+        <SidebarFooter>
+            <SidebarMenu>
+                <SidebarMenuItem>
+                    <SidebarMenuButton onClick={handleLogout}>
+                        <LogOut />
+                        <span>Logout</span>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+            </SidebarMenu>
+        </SidebarFooter>
       </Sidebar>
       <SidebarInset>
         <header className="flex items-center justify-between p-4 border-b">
