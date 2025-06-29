@@ -137,7 +137,7 @@ export function VitalsLog() {
     
     return (
         <ChartContainer config={singleMetricChartConfig(label, color)} className="min-h-[200px] w-full">
-            <LineChart data={data} margin={{ left: 12, right: 12 }}>
+            <LineChart data={data} margin={{ left: -10, right: 12 }}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--foreground) / 0.1)" />
                 <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
                 <YAxis domain={['dataMin - 5', 'dataMax + 5']} tickLine={false} axisLine={false} />
@@ -328,7 +328,7 @@ export function VitalsLog() {
                         <div className="pt-4">
                             {chartData.filter(d => d.systolic || d.diastolic).length < 2 ? <div className="flex items-center justify-center h-48 text-muted-foreground">Not enough data to display chart.</div> :
                             <ChartContainer config={bpChartConfig} className="min-h-[200px] w-full">
-                                <LineChart data={chartData} margin={{ left: 12, right: 12 }}>
+                                <LineChart data={chartData} margin={{ left: -10, right: 12 }}>
                                     <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--foreground) / 0.1)" />
                                     <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
                                     <YAxis domain={['dataMin - 10', 'dataMax + 10']} tickLine={false} axisLine={false}/>
