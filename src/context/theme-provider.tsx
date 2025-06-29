@@ -18,12 +18,17 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<ThemeId>('theme-cool-flash');
+  // Default to dark theme, will be updated by AppShell effect
+  const [theme, setTheme] = useState<ThemeId>('theme-cool-flash'); 
 
   useEffect(() => {
-    const themeClasses = themes.map(t => t.id);
-    document.documentElement.classList.remove(...themeClasses);
-    document.documentElement.classList.add(theme);
+    const root = window.document.documentElement;
+    
+    // Clean up old themes
+    root.classList.remove('theme-cool-flash', 'theme-serene-sky');
+    
+    // Add the new theme
+    root.classList.add(theme);
   }, [theme]);
 
   const value = useMemo(() => ({ theme, setTheme }), [theme]);

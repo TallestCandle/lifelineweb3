@@ -35,8 +35,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     if (activeProfile?.theme) {
       setTheme(activeProfile.theme);
-    } else {
-      setTheme('theme-cool-flash'); // Fallback to default
     }
   }, [activeProfile, setTheme]);
   

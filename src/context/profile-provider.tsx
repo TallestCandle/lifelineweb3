@@ -100,16 +100,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const switchProfile = async (profileId: string) => {
     const profileToSwitch = profiles.find(p => p.id === profileId);
     if (profileToSwitch) {
-      setActiveProfile(profileToSwitch);
       const activeProfileKey = getActiveProfileKey();
       if(activeProfileKey) window.localStorage.setItem(activeProfileKey, profileId);
       
-      if (pathname === '/profiles') {
-        router.push('/');
-        setTimeout(() => window.location.reload(), 100);
-      } else {
-        window.location.reload();
-      }
+      // We reload here to ensure all data across the app refreshes for the new profile.
+      window.location.reload();
     }
   };
 
@@ -187,10 +182,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (!user || !activeProfile) {
       throw new Error("No active profile selected.");
     }
+    // Update local state for immediate UI response
+    setActiveProfile(prev => (prev ? { ...prev, theme: themeId } : null));
+
+    // Persist to Firestore in the background
     const profileDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}`);
     await updateDoc(profileDocRef, { theme: themeId });
-    // Update local state optimistically in case of re-render before reload
-    setActiveProfile(prev => (prev ? { ...prev, theme: themeId } : null));
   };
 
 
