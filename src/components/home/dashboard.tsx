@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -42,7 +43,7 @@ export function Dashboard() {
         <h1 className="text-3xl font-bold">Welcome to Nexus Lifeline</h1>
         <p className="text-muted-foreground">Your personal health and wellness companion. Select an option to get started.</p>
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -53,13 +54,13 @@ export function Dashboard() {
               onKeyDown={(e) => e.key === 'Enter' && router.push(item.href)}
               tabIndex={0}
             >
-              <CardContent className="flex flex-col items-center justify-center text-center p-6 gap-4">
-                 <div className="bg-primary/10 p-4 rounded-full">
-                    <Icon className="w-8 h-8 text-primary" />
+              <CardContent className="flex flex-col items-center justify-center text-center p-4 gap-2">
+                 <div className="bg-primary/10 p-3 rounded-full">
+                    <Icon className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="font-semibold">{item.label}</p>
-                  <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
+                  <p className="font-semibold text-base">{item.label}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
                 </div>
               </CardContent>
             </Card>
