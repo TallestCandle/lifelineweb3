@@ -1,14 +1,15 @@
 "use client"
 
 import * as React from "react"
-import { Stethoscope, LogOut, ChevronsUpDown, User as UserIcon, PlusCircle } from "lucide-react"
+import { Stethoscope, LogOut, ChevronsUpDown, User as UserIcon, PlusCircle, Palette } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { signOut } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useProfile } from "@/context/profile-provider"
 import { Button } from "./ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from "./ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "./ui/avatar"
+import { ThemeSwitcher } from "./theme/theme-switcher"
 
 // Define a map for page titles
 const pageTitles: Record<string, string> = {
@@ -72,7 +73,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-56" align="end">
                           <DropdownMenuLabel>Switch Profile</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
                           <DropdownMenuGroup>
                               {profiles.map(profile => (
                                   <DropdownMenuItem key={profile.id} onClick={() => switchProfile(profile.id)} disabled={profile.id === activeProfile.id}>
@@ -86,6 +86,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               <PlusCircle className="mr-2 h-4 w-4" />
                               <span>Manage Profiles</span>
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>
+                              <Palette className="mr-2 h-4 w-4" />
+                              <span>Change Theme</span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuPortal>
+                              <DropdownMenuSubContent>
+                                <ThemeSwitcher />
+                              </DropdownMenuSubContent>
+                            </DropdownMenuPortal>
+                          </DropdownMenuSub>
+
                           <DropdownMenuSeparator />
                            <DropdownMenuItem onClick={handleLogout}>
                               <LogOut className="mr-2 h-4 w-4" />

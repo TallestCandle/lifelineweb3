@@ -17,25 +17,27 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/context/profile-provider';
 
+type DashboardColor = "chart-1" | "destructive" | "chart-2" | "chart-4" | "chart-5" | "primary" | "chart-6";
+
 interface MenuItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  color: string;
-  border: string;
-  shadow: string;
-  glow: string;
+  colorClass: `text-${DashboardColor}`;
+  borderClass: `group-hover:border-${DashboardColor}`;
+  shadowClass: `group-hover:shadow-${DashboardColor}/40`;
+  glowClass: `bg-${DashboardColor}/10`;
 }
 
 const menuItems: MenuItem[] = [
-    { href: "/tasks", label: "Daily Tasks", icon: ListChecks, color: "text-green-400", border: "group-hover:border-green-400", shadow: "group-hover:shadow-lg group-hover:shadow-green-400/40", glow: "bg-green-400/10" },
-    { href: "/vitals", label: "Vitals Log", icon: HeartPulse, color: "text-red-500", border: "group-hover:border-red-500", shadow: "group-hover:shadow-lg group-hover:shadow-red-500/40", glow: "bg-red-500/10" },
-    { href: "/test-strips", label: "Test Strips", icon: Beaker, color: "text-purple-400", border: "group-hover:border-purple-400", shadow: "group-hover:shadow-lg group-hover:shadow-purple-400/40", glow: "bg-purple-400/10" },
-    { href: "/reminders", label: "Medication", icon: Pill, color: "text-orange-400", border: "group-hover:border-orange-400", shadow: "group-hover:shadow-lg group-hover:shadow-orange-400/40", glow: "bg-orange-400/10" },
-    { href: "/analysis", label: "AI Analysis", icon: BrainCircuit, color: "text-cyan-400", border: "group-hover:border-cyan-400", shadow: "group-hover:shadow-lg group-hover:shadow-cyan-400/40", glow: "bg-cyan-400/10" },
-    { href: "/report", label: "Health Report", icon: FileText, color: "text-indigo-400", border: "group-hover:border-indigo-400", shadow: "group-hover:shadow-lg group-hover:shadow-indigo-400/40", glow: "bg-indigo-400/10" },
-    { href: "/emergency", label: "Emergency", icon: Siren, color: "text-red-600", border: "group-hover:border-red-600", shadow: "group-hover:shadow-lg group-hover:shadow-red-600/40", glow: "bg-red-600/10" },
-    { href: "/profiles", label: "Profiles", icon: Users, color: "text-yellow-400", border: "group-hover:border-yellow-400", shadow: "group-hover:shadow-lg group-hover:shadow-yellow-400/40", glow: "bg-yellow-400/10" },
+    { href: "/tasks", label: "Daily Tasks", icon: ListChecks, colorClass: "text-chart-1", borderClass: "group-hover:border-chart-1", shadowClass: "group-hover:shadow-chart-1/40", glowClass: "bg-chart-1/10" },
+    { href: "/vitals", label: "Vitals Log", icon: HeartPulse, colorClass: "text-destructive", borderClass: "group-hover:border-destructive", shadowClass: "group-hover:shadow-destructive/40", glowClass: "bg-destructive/10" },
+    { href: "/test-strips", label: "Test Strips", icon: Beaker, colorClass: "text-chart-2", borderClass: "group-hover:border-chart-2", shadowClass: "group-hover:shadow-chart-2/40", glowClass: "bg-chart-2/10" },
+    { href: "/reminders", label: "Medication", icon: Pill, colorClass: "text-chart-4", borderClass: "group-hover:border-chart-4", shadowClass: "group-hover:shadow-chart-4/40", glowClass: "bg-chart-4/10" },
+    { href: "/analysis", label: "AI Analysis", icon: BrainCircuit, colorClass: "text-chart-5", borderClass: "group-hover:border-chart-5", shadowClass: "group-hover:shadow-chart-5/40", glowClass: "bg-chart-5/10" },
+    { href: "/report", label: "Health Report", icon: FileText, colorClass: "text-primary", borderClass: "group-hover:border-primary", shadowClass: "group-hover:shadow-primary/40", glowClass: "bg-primary/10" },
+    { href: "/emergency", label: "Emergency", icon: Siren, colorClass: "text-destructive", borderClass: "group-hover:border-destructive", shadowClass: "group-hover:shadow-destructive/40", glowClass: "bg-destructive/10" },
+    { href: "/profiles", label: "Profiles", icon: Users, colorClass: "text-chart-6", borderClass: "group-hover:border-chart-6", shadowClass: "group-hover:shadow-chart-6/40", glowClass: "bg-chart-6/10" },
 ];
 
 export function Dashboard() {
@@ -48,7 +50,7 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h1 className="text-3xl font-bold">
+        <h1 className="text-3xl font-bold text-foreground/90">
           {greeting}
         </h1>
         <p className="text-muted-foreground">Here's your command center for a healthier life.</p>
@@ -66,14 +68,14 @@ export function Dashboard() {
             >
               <div className={cn(
                 "relative flex items-center justify-center bg-card/50 p-3 rounded-full shadow-lg border border-primary/20 transition-all duration-300 group-hover:-translate-y-1",
-                item.border,
-                item.shadow
+                item.borderClass,
+                `group-hover:shadow-lg ${item.shadowClass}`
               )}>
                 <div className={cn(
                   "absolute inset-0 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300",
-                  item.glow
+                  item.glowClass
                 )} />
-                <Icon className={cn("w-6 h-6 transition-colors duration-300", item.color)} />
+                <Icon className={cn("w-6 h-6 transition-colors duration-300", item.colorClass)} />
               </div>
               <div className="h-8 flex items-center">
                   <p className="text-xs font-medium text-foreground/80 transition-colors duration-300 group-hover:text-foreground">{item.label}</p>
