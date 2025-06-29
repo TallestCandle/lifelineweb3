@@ -3,7 +3,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAD5KWJlCGf4JhgUiHKy15bL2MQYytYVPQ",
+  apiKey: "AIzaSyBWUTSsF8lWjUdrH7eUGFeMXHKAeK6CClg",
   authDomain: "nexus-lifeline.firebaseapp.com",
   projectId: "nexus-lifeline",
   storageBucket: "nexus-lifeline.appspot.com",
