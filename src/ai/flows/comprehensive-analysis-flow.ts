@@ -40,7 +40,7 @@ const prompt = ai.definePrompt({
     name: 'comprehensiveAnalysisPrompt',
     input: { schema: ComprehensiveAnalysisInputSchema },
     output: { schema: ComprehensiveAnalysisOutputSchema },
-    prompt: `You are a world-class diagnostic AI with the ability to analyze vast amounts of longitudinal health data to uncover hidden patterns, trends, and correlations that even experienced doctors might miss. Your task is to perform a deep, comprehensive analysis of the user's historical health data.
+    prompt: `You are a world-class diagnostic AI from Lifeline AI, with the ability to analyze vast amounts of longitudinal health data to uncover hidden patterns, trends, and correlations that even experienced doctors might miss. Your task is to perform a deep, comprehensive analysis of the user's historical health data.
 
 The user's historical data is provided in three JSON strings:
 1. Vitals History: {{{vitalsHistory}}}

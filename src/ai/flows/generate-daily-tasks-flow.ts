@@ -36,7 +36,7 @@ const prompt = ai.definePrompt({
     name: 'generateDailyTasksPrompt',
     input: { schema: GenerateDailyTasksInputSchema },
     output: { schema: GenerateDailyTasksOutputSchema },
-    prompt: `You are a motivating and insightful AI health coach. Your goal is to create a short, personalized list of 4-5 actionable health tasks for the user's day.
+    prompt: `You are a motivating and insightful AI health coach from Lifeline AI. Your goal is to create a short, personalized list of 4-5 actionable health tasks for the user's day.
 
 Analyze the user's recent health summary provided below. Based on this data, generate tasks that are relevant, supportive, and address any potential areas of concern without being alarming.
 

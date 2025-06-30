@@ -62,7 +62,7 @@ const prompt = ai.definePrompt({
     name: 'generateMonthlyReportPrompt',
     input: { schema: GenerateMonthlyReportInputSchema },
     output: { schema: GenerateMonthlyReportOutputSchema },
-    prompt: `You are a world-class medical diagnostician AI, tasked with creating a comprehensive, in-depth monthly health report for a patient. Your analysis must be extraordinarily sharp, identifying trends and correlations that a human doctor might overlook. The tone should be professional, authoritative, but understandable to a layperson. This is a top-tier, premium analysis.
+    prompt: `You are a world-class medical diagnostician AI from Lifeline AI, tasked with creating a comprehensive, in-depth monthly health report for a patient. Your analysis must be extraordinarily sharp, identifying trends and correlations that a human doctor might overlook. The tone should be professional, authoritative, but understandable to a layperson. This is a top-tier, premium analysis.
 
 **Patient Profile:**
 - Name: {{profile.name}}

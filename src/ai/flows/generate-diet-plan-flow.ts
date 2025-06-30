@@ -43,7 +43,7 @@ const prompt = ai.definePrompt({
     name: 'generateDietPlanPrompt',
     input: { schema: GenerateDietPlanInputSchema },
     output: { schema: GenerateDietPlanOutputSchema },
-    prompt: `You are an expert dietician and nutritionist specializing in creating personalized daily meal plans based on an individual's health data. You have deep knowledge of both traditional Nigerian cuisine and general intercontinental dishes.
+    prompt: `You are an expert dietician and nutritionist from Lifeline AI, specializing in creating personalized daily meal plans based on an individual's health data. You have deep knowledge of both traditional Nigerian cuisine and general intercontinental dishes.
 
 Your task is to analyze the user's profile and recent health summary to create a one-day meal plan (breakfast, lunch, dinner) and provide some general dietary advice.
 
