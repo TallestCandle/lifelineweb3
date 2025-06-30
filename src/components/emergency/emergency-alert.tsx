@@ -18,7 +18,6 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/context/auth-provider';
 import { Siren, User, Phone, MapPin, BellRing, CheckCircle, Trash2, UserPlus, Copy } from "lucide-react";
-import { useProfile } from '@/context/profile-provider';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDocs, addDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 
@@ -47,7 +46,6 @@ interface Guardian extends GuardianFormValues {
 export function EmergencyAlert() {
     const { toast } = useToast();
     const { user } = useAuth();
-    const { activeProfile } = useProfile();
 
     const [location, setLocation] = useState<string | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
@@ -74,10 +72,10 @@ export function EmergencyAlert() {
     }, []);
 
     useEffect(() => {
-        if (!isClient || !user || !activeProfile) return;
+        if (!isClient || !user) return;
         
-        const alertsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/alerts`);
-        const guardiansCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/guardians`);
+        const alertsCollectionRef = collection(db, `users/${user.uid}/alerts`);
+        const guardiansCollectionRef = collection(db, `users/${user.uid}/guardians`);
         
         const fetchAlerts = async () => {
             const q = query(alertsCollectionRef, orderBy('timestamp', 'desc'));
@@ -92,11 +90,11 @@ export function EmergencyAlert() {
 
         Promise.all([fetchAlerts(), fetchGuardians()]).catch(error => console.error("Error fetching emergency data:", error));
 
-    }, [isClient, user, activeProfile]);
+    }, [isClient, user]);
     
     const handleSendAlert = async () => {
-        if (!user || !activeProfile) return;
-        const userName = activeProfile?.name || user?.email || 'The user';
+        if (!user) return;
+        const userName = user?.displayName || 'The user';
         const timestamp = new Date().toISOString();
 
         if (guardians.length > 0) {
@@ -125,7 +123,7 @@ export function EmergencyAlert() {
             });
         }
 
-        const alertsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/alerts`);
+        const alertsCollectionRef = collection(db, `users/${user.uid}/alerts`);
         const newAlert = {
             message: "User manually triggered an emergency alert.",
             timestamp,
@@ -135,8 +133,8 @@ export function EmergencyAlert() {
     };
 
     const handleAcknowledge = async (alertId: string) => {
-        if (!user || !activeProfile) return;
-        await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/alerts`, alertId));
+        if (!user) return;
+        await deleteDoc(doc(db, `users/${user.uid}/alerts`, alertId));
         setAlerts(alerts.filter(alert => alert.id !== alertId));
         toast({
             title: "Alert Acknowledged",
@@ -145,8 +143,8 @@ export function EmergencyAlert() {
     };
 
     const onGuardianSubmit = async (data: GuardianFormValues) => {
-        if (!user || !activeProfile) return;
-        const guardiansCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/guardians`);
+        if (!user) return;
+        const guardiansCollectionRef = collection(db, `users/${user.uid}/guardians`);
         const docRef = await addDoc(guardiansCollectionRef, data);
         const newGuardian: Guardian = { ...data, id: docRef.id };
         setGuardians([...guardians, newGuardian]);
@@ -155,8 +153,8 @@ export function EmergencyAlert() {
     };
 
     const removeGuardian = async (id: string) => {
-        if (!user || !activeProfile) return;
-        await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/guardians`, id));
+        if (!user) return;
+        await deleteDoc(doc(db, `users/${user.uid}/guardians`, id));
         setGuardians(guardians.filter(g => g.id !== id));
         toast({ variant: 'destructive', title: "Guardian Removed" });
     };
@@ -177,7 +175,7 @@ export function EmergencyAlert() {
     };
 
 
-    if (!isClient || !activeProfile) return null;
+    if (!isClient) return null;
     
     return (
         <div className="space-y-8">

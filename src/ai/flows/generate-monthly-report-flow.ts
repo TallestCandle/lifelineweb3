@@ -12,11 +12,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
 const GenerateMonthlyReportInputSchema = z.object({
-  profile: z.object({
-    name: z.string(),
-    age: z.string(),
-    gender: z.string(),
-  }).describe("The user's profile information."),
+  name: z.string().describe("The user's name."),
   month: z.string().describe("The month and year for the report (e.g., 'July 2024')."),
   vitalsHistory: z.string().describe("A JSON string of historical vital signs readings for the month."),
   testStripHistory: z.string().describe("A JSON string of historical urine test strip results for the month."),
@@ -64,11 +60,7 @@ const prompt = ai.definePrompt({
     output: { schema: GenerateMonthlyReportOutputSchema },
     prompt: `You are a world-class medical diagnostician AI from Lifeline AI, tasked with creating a comprehensive, in-depth monthly health report for a patient. Your analysis must be extraordinarily sharp, identifying trends and correlations that a human doctor might overlook. The tone should be professional, authoritative, but understandable to a layperson. This is a top-tier, premium analysis.
 
-**Patient Profile:**
-- Name: {{profile.name}}
-- Age: {{profile.age}}
-- Gender: {{profile.gender}}
-
+**Patient Name:** {{name}}
 **Reporting Period:** {{month}}
 
 **Source Data (JSON format):**

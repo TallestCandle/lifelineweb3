@@ -5,14 +5,9 @@ import { Stethoscope, LogOut } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { signOut } from "firebase/auth"
 import { auth } from "@/lib/firebase"
-import { useProfile } from "@/context/profile-provider"
+import { useAuth } from "@/context/auth-provider"
 import { Button } from "./ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu"
-import { Avatar, AvatarFallback } from "./ui/avatar"
-import { ThemeToggle } from "./theme/theme-toggle"
-import { useTheme } from "@/context/theme-provider"
 
-// Define a map for page titles
 const pageTitles: Record<string, string> = {
   "/": "Dashboard",
   "/tasks": "Daily Tasks",
@@ -23,21 +18,13 @@ const pageTitles: Record<string, string> = {
   "/report": "Health Report",
   "/dietician": "AI Dietician",
   "/emergency": "Emergency",
-  "/profiles": "Your Profile",
   "/doctors": "Consult a Doctor",
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { activeProfile } = useProfile();
-  const { setTheme } = useTheme();
-
-  React.useEffect(() => {
-    if (activeProfile?.theme) {
-      setTheme(activeProfile.theme);
-    }
-  }, [activeProfile, setTheme]);
+  const { user } = useAuth();
   
   const getPageTitle = () => {
     return pageTitles[pathname] || "Lifeline AI";
@@ -70,33 +57,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
           </div>
           <div className="flex items-center gap-4">
-              {activeProfile && (
-                  <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="flex items-center gap-2">
-                              <Avatar className="w-6 h-6">
-                                  <AvatarFallback>{activeProfile.name.charAt(0).toUpperCase()}</AvatarFallback>
-                              </Avatar>
-                              <span className="hidden sm:inline-block">{activeProfile.name}</span>
-                          </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-56" align="end">
-                          <DropdownMenuLabel>Settings</DropdownMenuLabel>
-                          <DropdownMenuItem onSelect={() => router.push('/profiles')}>
-                              Edit Profile
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="focus:bg-transparent p-2">
-                            <ThemeToggle />
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                           <DropdownMenuItem onClick={handleLogout}>
-                              <LogOut className="mr-2 h-4 w-4" />
-                              <span>Logout</span>
-                          </DropdownMenuItem>
-                      </DropdownMenuContent>
-                  </DropdownMenu>
-              )}
+              <span className="text-sm font-bold hidden sm:inline-block">{user?.displayName || 'User'}</span>
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </Button>
           </div>
       </header>
       <main className="flex-1 p-4 md:p-6 lg:p-8 animated-gradient-bg">

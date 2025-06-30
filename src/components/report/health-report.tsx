@@ -13,7 +13,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader } from '@/components/ui/loader';
 import { Download, FileText, HeartPulse, Beaker, TrendingUp, ShieldAlert, ListChecks } from 'lucide-react';
-import { useProfile } from '@/context/profile-provider';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { generateMonthlyReport, type GenerateMonthlyReportOutput } from '@/ai/flows/generate-monthly-report-flow';
@@ -35,7 +34,6 @@ const RiskConfig: Record<string, { color: string; text: string, borderColor: str
 
 export function HealthReport() {
     const { user } = useAuth();
-    const { activeProfile } = useProfile();
     const { toast } = useToast();
     
     const [isClient, setIsClient] = useState(false);
@@ -50,7 +48,7 @@ export function HealthReport() {
     }, []);
 
     useEffect(() => {
-        if (!isClient || !user || !activeProfile) {
+        if (!isClient || !user) {
             setReportContent(null);
             setIsGeneratingReport(false);
             return;
@@ -62,7 +60,7 @@ export function HealthReport() {
             
             const startDate = startOfMonth(selectedDate).toISOString();
             const endDate = endOfMonth(selectedDate).toISOString();
-            const basePath = `users/${user.uid}/profiles/${activeProfile.id}`;
+            const basePath = `users/${user.uid}`;
 
             try {
                 // Fetch all required data for the month
@@ -102,7 +100,7 @@ export function HealthReport() {
 
                 // Call the AI flow
                 const report = await generateMonthlyReport({
-                    profile: { name: activeProfile.name, age: activeProfile.age, gender: activeProfile.gender },
+                    name: user.displayName || 'User',
                     month: format(selectedDate, 'MMMM yyyy'),
                     vitalsHistory: JSON.stringify(vitalsHistory),
                     testStripHistory: JSON.stringify(testStripHistory),
@@ -126,7 +124,7 @@ export function HealthReport() {
         
         fetchAndGenerateReport();
 
-    }, [isClient, user, activeProfile, selectedDate, toast]);
+    }, [isClient, user, selectedDate, toast]);
     
 
     const handleDownloadPdf = async () => {
@@ -161,7 +159,7 @@ export function HealthReport() {
                 heightLeft -= pdfHeight;
             }
             
-            const fileName = `Health_Report_${activeProfile?.name}_${format(selectedDate, 'MMMM_yyyy')}.pdf`;
+            const fileName = `Health_Report_${user?.displayName}_${format(selectedDate, 'MMMM_yyyy')}.pdf`;
             pdf.save(fileName);
 
         } catch (error) {
@@ -225,10 +223,8 @@ export function HealthReport() {
                     <div className="space-y-8">
                         <header className="border-b pb-4 mb-8 text-center">
                             <h1 className="text-3xl font-bold text-primary">{reportContent.title}</h1>
-                            <div className="mt-4 flex justify-center gap-8 text-sm text-muted-foreground">
-                                <span><strong className="text-foreground">Patient:</strong> {activeProfile?.name || 'N/A'}</span>
-                                <span><strong className="text-foreground">Age:</strong> {activeProfile?.age || 'N/A'}</span>
-                                <span><strong className="text-foreground">Gender:</strong> {activeProfile?.gender || 'N/A'}</span>
+                             <div className="mt-4 flex justify-center gap-8 text-sm text-muted-foreground">
+                                <span><strong className="text-foreground">Patient:</strong> {user?.displayName || 'N/A'}</span>
                             </div>
                         </header>
                         

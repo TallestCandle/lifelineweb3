@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from '@/lib/utils';
-import { useProfile } from '@/context/profile-provider';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
@@ -62,7 +61,6 @@ const UrgencyConfig: Record<string, { color: string; text: string }> = {
 };
 
 export function Dashboard() {
-  const { activeProfile } = useProfile();
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -70,19 +68,19 @@ export function Dashboard() {
   const [analysisResult, setAnalysisResult] = useState<ComprehensiveAnalysisOutput | null>(null);
   const [showResultDialog, setShowResultDialog] = useState(false);
   
-  const firstName = activeProfile?.name.split(' ')[0];
-  const greeting = firstName ? `Welcome, ${firstName}.` : 'Welcome.';
+  const firstName = user?.displayName?.split(' ')[0] || 'User';
+  const greeting = `Welcome, ${firstName}.`;
 
   const handleGeneralAnalysis = async () => {
-    if (!user || !activeProfile) {
-        toast({ variant: 'destructive', title: 'Error', description: 'No active profile found.' });
+    if (!user) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No user found.' });
         return;
     }
     setIsAnalyzing(true);
     setAnalysisResult(null);
 
     try {
-        const basePath = `users/${user.uid}/profiles/${activeProfile.id}`;
+        const basePath = `users/${user.uid}`;
         
         const vitalsCol = collection(db, `${basePath}/vitals`);
         const stripsCol = collection(db, `${basePath}/test_strips`);
@@ -208,7 +206,7 @@ export function Dashboard() {
                     Health Insights
                 </DialogTitle>
                 <DialogDescription>
-                    An AI-powered deep dive into your health trends for {activeProfile?.name}.
+                    An AI-powered deep dive into your health trends for {user?.displayName}.
                 </DialogDescription>
             </DialogHeader>
             {analysisResult ? (

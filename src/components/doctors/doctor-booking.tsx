@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useProfile } from '@/context/profile-provider';
+import { useAuth } from '@/context/auth-provider';
 
 const doctors = [
   {
@@ -67,7 +67,7 @@ const AvailabilityIcons: Record<string, React.ElementType> = {
 };
 
 export function DoctorBooking() {
-  const { activeProfile } = useProfile();
+  const { user } = useAuth();
   const router = useRouter();
 
   const handleBooking = (doctorName: string) => {
@@ -126,7 +126,7 @@ export function DoctorBooking() {
                     <AlertDialogDescription>
                       You are about to start a secure video call with {doctor.name}. Please ensure you have given browser permissions for your camera and microphone.
                       <br /><br />
-                      This call will be for the active profile: <strong>{activeProfile?.name}</strong>.
+                      This call will be for user: <strong>{user?.displayName}</strong>.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>

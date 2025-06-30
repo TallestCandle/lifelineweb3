@@ -3,7 +3,6 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from '@/context/auth-provider';
 import { AuthGuard } from '@/components/auth/auth-guard';
-import { ThemeProvider } from '@/context/theme-provider';
 
 export const metadata: Metadata = {
   title: 'Lifeline AI',
@@ -23,14 +22,12 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased bg-background">
-        <ThemeProvider>
-          <AuthProvider>
-            <AuthGuard>
-              {children}
-            </AuthGuard>
-          </AuthProvider>
-        </ThemeProvider>
+      <body className="font-body antialiased bg-background theme-cool-flash">
+        <AuthProvider>
+          <AuthGuard>
+            {children}
+          </AuthGuard>
+        </AuthProvider>
         <Toaster />
       </body>
     </html>

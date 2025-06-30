@@ -16,7 +16,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Pill, PlusCircle, Trash2, BellRing, Check, X, CalendarDays } from "lucide-react";
 import { cn } from '@/lib/utils';
-import { useProfile } from '@/context/profile-provider';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDocs, addDoc, deleteDoc, query, orderBy, setDoc } from 'firebase/firestore';
@@ -35,7 +34,6 @@ type History = Record<string, HistoryLog>; // Date string as key
 
 export function RemindersList() {
     const [isClient, setIsClient] = useState(false);
-    const { activeProfile } = useProfile();
     const { user } = useAuth();
     
     const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -57,7 +55,7 @@ export function RemindersList() {
 
     // Effect for fetching data
     useEffect(() => {
-        if (!isClient || !user || !activeProfile) {
+        if (!isClient || !user) {
             setReminders([]);
             setHistory({});
             return;
@@ -66,13 +64,13 @@ export function RemindersList() {
         const loadData = async () => {
             try {
                 // Fetch reminders
-                const remindersCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`);
+                const remindersCollectionRef = collection(db, `users/${user.uid}/reminders`);
                 const qReminders = query(remindersCollectionRef, orderBy('time'));
                 const remindersSnapshot = await getDocs(qReminders);
                 setReminders(remindersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Reminder)));
 
                 // Fetch history
-                const historyCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders_history`);
+                const historyCollectionRef = collection(db, `users/${user.uid}/reminders_history`);
                 const historySnapshot = await getDocs(historyCollectionRef);
                 const fetchedHistory: History = {};
                 historySnapshot.forEach(doc => {
@@ -91,7 +89,7 @@ export function RemindersList() {
         };
 
         loadData();
-    }, [isClient, user, activeProfile, toast]);
+    }, [isClient, user, toast]);
 
     // Effect for notifications
     useEffect(() => {
@@ -158,9 +156,9 @@ export function RemindersList() {
     }, [toast]);
 
     const onSubmit = useCallback(async (data: ReminderFormValues) => {
-        if (!user || !activeProfile) return;
+        if (!user) return;
         try {
-            const remindersCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`);
+            const remindersCollectionRef = collection(db, `users/${user.uid}/reminders`);
             const docRef = await addDoc(remindersCollectionRef, data);
             const newReminder: Reminder = { ...data, id: docRef.id };
             setReminders(prev => [...prev, newReminder].sort((a, b) => a.time.localeCompare(b.time)));
@@ -174,12 +172,12 @@ export function RemindersList() {
                 description: 'Could not save your new reminder. Please try again.',
             });
         }
-    }, [user, activeProfile, toast, form]);
+    }, [user, toast, form]);
 
     const deleteReminder = useCallback(async (id: string) => {
-        if (!user || !activeProfile) return;
+        if (!user) return;
         try {
-            await deleteDoc(doc(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders`, id));
+            await deleteDoc(doc(db, `users/${user.uid}/reminders`, id));
             setReminders(prev => prev.filter(r => r.id !== id));
             toast({ variant: 'destructive', title: "Reminder Removed" });
         } catch (error) {
@@ -190,16 +188,16 @@ export function RemindersList() {
                 description: 'Could not remove the reminder. Please try again.',
             });
         }
-    }, [user, activeProfile, toast]);
+    }, [user, toast]);
 
     const markReminder = useCallback(async (reminderId: string, status: 'taken' | 'missed') => {
-        if (!user || !activeProfile) return;
+        if (!user) return;
         const todayStr = format(new Date(), 'yyyy-MM-dd');
         
         const updatedHistoryLog = { ...(history[todayStr] || {}), [reminderId]: status };
         
         try {
-            const historyDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/reminders_history`, todayStr);
+            const historyDocRef = doc(db, `users/${user.uid}/reminders_history`, todayStr);
             await setDoc(historyDocRef, updatedHistoryLog, { merge: true });
 
             setHistory(prev => ({ ...prev, [todayStr]: updatedHistoryLog }));
@@ -212,7 +210,7 @@ export function RemindersList() {
                 description: 'Could not update the reminder status. Please try again.',
             });
         }
-    }, [user, activeProfile, history, toast]);
+    }, [user, history, toast]);
 
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const todayLog = history[todayStr] || {};
@@ -223,7 +221,7 @@ export function RemindersList() {
 
     const pastSevenDays = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd')).reverse();
 
-    if (!isClient || !activeProfile) return null;
+    if (!isClient) return null;
 
     return (
         <div className="grid lg:grid-cols-3 gap-8 items-start">

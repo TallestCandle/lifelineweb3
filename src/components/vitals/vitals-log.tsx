@@ -19,7 +19,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { useAuth } from '@/context/auth-provider';
-import { useProfile } from '@/context/profile-provider';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, query, orderBy } from 'firebase/firestore';
 
@@ -73,14 +72,13 @@ export function VitalsLog() {
   const [activeChart, setActiveChart] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { activeProfile } = useProfile();
 
   useEffect(() => {
     setIsClient(true);
-    if (!user || !activeProfile) return;
+    if (!user) return;
 
     const fetchVitals = async () => {
-        const vitalsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/vitals`);
+        const vitalsCollectionRef = collection(db, `users/${user.uid}/vitals`);
         const q = query(vitalsCollectionRef, orderBy('date', 'desc'));
         const querySnapshot = await getDocs(q);
         const fetchedVitals = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VitalsEntry));
@@ -88,7 +86,7 @@ export function VitalsLog() {
     };
 
     fetchVitals().catch(error => console.error("Error fetching vitals:", error));
-  }, [isClient, user, activeProfile]);
+  }, [isClient, user]);
 
 
   const form = useForm<VitalsFormValues>({
@@ -97,8 +95,8 @@ export function VitalsLog() {
   });
 
   const onSubmit = async (data: VitalsFormValues) => {
-    if (!user || !activeProfile) return;
-    const vitalsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/vitals`);
+    if (!user) return;
+    const vitalsCollectionRef = collection(db, `users/${user.uid}/vitals`);
 
     const newEntryData = { ...data, date: new Date().toISOString() };
     const docRef = await addDoc(vitalsCollectionRef, newEntryData);
@@ -148,7 +146,7 @@ export function VitalsLog() {
     );
   }, [chartData]);
 
-  if (!isClient || !activeProfile) return null;
+  if (!isClient) return null;
 
   return (
     <div className="grid lg:grid-cols-3 gap-8 items-start">
@@ -363,7 +361,7 @@ export function VitalsLog() {
                         <DialogHeader className="p-6 pb-2">
                             <DialogTitle>Blood Sugar Trend</DialogTitle>
                             <DialogDescription>Blood glucose level over time.</DialogDescription>
-                        </DialogHeader>
+                        </Header>
                         <div className="px-2">{renderChart('bloodSugar', 'Blood Sugar', 'hsl(var(--chart-5))')}</div>
                     </>
                 )}
@@ -372,7 +370,7 @@ export function VitalsLog() {
                         <DialogHeader className="p-6 pb-2">
                             <DialogTitle>Weight Trend</DialogTitle>
                             <DialogDescription>Body weight over time.</DialogDescription>
-                        </DialogHeader>
+                        </Header>
                         <div className="px-2">{renderChart('weight', 'Weight', 'hsl(var(--chart-1))')}</div>
                     </>
                 )}

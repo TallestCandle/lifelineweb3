@@ -12,12 +12,8 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
 const GenerateDietPlanInputSchema = z.object({
-  profile: z.object({
-    age: z.string(),
-    gender: z.string(),
-  }),
   healthSummary: z.string().describe("A JSON string of recent health data including vitals (e.g., blood pressure, blood sugar), test strip results, and previous AI analyses."),
-}).describe("A summary of the user's recent health data and profile.");
+}).describe("A summary of the user's recent health data.");
 
 export type GenerateDietPlanInput = z.infer<typeof GenerateDietPlanInputSchema>;
 
@@ -45,10 +41,9 @@ const prompt = ai.definePrompt({
     output: { schema: GenerateDietPlanOutputSchema },
     prompt: `You are an expert dietician and nutritionist from Lifeline AI, specializing in creating personalized daily meal plans based on an individual's health data. You have deep knowledge of both traditional Nigerian cuisine and general intercontinental dishes.
 
-Your task is to analyze the user's profile and recent health summary to create a one-day meal plan (breakfast, lunch, dinner) and provide some general dietary advice.
+Your task is to analyze the user's recent health summary to create a one-day meal plan (breakfast, lunch, dinner) and provide some general dietary advice.
 
-**User Profile & Health Data:**
-- Profile: Age {{profile.age}}, Gender {{profile.gender}}
+**User Health Data:**
 - Health Summary: {{{healthSummary}}}
 
 **Instructions:**

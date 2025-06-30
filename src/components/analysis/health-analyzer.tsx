@@ -23,7 +23,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
-import { useProfile } from '@/context/profile-provider';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDocs, addDoc, query, orderBy } from 'firebase/firestore';
 
@@ -61,7 +60,6 @@ const UrgencyConfig = {
 
 export function HealthAnalyzer() {
     const { user } = useAuth();
-    const { activeProfile } = useProfile();
     const { toast } = useToast();
 
     const [isLoading, setIsLoading] = useState(false);
@@ -80,16 +78,16 @@ export function HealthAnalyzer() {
     });
 
     useEffect(() => {
-        if (!user || !activeProfile) return;
+        if (!user) return;
 
         const fetchHistory = async () => {
-            const historyCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/health_analyses`);
+            const historyCollectionRef = collection(db, `users/${user.uid}/health_analyses`);
             const q = query(historyCollectionRef, orderBy('timestamp', 'desc'));
             const snapshot = await getDocs(q);
             setHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HealthAnalysisRecord)));
         };
         fetchHistory();
-    }, [user, activeProfile]);
+    }, [user]);
 
     const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -138,7 +136,7 @@ export function HealthAnalyzer() {
     };
 
     const saveAnalysis = async () => {
-        if (!analysisResult || !inputData || !user || !activeProfile) return;
+        if (!analysisResult || !inputData || !user) return;
         
         const record: Omit<HealthAnalysisRecord, 'id'> = {
             timestamp: new Date().toISOString(),
@@ -146,7 +144,7 @@ export function HealthAnalyzer() {
             analysisResult,
         };
 
-        const historyCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/health_analyses`);
+        const historyCollectionRef = collection(db, `users/${user.uid}/health_analyses`);
         const docRef = await addDoc(historyCollectionRef, record);
         
         setHistory(prev => [{ ...record, id: docRef.id }, ...prev]);
@@ -165,7 +163,7 @@ export function HealthAnalyzer() {
         const reportText = `
 Health Analysis Report
 Date: ${format(parseISO(timestamp), 'MMM d, yyyy, h:mm a')}
-Profile: ${activeProfile?.name}
+Profile: ${user?.displayName}
 
 Urgency: ${analysisResult.urgency}
 

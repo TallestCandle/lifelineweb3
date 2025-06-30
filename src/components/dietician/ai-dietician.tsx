@@ -5,7 +5,6 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader } from '@/components/ui/loader';
-import { useProfile } from '@/context/profile-provider';
 import { useAuth } from '@/context/auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -16,7 +15,6 @@ import { CookingPot, Sunrise, Sun, Moon, Sparkles, AlertTriangle, Lightbulb } fr
 
 export function AiDietician() {
     const { user } = useAuth();
-    const { activeProfile } = useProfile();
     const { toast } = useToast();
     
     const [isClient, setIsClient] = useState(false);
@@ -28,11 +26,11 @@ export function AiDietician() {
     }, []);
 
     const fetchTodaysPlan = useCallback(async () => {
-        if (!user || !activeProfile) return;
+        if (!user) return;
         
         setIsLoading(true);
         const todayStr = format(new Date(), 'yyyy-MM-dd');
-        const planDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/daily_diet_plans`, todayStr);
+        const planDocRef = doc(db, `users/${user.uid}/daily_diet_plans`, todayStr);
         
         try {
             const docSnap = await getDoc(planDocRef);
@@ -47,7 +45,7 @@ export function AiDietician() {
         } finally {
             setIsLoading(false);
         }
-    }, [user, activeProfile, toast]);
+    }, [user, toast]);
 
     useEffect(() => {
         if (isClient) {
@@ -56,7 +54,7 @@ export function AiDietician() {
     }, [isClient, fetchTodaysPlan]);
 
     const handleGeneratePlan = async () => {
-        if (!user || !activeProfile) return;
+        if (!user) return;
 
         setIsLoading(true);
         setDietPlan(null);
@@ -64,7 +62,7 @@ export function AiDietician() {
         try {
             // Fetch recent health data
             const sevenDaysAgo = subDays(new Date(), 7).toISOString();
-            const basePath = `users/${user.uid}/profiles/${activeProfile.id}`;
+            const basePath = `users/${user.uid}`;
             const vitalsCol = collection(db, `${basePath}/vitals`);
             const stripsCol = collection(db, `${basePath}/test_strips`);
             const analysesCol = collection(db, `${basePath}/health_analyses`);
@@ -88,13 +86,12 @@ export function AiDietician() {
             }
 
             const result = await generateDietPlan({
-                profile: { age: activeProfile.age, gender: activeProfile.gender },
                 healthSummary,
             });
 
             // Save the plan for today
             const todayStr = format(new Date(), 'yyyy-MM-dd');
-            const planDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/daily_diet_plans`, todayStr);
+            const planDocRef = doc(db, `users/${user.uid}/daily_diet_plans`, todayStr);
             await setDoc(planDocRef, result);
 
             setDietPlan(result);
@@ -107,7 +104,7 @@ export function AiDietician() {
         }
     };
 
-    if (!isClient || !activeProfile) return null;
+    if (!isClient) return null;
 
     return (
         <div className="space-y-6">

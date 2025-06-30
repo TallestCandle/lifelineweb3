@@ -6,7 +6,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Apple, GlassWater, HeartPulse, Move, Beaker, Bed, Clock } from "lucide-react";
-import { useProfile } from '@/context/profile-provider';
 import { useAuth } from '@/context/auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -61,7 +60,6 @@ const calculateTimeLeft = () => {
 
 export function TaskList() {
     const { user } = useAuth();
-    const { activeProfile } = useProfile();
     const { toast } = useToast();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -82,14 +80,14 @@ export function TaskList() {
     });
 
     useEffect(() => {
-        if (!isClient || !user || !activeProfile) {
+        if (!isClient || !user) {
             setIsLoading(false);
             setTasks([]);
             return;
         }
 
         const todayDateStr = format(new Date(), 'yyyy-MM-dd');
-        const tasksDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/daily_tasks`, todayDateStr);
+        const tasksDocRef = doc(db, `users/${user.uid}/daily_tasks`, todayDateStr);
 
         const fetchAndSetTasks = async () => {
             const docSnap = await getDoc(tasksDocRef);
@@ -101,7 +99,7 @@ export function TaskList() {
                 setIsLoading(true);
                 try {
                     const sevenDaysAgo = subDays(new Date(), 7).toISOString();
-                    const basePath = `users/${user.uid}/profiles/${activeProfile.id}`;
+                    const basePath = `users/${user.uid}`;
                     
                     const vitalsCol = collection(db, `${basePath}/vitals`);
                     const stripsCol = collection(db, `${basePath}/test_strips`);
@@ -134,10 +132,10 @@ export function TaskList() {
 
         fetchAndSetTasks();
 
-    }, [isClient, user, activeProfile, toast]);
+    }, [isClient, user, toast]);
 
     const handleTaskToggle = useCallback(async (taskIndex: number) => {
-        if (!user || !activeProfile) return;
+        if (!user) return;
 
         const newTasks = [...tasks];
         const task = newTasks[taskIndex];
@@ -147,7 +145,7 @@ export function TaskList() {
         setTasks(newTasks);
 
         const todayDateStr = format(new Date(), 'yyyy-MM-dd');
-        const taskDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/daily_tasks`, todayDateStr);
+        const taskDocRef = doc(db, `users/${user.uid}/daily_tasks`, todayDateStr);
 
         try {
             await setDoc(taskDocRef, { tasks: newTasks });
@@ -160,13 +158,13 @@ export function TaskList() {
             toast({ variant: 'destructive', title: "Update Failed", description: "Could not save task status." });
             setTasks(tasks); // Revert on failure
         }
-    }, [user, activeProfile, tasks, toast]);
+    }, [user, tasks, toast]);
 
     const completedTasks = tasks.filter(task => task.completed).length;
     const totalTasks = tasks.length;
     const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-    if (!isClient || !activeProfile) return null;
+    if (!isClient) return null;
 
     return (
         <>

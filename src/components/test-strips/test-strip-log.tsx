@@ -17,7 +17,6 @@ import { Beaker, PlusCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
-import { useProfile } from '@/context/profile-provider';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDocs, addDoc, query, orderBy } from 'firebase/firestore';
 
@@ -63,7 +62,6 @@ export function TestStripLog() {
     const [stripLogs, setStripLogs] = useState<StripLogEntry[]>([]);
     const { toast } = useToast();
     const { user } = useAuth();
-    const { activeProfile } = useProfile();
 
     const form = useForm<StripLogFormValues>({
         resolver: zodResolver(stripLogSchema),
@@ -72,12 +70,12 @@ export function TestStripLog() {
 
     useEffect(() => {
         setIsClient(true);
-        if (!user || !activeProfile) {
+        if (!user) {
             setStripLogs([]);
             return;
         }
 
-        const logsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/test_strips`);
+        const logsCollectionRef = collection(db, `users/${user.uid}/test_strips`);
         const q = query(logsCollectionRef, orderBy('date', 'desc'));
         
         getDocs(q)
@@ -87,7 +85,7 @@ export function TestStripLog() {
             })
             .catch(error => console.error("Error fetching test strip logs:", error));
 
-    }, [isClient, user, activeProfile]);
+    }, [isClient, user]);
 
 
     const getLevelConfig = (levelValue: string) => {
@@ -95,9 +93,9 @@ export function TestStripLog() {
     };
 
     const onSubmit = async (data: StripLogFormValues) => {
-        if (!user || !activeProfile) return;
+        if (!user) return;
         const newEntryData = { ...data, date: new Date().toISOString() };
-        const logsCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/test_strips`);
+        const logsCollectionRef = collection(db, `users/${user.uid}/test_strips`);
         const docRef = await addDoc(logsCollectionRef, newEntryData);
         
         const newEntry: StripLogEntry = { ...newEntryData, id: docRef.id };
@@ -113,7 +111,7 @@ export function TestStripLog() {
         ? levels.filter(l => !isNaN(parseFloat(l.value)))
         : levels.filter(l => isNaN(parseFloat(l.value)));
 
-    if (!isClient || !activeProfile) return null;
+    if (!isClient) return null;
 
     return (
         <div className="grid lg:grid-cols-3 gap-8 items-start">
