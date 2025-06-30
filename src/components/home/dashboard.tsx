@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   ListChecks,
@@ -12,10 +12,24 @@ import {
   FileText,
   Siren,
   Users,
+  Zap,
+  Loader2,
+  Lightbulb
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/context/profile-provider';
+import { useAuth } from '@/context/auth-provider';
+import { db } from '@/lib/firebase';
+import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { performComprehensiveAnalysis, type ComprehensiveAnalysisInput, type ComprehensiveAnalysisOutput } from '@/ai/flows/comprehensive-analysis-flow';
+
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 type DashboardColor = "chart-1" | "destructive" | "chart-2" | "chart-4" | "chart-5" | "primary" | "chart-6";
 
@@ -40,11 +54,76 @@ const menuItems: MenuItem[] = [
     { href: "/profiles", label: "Profiles", icon: Users, colorClass: "text-chart-6", borderClass: "group-hover:border-chart-6", shadowClass: "group-hover:shadow-chart-6/40", glowClass: "bg-chart-6/10" },
 ];
 
+const UrgencyConfig: Record<string, { color: string; text: string }> = {
+    'Mild': { color: 'bg-yellow-400', text: 'Mild' },
+    'Moderate': { color: 'bg-orange-500', text: 'Moderate' },
+    'Critical': { color: 'bg-red-600', text: 'Critical' },
+};
+
 export function Dashboard() {
   const { activeProfile } = useProfile();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<ComprehensiveAnalysisOutput | null>(null);
+  const [showResultDialog, setShowResultDialog] = useState(false);
   
   const firstName = activeProfile?.name.split(' ')[0];
   const greeting = firstName ? `Welcome, ${firstName}.` : 'Welcome.';
+
+  const handleGeneralAnalysis = async () => {
+    if (!user || !activeProfile) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No active profile found.' });
+        return;
+    }
+    setIsAnalyzing(true);
+    setAnalysisResult(null);
+
+    try {
+        const basePath = `users/${user.uid}/profiles/${activeProfile.id}`;
+        
+        const vitalsCol = collection(db, `${basePath}/vitals`);
+        const stripsCol = collection(db, `${basePath}/test_strips`);
+        const analysesCol = collection(db, `${basePath}/health_analyses`);
+
+        const [vitalsSnap, stripsSnap, analysesSnap] = await Promise.all([
+            getDocs(query(vitalsCol, orderBy('date', 'desc'), limit(50))),
+            getDocs(query(stripsCol, orderBy('date', 'desc'), limit(50))),
+            getDocs(query(analysesCol, orderBy('timestamp', 'desc'), limit(20))),
+        ]);
+
+        const vitalsHistory = vitalsSnap.docs.map(d => d.data());
+        const testStripHistory = stripsSnap.docs.map(d => d.data());
+        const previousAnalyses = analysesSnap.docs.map(d => d.data().analysisResult);
+
+        if (vitalsHistory.length === 0 && testStripHistory.length === 0 && previousAnalyses.length === 0) {
+            toast({ variant: 'destructive', title: 'Not Enough Data', description: 'There is no historical data to analyze yet.' });
+            setIsAnalyzing(false);
+            return;
+        }
+
+        const input: ComprehensiveAnalysisInput = {
+            vitalsHistory: JSON.stringify(vitalsHistory),
+            testStripHistory: JSON.stringify(testStripHistory),
+            previousAnalyses: JSON.stringify(previousAnalyses),
+        };
+
+        const result = await performComprehensiveAnalysis(input);
+        setAnalysisResult(result);
+        setShowResultDialog(true);
+    } catch (error) {
+        console.error("Comprehensive analysis failed:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Analysis Failed',
+            description: 'Could not perform the analysis. Please try again later.',
+        });
+    } finally {
+        setIsAnalyzing(false);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -81,6 +160,80 @@ export function Dashboard() {
           );
         })}
       </div>
+
+      <Card className="col-span-4 mt-6 border-accent/50 shadow-accent/10 hover:border-accent/80 hover:shadow-accent/20">
+        <CardHeader className="flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-accent text-xl">General Health Analysis</CardTitle>
+            <CardDescription>Get deep insights from your historical data.</CardDescription>
+          </div>
+          <Button onClick={handleGeneralAnalysis} disabled={isAnalyzing} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Zap className="mr-2 h-5 w-5" />
+                Run Analysis
+              </>
+            )}
+          </Button>
+        </CardHeader>
+      </Card>
+
+      <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
+        <DialogContent className="max-w-2xl">
+            <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                    <BrainCircuit className="text-primary"/>
+                    Comprehensive Analysis Results
+                </DialogTitle>
+                <DialogDescription>
+                    An AI-powered deep dive into your health trends for {activeProfile?.name}.
+                </DialogDescription>
+            </DialogHeader>
+            {analysisResult ? (
+                <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-4 mt-4">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-bold">Overall Assessment</h3>
+                        <Badge className={cn("text-white", UrgencyConfig[analysisResult.urgency]?.color)}>
+                            {UrgencyConfig[analysisResult.urgency]?.text}
+                        </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{analysisResult.overallAssessment}</p>
+
+                    <div>
+                        <h3 className="text-lg font-bold mb-2">Key Observations</h3>
+                        <ul className="list-disc list-inside space-y-1 text-sm">
+                            {analysisResult.keyObservations.map((obs, i) => <li key={i}>{obs}</li>)}
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <h3 className="text-lg font-bold mb-2">Deep Insights</h3>
+                        <div className="space-y-3">
+                            {analysisResult.deepInsights.map((insight, i) => (
+                                <Alert key={i} className="bg-secondary/50">
+                                    <Lightbulb className="h-4 w-4" />
+                                    <AlertTitle>{insight.insight}</AlertTitle>
+                                    <AlertDescription>
+                                        <span className="font-bold">Supporting Data:</span> {insight.supportingData}
+                                    </AlertDescription>
+                                </Alert>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="flex items-center justify-center p-8 h-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            )}
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
