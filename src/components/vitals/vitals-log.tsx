@@ -361,7 +361,7 @@ export function VitalsLog() {
                         <DialogHeader className="p-6 pb-2">
                             <DialogTitle>Blood Sugar Trend</DialogTitle>
                             <DialogDescription>Blood glucose level over time.</DialogDescription>
-                        </Header>
+                        </DialogHeader>
                         <div className="px-2">{renderChart('bloodSugar', 'Blood Sugar', 'hsl(var(--chart-5))')}</div>
                     </>
                 )}
@@ -370,7 +370,7 @@ export function VitalsLog() {
                         <DialogHeader className="p-6 pb-2">
                             <DialogTitle>Weight Trend</DialogTitle>
                             <DialogDescription>Body weight over time.</DialogDescription>
-                        </Header>
+                        </DialogHeader>
                         <div className="px-2">{renderChart('weight', 'Weight', 'hsl(var(--chart-1))')}</div>
                     </>
                 )}
