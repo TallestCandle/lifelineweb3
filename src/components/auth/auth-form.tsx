@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useRouter } from 'next/navigation';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -30,7 +29,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Stethoscope, User, BriefcaseMedical } from 'lucide-react';
 
@@ -44,14 +42,26 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 type Role = 'patient' | 'doctor';
 
-function AuthPortal({ role, activeTab, onTabChange }: { role: Role, activeTab: string, onTabChange: (value: string) => void }) {
+export function AuthForm() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [role, setRole] = useState<Role>('patient');
+  const [isLogin, setIsLogin] = useState(true);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { email: '', password: '' },
   });
+
+  const handleRoleChange = (newRole: Role) => {
+    setRole(newRole);
+    form.reset(); // Reset form when switching roles
+  };
+
+  const toggleFormMode = () => {
+    setIsLogin(!isLogin);
+    form.reset();
+  };
 
   const onSubmit = async (values: FormValues) => {
     setIsLoading(true);
@@ -61,33 +71,23 @@ function AuthPortal({ role, activeTab, onTabChange }: { role: Role, activeTab: s
       toast({
         variant: 'destructive',
         title: 'Configuration Error',
-        description: 'Firebase is not configured. Please add your Firebase credentials to the .env file.',
+        description: 'Firebase is not configured correctly.',
       });
       setIsLoading(false);
       return;
     }
 
     try {
-      if (activeTab === 'signup') {
-        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-        const user = userCredential.user;
-        // Save user role in Firestore
-        await setDoc(doc(db, 'users', user.uid), {
-            email: user.email,
-            role: role,
-            createdAt: new Date().toISOString(),
-        });
-        // The AuthGuard will handle redirection.
-      } else { // Login
+      if (isLogin) {
+        // Login Logic
         const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
         const user = userCredential.user;
         
-        // Verify user role
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists() && userDoc.data().role === role) {
-            // Role matches, AuthGuard will handle redirection.
+            // Success: Role matches, AuthGuard will handle redirection.
         } else {
-            // Mismatch or no role doc
+            // Role mismatch or no role doc
             await signOut(auth);
             toast({
                 variant: 'destructive',
@@ -95,6 +95,18 @@ function AuthPortal({ role, activeTab, onTabChange }: { role: Role, activeTab: s
                 description: `This account is not registered as a ${role}. Please use the correct portal.`,
             });
         }
+      } else {
+        // Signup Logic
+        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const user = userCredential.user;
+        
+        // Save user role in Firestore
+        await setDoc(doc(db, 'users', user.uid), {
+            email: user.email,
+            role: role,
+            createdAt: new Date().toISOString(),
+        });
+        // Success: AuthGuard will handle redirection.
       }
     } catch (error) {
       const firebaseError = error as FirebaseError;
@@ -108,90 +120,83 @@ function AuthPortal({ role, activeTab, onTabChange }: { role: Role, activeTab: s
     }
   };
 
+  const title = isLogin ? 'Welcome Back' : 'Create an Account';
+  const description = isLogin ? `Sign in to your ${role} account.` : `Get started as a ${role}.`;
+  const submitButtonText = isLogin ? 'Sign In' : 'Create Account';
+  const toggleLinkText = isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In";
 
   return (
-    <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Login</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
-        </TabsList>
-        <TabsContent value="login">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Welcome Back</CardTitle>
-                    <CardDescription>
-                        Sign in to your Lifeline AI {role} account.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                            <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="you@example.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="password" render={({ field }) => (<FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading ? 'Loading...' : 'Login'}
-                            </Button>
-                        </form>
-                    </Form>
-                </CardContent>
-            </Card>
-        </TabsContent>
-        <TabsContent value="signup">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Create {role === 'patient' ? 'an' : 'a Doctor'} Account</CardTitle>
-                    <CardDescription>
-                        Start your journey with Lifeline AI today.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                            <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="you@example.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="password" render={({ field }) => (<FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading ? 'Creating Account...' : 'Sign Up'}
-                            </Button>
-                        </form>
-                    </Form>
-                </CardContent>
-            </Card>
-        </TabsContent>
-    </Tabs>
-  )
-}
-
-export function AuthForm() {
-  const [portal, setPortal] = useState<Role>('patient');
-  const [activeTab, setActiveTab] = useState('login');
-
-  const handlePortalChange = (value: string) => {
-    setPortal(value as Role);
-    setActiveTab('login'); // Reset to login tab on portal switch
-  };
-
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-      <div className="w-full max-w-md">
-        <div className="mb-6 flex justify-center">
-          <div className="flex items-center gap-2">
+    <div className="flex min-h-screen items-center justify-center bg-background animated-gradient-bg p-4">
+      <Card className="w-full max-w-md shadow-2xl shadow-primary/10">
+        <CardHeader className="text-center">
+          <div className="mx-auto flex items-center justify-center gap-2 mb-4">
             <Stethoscope className="w-12 h-12 text-primary" />
             <h1 className="text-3xl font-bold font-headline">Lifeline AI</h1>
           </div>
-        </div>
-        <Tabs value={portal} onValueChange={handlePortalChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 h-12">
-            <TabsTrigger value="patient" className="h-full gap-2"><User /> Patient Portal</TabsTrigger>
-            <TabsTrigger value="doctor" className="h-full gap-2"><BriefcaseMedical/> Doctor Portal</TabsTrigger>
-          </TabsList>
-          <TabsContent value="patient">
-              <AuthPortal role="patient" activeTab={activeTab} onTabChange={setActiveTab} />
-          </TabsContent>
-          <TabsContent value="doctor">
-              <AuthPortal role="doctor" activeTab={activeTab} onTabChange={setActiveTab} />
-          </TabsContent>
-        </Tabs>
-      </div>
+          <div className="grid grid-cols-2 gap-2 p-1 bg-secondary rounded-lg">
+            <Button
+                variant={role === 'patient' ? 'default' : 'ghost'}
+                onClick={() => handleRoleChange('patient')}
+                className="h-11"
+            >
+                <User className="mr-2" />
+                Patient
+            </Button>
+            <Button
+                variant={role === 'doctor' ? 'default' : 'ghost'}
+                onClick={() => handleRoleChange('doctor')}
+                className="h-11"
+            >
+                <BriefcaseMedical className="mr-2" />
+                Doctor
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="px-6 pb-6">
+            <div className="mb-4 text-center">
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
+            </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input placeholder="you@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="••••••••" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Loading...' : submitButtonText}
+              </Button>
+            </form>
+          </Form>
+          <div className="mt-6 text-center text-sm">
+            <Button variant="link" onClick={toggleFormMode} className="p-0 h-auto">
+              {toggleLinkText}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
