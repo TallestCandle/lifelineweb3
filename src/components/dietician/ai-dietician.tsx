@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -10,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDoc, setDoc, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { format, subDays } from 'date-fns';
-import { generateDietPlan, type GenerateDietPlanOutput } from '@/ai/flows/generate-diet-plan-flow';
+import { generateDietPlan, type GenerateDietPlanOutput, type GenerateDietPlanInput } from '@/ai/flows/generate-diet-plan-flow';
 import { CookingPot, Sunrise, Sun, Moon, Sparkles, AlertTriangle, Lightbulb } from 'lucide-react';
 
 export function AiDietician() {
@@ -57,7 +58,6 @@ export function AiDietician() {
         if (!user) return;
 
         setIsLoading(true);
-        setDietPlan(null);
 
         try {
             // Fetch recent health data
@@ -85,9 +85,15 @@ export function AiDietician() {
                 return;
             }
 
-            const result = await generateDietPlan({
+            const input: GenerateDietPlanInput = {
                 healthSummary,
-            });
+            };
+
+            if (dietPlan) {
+                input.previousPlan = JSON.stringify(dietPlan);
+            }
+
+            const result = await generateDietPlan(input);
 
             // Save the plan for today
             const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -139,7 +145,7 @@ export function AiDietician() {
                 </div>
             )}
 
-            {dietPlan && (
+            {dietPlan && !isLoading && (
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <Card>

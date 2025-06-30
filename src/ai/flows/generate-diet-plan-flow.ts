@@ -13,7 +13,8 @@ import { z } from 'zod';
 
 const GenerateDietPlanInputSchema = z.object({
   healthSummary: z.string().describe("A JSON string of recent health data including vitals (e.g., blood pressure, blood sugar), test strip results, and previous AI analyses."),
-}).describe("A summary of the user's recent health data.");
+  previousPlan: z.string().optional().describe("A JSON string of the previous diet plan, if any. The new plan should be different from this one."),
+}).describe("A summary of the user's recent health data and optionally the previous plan to ensure variety.");
 
 export type GenerateDietPlanInput = z.infer<typeof GenerateDietPlanInputSchema>;
 
@@ -45,6 +46,10 @@ Your task is to analyze the user's recent health summary to create a one-day mea
 
 **User Health Data:**
 - Health Summary: {{{healthSummary}}}
+{{#if previousPlan}}
+- Previous Plan: {{{previousPlan}}}
+  **Very Important:** The new plan you generate MUST be different from the previous plan provided. Offer new and creative meal suggestions to ensure variety for the user. Do not repeat meals from the previous plan.
+{{/if}}
 
 **Instructions:**
 1.  **Analyze the Data:** Carefully review the health summary. Look for indicators like high blood pressure, high blood sugar, elevated weight, or abnormal urine test results.
