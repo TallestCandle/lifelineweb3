@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI agent that generates a world-class, comprehensive monthly health report.
@@ -10,7 +11,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
-export const GenerateMonthlyReportInputSchema = z.object({
+const GenerateMonthlyReportInputSchema = z.object({
   profile: z.object({
     name: z.string(),
     age: z.string(),
@@ -25,7 +26,7 @@ export const GenerateMonthlyReportInputSchema = z.object({
 
 export type GenerateMonthlyReportInput = z.infer<typeof GenerateMonthlyReportInputSchema>;
 
-export const GenerateMonthlyReportOutputSchema = z.object({
+const GenerateMonthlyReportOutputSchema = z.object({
   title: z.string().describe("The main title for the report, including the user's name and the month."),
   overallSummary: z.string().describe("A high-level executive summary of the patient's health for the month. Start with a direct statement about the overall health status."),
   vitalsAnalysis: z.object({
