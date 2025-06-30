@@ -14,12 +14,18 @@ const firebaseConfig = {
 
 const isConfigured = Object.values(firebaseConfig).every(Boolean);
 
-// Initialize Firebase only if the configuration is complete
-const app = !getApps().length && isConfigured 
-  ? initializeApp(firebaseConfig) 
-  : (getApps().length > 0 ? getApp() : null);
+let app;
+let auth;
+let db;
 
-const auth = app ? getAuth(app) : null;
-const db = app ? getFirestore(app) : null;
+if (isConfigured) {
+  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+} else {
+  if (typeof window !== 'undefined') {
+    console.error("Firebase configuration is missing or incomplete. Check your .env file and ensure all NEXT_PUBLIC_FIREBASE_* variables are set.");
+  }
+}
 
 export { app, auth, db };
