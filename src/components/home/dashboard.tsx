@@ -140,7 +140,7 @@ export function Dashboard() {
               className="flex flex-col items-center justify-start text-center gap-2 cursor-pointer group"
             >
               <div className={cn(
-                "relative flex items-center justify-center bg-card/50 p-3 rounded-full shadow-lg border border-primary/20 transition-all duration-300 group-hover:-translate-y-1",
+                "relative flex items-center justify-center bg-card p-3 rounded-full shadow-lg border-2 border-foreground/10 transition-all duration-300 group-hover:-translate-y-1",
                 item.borderClass,
                 `group-hover:shadow-lg ${item.shadowClass}`
               )}>
@@ -158,14 +158,14 @@ export function Dashboard() {
       </div>
 
       <div className="mt-6">
-        <div className="relative rounded-lg shadow-lg shadow-black/5 dark:shadow-black/20">
+        <div className="relative rounded-lg shadow-lg shadow-black/5">
           <Card className="border-accent/50 hover:border-accent/80 rounded-b-none border-b-0 shadow-none">
             <CardHeader className="flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-accent text-xl">Health Insights</CardTitle>
+                <CardTitle className="text-accent-foreground text-xl">Health Insights</CardTitle>
                 <CardDescription>Analyze your long-term health trends.</CardDescription>
               </div>
-              <Button onClick={handleGeneralAnalysis} disabled={isAnalyzing} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Button onClick={handleGeneralAnalysis} disabled={isAnalyzing} size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
                 {isAnalyzing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

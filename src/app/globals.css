@@ -32,9 +32,6 @@
     --chart-3: 328 100% 54%; /* Hot Pink */
     --chart-4: 39 100% 50%; /* Bright Orange */
     --chart-5: 195 100% 50%; /* Electric Blue */
-    --chart-6: 50 100% 50%; /* Gold */
-    --chart-7: 210 100% 50%; /* Sky Blue */
-    --chart-8: 300 100% 50%; /* Magenta */
   }
 
   .theme-cool-flash {
@@ -64,9 +61,6 @@
     --chart-3: 328 100% 54%;
     --chart-4: 39 100% 50%;
     --chart-5: 195 100% 50%;
-    --chart-6: 50 100% 50%;
-    --chart-7: 210 100% 50%;
-    --chart-8: 300 100% 50%;
   }
 
   .theme-serene-sky {
@@ -96,51 +90,45 @@
     --chart-3: 340 82% 76%; /* Soft Pink */
     --chart-4: 25 84% 65%; /* Soft Orange */
     --chart-5: 203 65% 63%; /* Soft Blue */
-    --chart-6: 45 74% 65%; /* Soft Gold */
-    --chart-7: 190 60% 70%; /* Light Teal */
-    --chart-8: 280 50% 75%; /* Lavender */
   }
 
   .theme-classic-blue {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 0%;
+    --background: 0 0% 100%; /* White */
+    --foreground: 222 47% 11%; /* Dark Blue/Almost Black text */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 0%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
-    --primary: 211 100% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 210 40% 9.8%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 211 100% 50%; /* #007BFF */
+    --primary-foreground: 0 0% 98%; /* White text on primary */
+    --secondary: 210 40% 96.1%; /* Light Gray */
+    --secondary-foreground: 222 47% 11%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215 20% 65.1%;
     --accent: 210 40% 96.1%;
-    --accent-foreground: 210 40% 9.8%;
+    --accent-foreground: 222 47% 11%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 214.3 31.8% 91.4%;
+    --border: 214.3 31.8% 91.4%; /* Light Gray for borders */
     --input: 214.3 31.8% 91.4%;
     --ring: 211 100% 50%;
-    --radius: 0.75rem;
+    --radius: 0.5rem; /* Sharper radius */
 
-    --chart-1: 211 100% 50%;
-    --chart-2: 22 95% 53%;
-    --chart-3: 142 76% 36%;
-    --chart-4: 262 83% 58%;
-    --chart-5: 340 82% 76%;
-    --chart-6: 45 74% 65%;
-    --chart-7: 190 60% 70%;
-    --chart-8: 280 50% 75%;
+    --chart-1: 211 100% 50%; /* Primary Blue */
+    --chart-2: 22 95% 53%; /* Orange */
+    --chart-3: 142 76% 36%; /* Green */
+    --chart-4: 262 83% 58%; /* Purple */
+    --chart-5: 340 82% 76%; /* Pink */
   }
 }
 
 @layer base {
   * {
-    @apply border-border/40;
+    @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-bold;
-    font-family: 'Rajdhani', sans-serif;
+    @apply bg-background text-foreground font-body;
+    font-family: 'PT Sans', sans-serif;
   }
 }
 
@@ -158,7 +146,7 @@
     z-index: -1;
     background: radial-gradient(circle at 10% 20%, hsl(var(--primary) / 0.1), transparent 35%),
                 radial-gradient(circle at 90% 80%, hsl(var(--accent) / 0.1), transparent 35%),
-                radial-gradient(circle at 50% 50%, hsl(var(--chart-2) / 0.08), transparent 40%);
+                radial-gradient(circle at 50% 50%, hsl(var(--secondary) / 0.08), transparent 40%);
     background-size: 200% 200%;
     animation: gradient-move 20s ease infinite;
     will-change: background-position;
@@ -166,7 +154,7 @@
   
   .animated-text-shine {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(to right, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--primary)));
+    background-image: linear-gradient(to right, hsl(var(--primary)), hsl(var(--primary) / 0.8), hsl(var(--primary)));
     background-size: 200% auto;
     animation: text-shine 4s linear infinite;
   }
