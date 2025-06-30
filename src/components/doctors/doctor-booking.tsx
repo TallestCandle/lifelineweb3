@@ -2,6 +2,7 @@
 "use client";
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -29,7 +30,6 @@ const doctors = [
     image: 'https://placehold.co/100x100.png',
     dataAiHint: 'woman doctor',
     availability: ['Video Call', 'Audio Call'],
-    whatsapp: 'https://wa.me/2349000000001',
   },
   {
     name: 'Dr. Ben Carter',
@@ -39,7 +39,6 @@ const doctors = [
     image: 'https://placehold.co/100x100.png',
     dataAiHint: 'man doctor',
     availability: ['Video Call', 'Audio Call', 'Chat'],
-    whatsapp: 'https://wa.me/2349000000002',
   },
   {
     name: 'Dr. Chidinma Eze',
@@ -49,7 +48,6 @@ const doctors = [
     image: 'https://placehold.co/100x100.png',
     dataAiHint: 'woman doctor smiling',
     availability: ['Video Call'],
-    whatsapp: 'https://wa.me/2349000000003',
   },
   {
     name: 'Dr. Tunde Adebayo',
@@ -59,7 +57,6 @@ const doctors = [
     image: 'https://placehold.co/100x100.png',
     dataAiHint: 'man doctor portrait',
     availability: ['Audio Call', 'Chat'],
-    whatsapp: 'https://wa.me/2349000000004',
   },
 ];
 
@@ -71,9 +68,11 @@ const AvailabilityIcons: Record<string, React.ElementType> = {
 
 export function DoctorBooking() {
   const { activeProfile } = useProfile();
+  const router = useRouter();
 
-  const handleBooking = (whatsappUrl: string) => {
-    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+  const handleBooking = (doctorName: string) => {
+    const channelName = doctorName.replace(/\s+/g, '-').toLowerCase();
+    router.push(`/call/${channelName}`);
   };
 
   return (
@@ -81,7 +80,7 @@ export function DoctorBooking() {
       <Card>
         <CardHeader>
           <CardTitle>Consult a Doctor</CardTitle>
-          <CardDescription>Book a secure WhatsApp audio or video call with a licensed professional.</CardDescription>
+          <CardDescription>Book a secure, high-quality audio or video call with a licensed professional powered by Agora.</CardDescription>
         </CardHeader>
       </Card>
 
@@ -123,17 +122,17 @@ export function DoctorBooking() {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Appointment</AlertDialogTitle>
+                    <AlertDialogTitle>Start In-App Call</AlertDialogTitle>
                     <AlertDialogDescription>
-                      You are about to book an appointment with {doctor.name}. You will be redirected to WhatsApp to start the conversation.
+                      You are about to start a secure video call with {doctor.name}. Please ensure you have given browser permissions for your camera and microphone.
                       <br /><br />
-                      This will be for the active profile: <strong>{activeProfile?.name}</strong>.
+                      This call will be for the active profile: <strong>{activeProfile?.name}</strong>.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleBooking(doctor.whatsapp)}>
-                      Proceed to WhatsApp
+                    <AlertDialogAction onClick={() => handleBooking(doctor.name)}>
+                      Proceed to Call
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>

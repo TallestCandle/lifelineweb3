@@ -8,6 +8,7 @@ import { AppShell } from '@/components/app-shell';
 import { ProfileProvider } from '@/context/profile-provider';
 
 const publicPaths = ['/auth'];
+const noShellPaths = ['/call'];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -15,6 +16,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const isPublicPath = publicPaths.includes(pathname);
+  const isNoShellPath = noShellPaths.some(path => pathname.startsWith(path));
 
   useEffect(() => {
     if (!loading) {
@@ -31,10 +33,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    // Wrap AppShell with ProfileProvider
     return (
       <ProfileProvider>
-        <AppShell>{children}</AppShell>
+        {isNoShellPath ? (
+          <>{children}</>
+        ) : (
+          <AppShell>{children}</AppShell>
+        )}
       </ProfileProvider>
     );
   }
