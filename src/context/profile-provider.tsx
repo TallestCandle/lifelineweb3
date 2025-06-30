@@ -138,7 +138,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     
     await deleteDoc(doc(db, `users/${user.uid}/profiles/${profileId}`));
     
-    const subCollections = ['vitals', 'tasks', 'reminders', 'reminders_history', 'test_strips', 'alerts', 'guardians', 'bookmarked_tips', 'health_analyses', 'daily_diet_plans'];
+    const subCollections = ['vitals', 'daily_tasks', 'reminders', 'reminders_history', 'test_strips', 'alerts', 'guardians', 'bookmarked_tips', 'health_analyses', 'daily_diet_plans'];
     for (const sub of subCollections) {
         await deleteCollection(`users/${user.uid}/profiles/${profileId}/${sub}`);
     }

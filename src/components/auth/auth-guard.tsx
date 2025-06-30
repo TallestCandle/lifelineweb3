@@ -6,49 +6,70 @@ import { useEffect } from 'react';
 import { useAuth } from '@/context/auth-provider';
 import { Loader } from '@/components/ui/loader';
 import { AppShell } from '@/components/app-shell';
+import { DoctorAppShell } from '@/components/doctor/doctor-app-shell';
 import { ProfileProvider } from '@/context/profile-provider';
 
 const publicPaths = ['/auth', '/landing'];
 const noShellPaths = ['/call'];
+const doctorPaths = ['/doctor'];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, userData, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   const isPublicPath = publicPaths.includes(pathname);
   const isNoShellPath = noShellPaths.some(path => pathname.startsWith(path));
+  const isDoctorPath = doctorPaths.some(path => pathname.startsWith(path));
 
   useEffect(() => {
     if (!loading) {
       if (!user && !isPublicPath) {
-        router.push('/landing');
-      } else if (user && isPublicPath) {
-        router.push('/');
+        router.replace('/landing');
+      } else if (user && userData) {
+        // User is logged in, handle routing based on role
+        if (isPublicPath) {
+            router.replace(userData.role === 'doctor' ? '/doctor/dashboard' : '/');
+        } else if (isDoctorPath && userData.role !== 'doctor') {
+            router.replace('/'); // Patient trying to access doctor routes
+        } else if (!isDoctorPath && userData.role === 'doctor') {
+            router.replace('/doctor/dashboard'); // Doctor trying to access patient routes
+        }
       }
     }
-  }, [user, loading, router, pathname, isPublicPath]);
+  }, [user, userData, loading, router, pathname, isPublicPath, isDoctorPath]);
 
-  if (loading || (!user && !isPublicPath) || (user && isPublicPath && pathname !== '/landing')) {
+  if (loading) {
     return <Loader />;
   }
-  
-  // Allow unauthenticated users to see the landing page
-  if (!user && pathname === '/landing') {
-    return <>{children}</>;
+
+  // Handle unauthenticated users
+  if (!user) {
+    if (isPublicPath) {
+      return <>{children}</>;
+    }
+    return <Loader />; // Or redirect immediately, but useEffect handles it
   }
 
-  if (user) {
-    return (
-      <ProfileProvider>
-        {isNoShellPath ? (
-          <>{children}</>
-        ) : (
+  // Handle authenticated users
+  if (userData) {
+    if (isNoShellPath) {
+      return <>{children}</>;
+    }
+
+    if (userData.role === 'doctor') {
+      return <DoctorAppShell>{children}</DoctorAppShell>;
+    }
+    
+    if (userData.role === 'patient') {
+      return (
+        <ProfileProvider>
           <AppShell>{children}</AppShell>
-        )}
-      </ProfileProvider>
-    );
+        </ProfileProvider>
+      );
+    }
   }
 
-  return <>{children}</>;
+  // Fallback for user logged in but userData is not yet available or role is unknown
+  return <Loader />;
 }
