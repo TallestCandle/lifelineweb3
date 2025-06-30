@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useAuth } from '@/context/auth-provider';
@@ -7,6 +8,7 @@ import { AppShell } from '../app-shell';
 import { ProfileProvider } from '@/context/profile-provider';
 
 const PUBLIC_ROUTES = ['/auth', '/landing'];
+const PROTECTED_ROOT = '/';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
     const { user, loading: authLoading } = useAuth();
@@ -17,38 +19,38 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         return <Loader />;
     }
 
-    const isPublicRoute = PUBLIC_ROUTES.includes(pathname) || pathname === '/';
-    const isLangingPageRoute = pathname === '/landing';
+    const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
-    // If trying to access a protected route without being logged in, redirect to auth page
-    if (!user && !isPublicRoute) {
-        router.replace('/auth');
-        return <Loader />;
+    // If user is not logged in
+    if (!user) {
+        // If they are on the root path, send them to the public landing page.
+        if (pathname === PROTECTED_ROOT) {
+            router.replace('/landing');
+            return <Loader />;
+        }
+        // If they are trying to access a protected route, send them to auth.
+        if (!isPublicRoute) {
+            router.replace('/auth');
+            return <Loader />;
+        }
+        // Otherwise, they are on a public route, so let them through.
+        return <>{children}</>;
     }
 
-    // If logged in and trying to access the auth page, redirect to dashboard
-    if (user && pathname === '/auth') {
-        router.replace('/');
+    // If user is logged in
+    // If they are on a public page (e.g., trying to visit /auth again), redirect them to the dashboard.
+    if (isPublicRoute) {
+        router.replace(PROTECTED_ROOT);
         return <Loader />;
     }
     
-    // If logged in, wrap protected pages with the AppShell and providers
-    if (user && !isPublicRoute) {
-        return (
-            <ProfileProvider>
-                <AppShell>
-                    {children}
-                </AppShell>
-            </ProfileProvider>
-        );
-    }
-    
-    // If not logged in and accessing the root, redirect to landing
-    if (!user && pathname === '/') {
-        router.replace('/landing');
-        return <Loader />;
-    }
-    
-    // Render public pages (like /auth, /landing) or the root page for logged-in users
-    return <>{children}</>;
+    // For all other cases (logged in and on a protected route including '/'), wrap with providers and shell.
+    // This is the main path for authenticated users.
+    return (
+        <ProfileProvider>
+            <AppShell>
+                {children}
+            </AppShell>
+        </ProfileProvider>
+    );
 }
