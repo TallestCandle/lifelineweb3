@@ -21,31 +21,26 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
-    // If user is not logged in
+    // If user is not logged in, handle public/protected routes
     if (!user) {
-        // If they are on the root path, send them to the public landing page.
-        if (pathname === PROTECTED_ROOT) {
-            router.replace('/landing');
-            return <Loader />;
+        if (isPublicRoute) {
+            return <>{children}</>; // Allow access to public routes
         }
-        // If they are trying to access a protected route, send them to auth.
-        if (!isPublicRoute) {
-            router.replace('/auth');
-            return <Loader />;
-        }
-        // Otherwise, they are on a public route, so let them through.
-        return <>{children}</>;
+        // For any other route, redirect to auth
+        router.replace('/auth');
+        return <Loader />;
     }
 
     // If user is logged in
-    // If they are on a public page (e.g., trying to visit /auth again), redirect them to the dashboard.
     if (isPublicRoute) {
+        // Redirect from public routes to the app's root
         router.replace(PROTECTED_ROOT);
         return <Loader />;
     }
     
-    // For all other cases (logged in and on a protected route including '/'), wrap with providers and shell.
-    // This is the main path for authenticated users.
+    // If the user is authenticated and on a protected route,
+    // wrap the content with the necessary providers and app shell.
+    // The ProfileProvider will handle logic related to profile existence.
     return (
         <ProfileProvider>
             <AppShell>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -36,18 +37,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !user) {
+      setLoading(false);
+      setProfile(null);
+      return;
+    }
 
     const loadProfile = async () => {
         setLoading(true);
-        if (!user || !db) {
-            setProfile(null);
+        if (!db) {
+            console.error("Firestore is not initialized.");
             setLoading(false);
             return;
         }
 
         try {
-            // In the simplified system, the profile ID is the same as the user ID.
             const profileDocRef = doc(db, `users/${user.uid}/profiles/${user.uid}`);
             const docSnap = await getDoc(profileDocRef);
             
@@ -58,6 +62,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
             }
         } catch (error) {
             console.error("Failed to load profile from Firestore", error);
+            setProfile(null);
         } finally {
             setLoading(false);
         }
@@ -66,29 +71,18 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     loadProfile();
   }, [user, authLoading]);
 
-  // Redirect to create profile if one doesn't exist
-  useEffect(() => {
-    if (!loading && !authLoading && user && !profile && pathname !== '/profiles') {
-      router.push('/profiles');
-    }
-  }, [loading, authLoading, user, profile, pathname, router]);
-
   const createProfile = async (profileData: Omit<Profile, 'id' | 'theme'>) => {
     if (!user || !db) throw new Error("User not authenticated or DB not available");
     
-    const newProfile: Profile = { 
-        ...profileData, 
-        id: user.uid, 
-        theme: 'theme-cool-flash' 
+    const newProfileData = { 
+        name: profileData.name,
+        age: profileData.age,
+        gender: profileData.gender,
+        theme: 'theme-cool-flash' as ThemeId,
     };
     
-    await setDoc(doc(db, `users/${user.uid}/profiles/${user.uid}`), {
-        name: newProfile.name,
-        age: newProfile.age,
-        gender: newProfile.gender,
-        theme: newProfile.theme,
-    });
-    setProfile(newProfile);
+    await setDoc(doc(db, `users/${user.uid}/profiles/${user.uid}`), newProfileData);
+    setProfile({ ...newProfileData, id: user.uid });
     router.push('/');
   };
 
@@ -108,13 +102,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     await updateDoc(profileDocRef, { theme: themeId });
   };
   
-  if (authLoading || (loading && user)) {
+  // If authentication or profile data is still loading, show a loader.
+  if (authLoading || loading) {
     return <Loader />;
   }
   
-  // This handles the case where the user is logged in, but has no profile yet.
-  if (user && !profile && pathname !== '/profiles' && !pathname.startsWith('/auth')) {
-      return <Loader />; // We are waiting for the redirect to /profiles
+  // If the user is logged in but has no profile, and they are not on the profile creation page,
+  // redirect them. This is the main fix for the infinite load.
+  if (user && !profile && pathname !== '/profiles') {
+      router.replace('/profiles');
+      return <Loader />; // Show a loader while redirecting
   }
   
   const value = { profile, loading, createProfile, updateProfile, updateProfileTheme, activeProfile: profile };
@@ -127,6 +124,5 @@ export const useProfile = () => {
   if (context === null) {
     throw new Error('useProfile must be used within a ProfileProvider');
   }
-  // The rest of the app might use `activeProfile`, so we keep this alias for compatibility.
   return context;
 };
