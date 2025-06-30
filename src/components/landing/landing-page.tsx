@@ -29,8 +29,6 @@ const partners = [
 
 export function LandingPage() {
     const [aiResponse, setAiResponse] = useState<AskLifelineOutput | null>(null);
-    const [displayedAnswer, setDisplayedAnswer] = useState('');
-    const [isTyping, setIsTyping] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
@@ -42,13 +40,10 @@ export function LandingPage() {
     const onSubmit = async (data: AskFormValues) => {
         setIsLoading(true);
         setAiResponse(null);
-        setDisplayedAnswer('');
         setError(null);
-        setIsTyping(false);
         try {
             const result = await askLifeline({ query: data.question });
             setAiResponse(result);
-            setIsTyping(true);
         } catch (err) {
             console.error(err);
             setError("Sorry, I couldn't process that question. Please try again.");
@@ -56,23 +51,6 @@ export function LandingPage() {
             setIsLoading(false);
         }
     };
-
-    useEffect(() => {
-        if (isTyping && aiResponse) {
-            let i = 0;
-            const answer = aiResponse.answer;
-            const interval = setInterval(() => {
-                if (i < answer.length) {
-                    setDisplayedAnswer(prev => prev + answer.charAt(i));
-                    i++;
-                } else {
-                    clearInterval(interval);
-                    setIsTyping(false);
-                }
-            }, 25);
-            return () => clearInterval(interval);
-        }
-    }, [isTyping, aiResponse]);
   
     return (
         <div className="bg-background text-foreground font-body antialiased animated-gradient-bg">
@@ -172,7 +150,7 @@ export function LandingPage() {
                                 {isLoading && <div className="flex justify-center p-8"><Loader className="w-12 h-12"/></div>}
                                 {error && <p className="text-destructive text-center p-4">{error}</p>}
                                 {aiResponse && (
-                                    <div className="mt-8 p-4 md:p-6 bg-secondary/30 rounded-lg">
+                                    <div className="mt-8 p-4 md:p-6 bg-secondary/30 rounded-lg animate-in fade-in-50 duration-500">
                                         <div className="flex items-start gap-4">
                                             <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-primary/10 text-primary">
                                                 <Bot />
@@ -180,12 +158,11 @@ export function LandingPage() {
                                             <div className="flex-grow min-w-0">
                                                 <h4 className="font-bold text-lg">Lifeline AI Says:</h4>
                                                 <p className="text-muted-foreground whitespace-pre-line break-words">
-                                                    {displayedAnswer}
-                                                    {isTyping && <span className="inline-block w-2 h-5 bg-primary animate-pulse ml-1 align-bottom" />}
+                                                    {aiResponse.answer}
                                                 </p>
                                             </div>
                                         </div>
-                                        {!isTyping && aiResponse.disclaimer && (
+                                        {aiResponse.disclaimer && (
                                             <p className="text-xs text-muted-foreground/80 mt-6 pt-4 border-t border-muted/20">
                                                 <strong>Disclaimer:</strong> {aiResponse.disclaimer}
                                             </p>
