@@ -2,15 +2,12 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useAuth } from './auth-provider';
-import { Loader } from '@/components/ui/loader';
-import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import type { ThemeId } from './theme-provider';
 
 export interface Profile {
-  id: string;
   name: string;
   age: string;
   gender: 'Male' | 'Female' | 'Other';
@@ -20,10 +17,10 @@ export interface Profile {
 interface ProfileContextType {
   profile: Profile | null;
   loading: boolean;
-  createProfile: (profileData: Omit<Profile, 'id' | 'theme'>) => Promise<void>;
-  updateProfile: (profileData: Partial<Omit<Profile, 'id'>>) => Promise<void>;
-  updateProfileTheme: (themeId: ThemeId) => Promise<void>;
-  activeProfile: Profile | null; // For compatibility
+  createProfile: (data: Omit<Profile, 'theme'>) => Promise<void>;
+  updateProfile: (data: Partial<Omit<Profile, 'theme'>>) => Promise<void>;
+  updateProfileTheme: (theme: ThemeId) => Promise<void>;
+  activeProfile: Profile | null; 
 }
 
 const ProfileContext = createContext<ProfileContextType | null>(null);
@@ -33,90 +30,61 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const pathname = usePathname();
-  const router = useRouter();
-
   useEffect(() => {
-    if (authLoading) {
-      return;
-    }
-    if (!user) {
-      setLoading(false);
+    if (authLoading || !user) {
       setProfile(null);
+      setLoading(!authLoading);
       return;
     }
 
-    const loadProfile = async () => {
-        setLoading(true);
-        if (!db) {
-            console.error("Firestore is not initialized.");
-            setLoading(false);
-            return;
-        }
-
-        try {
-            // Using a simpler path: /users/{userId}
-            const profileDocRef = doc(db, 'users', user.uid);
-            const docSnap = await getDoc(profileDocRef);
-            
-            if (docSnap.exists()) {
-                setProfile({ id: docSnap.id, ...(docSnap.data() as Omit<Profile, 'id'>) });
-            } else {
-                setProfile(null);
-                if (pathname !== '/profiles') {
-                    router.replace('/profiles');
-                }
-            }
-        } catch (error) {
-            console.error("Failed to load profile from Firestore", error);
-            setProfile(null);
-        } finally {
-            setLoading(false);
-        }
-    };
-    
-    loadProfile();
-  }, [user, authLoading, pathname, router]);
-
-  const createProfile = useCallback(async (profileData: Omit<Profile, 'id' | 'theme'>) => {
-    if (!user || !db) throw new Error("User not authenticated or DB not available");
-    
-    const newProfileData = { 
-        name: profileData.name,
-        age: profileData.age,
-        gender: profileData.gender,
-        theme: 'theme-cool-flash' as ThemeId,
-    };
-    
-    // Using a simpler path: /users/{userId}
-    await setDoc(doc(db, 'users', user.uid), newProfileData);
-    setProfile({ ...newProfileData, id: user.uid });
-    router.push('/');
-  }, [user, router]);
-
-  const updateProfile = useCallback(async (profileData: Partial<Omit<Profile, 'id'>>) => {
-    if (!user || !profile || !db) throw new Error("No profile to update or DB not available");
-    // Using a simpler path: /users/{userId}
     const profileDocRef = doc(db, 'users', user.uid);
-    await updateDoc(profileDocRef, profileData);
-    setProfile(prev => prev ? { ...prev, ...profileData } as Profile : null);
+    getDoc(profileDocRef).then(docSnap => {
+      if (docSnap.exists()) {
+        setProfile(docSnap.data() as Profile);
+      } else {
+        setProfile(null);
+      }
+    }).catch(error => {
+      console.error("Error fetching profile:", error);
+      setProfile(null);
+    }).finally(() => {
+      setLoading(false);
+    });
+  }, [user, authLoading]);
+
+  const createProfile = useCallback(async (data: Omit<Profile, 'theme'>) => {
+    if (!user) throw new Error("User not authenticated");
+    const newProfile: Profile = {
+      ...data,
+      theme: 'theme-cool-flash', // Default theme
+    };
+    const profileDocRef = doc(db, 'users', user.uid);
+    await setDoc(profileDocRef, newProfile);
+    setProfile(newProfile);
+  }, [user]);
+
+  const updateProfile = useCallback(async (data: Partial<Omit<Profile, 'theme'>>) => {
+    if (!user || !profile) throw new Error("User or profile not available");
+    const profileDocRef = doc(db, 'users', user.uid);
+    await updateDoc(profileDocRef, data);
+    setProfile(prev => ({ ...prev!, ...data }));
   }, [user, profile]);
-  
-  const updateProfileTheme = useCallback(async (themeId: ThemeId) => {
-    if (!user || !profile || !db) throw new Error("No profile to update or DB not available");
-    await updateProfile({ theme: themeId });
-  }, [user, profile, updateProfile]);
-  
-  if (authLoading || loading) {
-    return <Loader />;
-  }
-  
-  // While redirecting to /profiles, show a loader.
-  if (user && !profile && pathname !== '/profiles') {
-      return <Loader />;
-  }
-  
-  const value = { profile, loading, createProfile, updateProfile, updateProfileTheme, activeProfile: profile };
+
+  const updateProfileTheme = useCallback(async (theme: ThemeId) => {
+    if (!user || !profile) throw new Error("User or profile not available");
+    const profileDocRef = doc(db, 'users', user.uid);
+    await updateDoc(profileDocRef, { theme });
+    setProfile(prev => ({ ...prev!, theme }));
+  }, [user, profile]);
+
+  const value = {
+    profile,
+    loading: authLoading || loading,
+    createProfile,
+    updateProfile,
+    updateProfileTheme,
+    activeProfile: profile, // for compatibility
+  };
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
 }

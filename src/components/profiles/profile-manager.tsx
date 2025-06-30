@@ -1,7 +1,9 @@
+
 "use client";
 
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useProfile } from '@/context/profile-provider';
@@ -14,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { User, Edit } from "lucide-react";
 import { useAuth } from '@/context/auth-provider';
 
+// Omitting 'theme' from the form schema
 const profileSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   age: z.string().refine((val) => !isNaN(parseInt(val, 10)) && parseInt(val, 10) > 0, { message: "Please enter a valid age." }),
@@ -26,14 +29,11 @@ export function ProfileManager() {
   const { user } = useAuth();
   const { profile, createProfile, updateProfile } = useProfile();
   const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: {
-      name: "",
-      age: "",
-      gender: undefined,
-    },
+    defaultValues: { name: "", age: "", gender: undefined },
   });
 
   useEffect(() => {
@@ -45,11 +45,7 @@ export function ProfileManager() {
       });
     } else if (user?.displayName) {
       // Pre-fill from auth profile if no db profile exists
-      form.reset({
-        name: user.displayName,
-        age: "",
-        gender: undefined,
-      });
+      form.reset({ name: user.displayName, age: "", gender: undefined });
     }
   }, [profile, user, form]);
 
@@ -62,6 +58,7 @@ export function ProfileManager() {
         await createProfile(values);
         toast({ title: "Profile Created", description: "Welcome! Your profile is now set up." });
       }
+      router.push('/'); // Redirect to dashboard after profile is set up/updated
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     }
@@ -72,42 +69,41 @@ export function ProfileManager() {
   const buttonText = profile ? "Save Changes" : "Create Profile";
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-secondary/50">
-        <Card className="w-full max-w-lg mx-4">
+    <div className="flex items-center justify-center min-h-[calc(100vh-150px)]">
+      <Card className="w-full max-w-lg mx-4">
         <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2">
             {profile ? <Edit /> : <User />}
             {pageTitle}
-            </CardTitle>
-            <CardDescription>{pageDescription}</CardDescription>
+          </CardTitle>
+          <CardDescription>{pageDescription}</CardDescription>
         </CardHeader>
         <CardContent>
-            <Form {...form}>
+          <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="age" render={({ field }) => (<FormItem><FormLabel>Age</FormLabel><FormControl><Input type="number" placeholder="30" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="gender" render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Gender</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                        <SelectItem value="Male">Male</SelectItem>
-                        <SelectItem value="Female">Female</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-                <div className="flex gap-2 pt-2">
-                <Button type="submit" className="w-full">{buttonText}</Button>
-                </div>
+              <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="age" render={({ field }) => (<FormItem><FormLabel>Age</FormLabel><FormControl><Input type="number" placeholder="30" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="gender" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Gender</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Saving...' : buttonText}
+              </Button>
             </form>
-            </Form>
+          </Form>
         </CardContent>
-        </Card>
+      </Card>
     </div>
   );
 }
