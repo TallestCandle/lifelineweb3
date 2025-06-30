@@ -1,14 +1,13 @@
-
 "use client"
 
 import * as React from "react"
-import { Stethoscope, LogOut, ChevronsUpDown, User as UserIcon, PlusCircle } from "lucide-react"
+import { Stethoscope, LogOut } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { signOut } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useProfile } from "@/context/profile-provider"
 import { Button } from "./ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "./ui/avatar"
 import { ThemeToggle } from "./theme/theme-toggle"
 import { useTheme } from "@/context/theme-provider"
@@ -24,14 +23,14 @@ const pageTitles: Record<string, string> = {
   "/report": "Health Report",
   "/dietician": "AI Dietician",
   "/emergency": "Emergency",
-  "/profiles": "Manage Profiles",
+  "/profiles": "Your Profile",
   "/doctors": "Consult a Doctor",
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { activeProfile, profiles, switchProfile } = useProfile();
+  const { activeProfile } = useProfile();
   const { setTheme } = useTheme();
 
   React.useEffect(() => {
@@ -79,27 +78,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                   <AvatarFallback>{activeProfile.name.charAt(0).toUpperCase()}</AvatarFallback>
                               </Avatar>
                               <span className="hidden sm:inline-block">{activeProfile.name}</span>
-                              <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
                           </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-56" align="end">
-                          <DropdownMenuLabel>Switch Profile</DropdownMenuLabel>
-                          <DropdownMenuGroup>
-                              {profiles.map(profile => (
-                                  <DropdownMenuItem key={profile.id} onClick={() => switchProfile(profile.id)} disabled={profile.id === activeProfile.id}>
-                                      <UserIcon className="mr-2 h-4 w-4" />
-                                      <span>{profile.name}</span>
-                                  </DropdownMenuItem>
-                              ))}
-                          </DropdownMenuGroup>
+                          <DropdownMenuLabel>Settings</DropdownMenuLabel>
+                          <DropdownMenuItem onSelect={() => router.push('/profiles')}>
+                              Edit Profile
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="focus:bg-transparent p-2">
                             <ThemeToggle />
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                           <DropdownMenuItem onClick={() => router.push('/profiles')}>
-                              <PlusCircle className="mr-2 h-4 w-4" />
-                              <span>Manage Profiles</span>
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                            <DropdownMenuItem onClick={handleLogout}>

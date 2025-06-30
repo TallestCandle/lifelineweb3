@@ -1,99 +1,131 @@
-'use client';
+"use client";
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  FirebaseError,
-} from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
-import { Stethoscope } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { Stethoscope } from 'lucide-react';
+import { Loader } from '../ui/loader';
 
 const formSchema = z.object({
-  email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  email: z.string().email({ message: "Please enter a valid email address." }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  name: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 export function AuthForm() {
-  const { toast } = useToast();
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: "", password: "", name: "" },
   });
 
-  const toggleFormMode = () => {
-    setIsLogin(!isLogin);
-    form.reset();
-  };
-
-  const onSubmit = async (values: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
-    form.clearErrors();
-
-    if (!auth) {
-      toast({
-        variant: 'destructive',
-        title: 'Authentication Error',
-        description: 'Firebase is not configured correctly. Please contact support.',
-      });
-      setIsLoading(false);
-      return;
+    if (!auth || !db) {
+        toast({ variant: "destructive", title: "Configuration Error", description: "Firebase is not configured. Please check your environment variables." });
+        setIsLoading(false);
+        return;
     }
-
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, values.email, values.password);
+        // Login logic
+        await signInWithEmailAndPassword(auth, data.email, data.password);
+        toast({ title: "Login Successful", description: "Welcome back!" });
+        router.push('/');
       } else {
-        await createUserWithEmailAndPassword(auth, values.email, values.password);
+        // Sign Up logic
+        if (!data.name) {
+            form.setError("name", { type: "manual", message: "Name is required for sign up." });
+            setIsLoading(false);
+            return;
+        }
+        const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        const user = userCredential.user;
+        
+        // Update Firebase Auth profile
+        await updateProfile(user, { displayName: data.name });
+
+        // Create a basic profile document in Firestore, with the ID matching the user's UID
+        const profileData = {
+            name: data.name,
+            age: '',
+            gender: 'Other',
+            theme: 'theme-cool-flash'
+        };
+        await setDoc(doc(db, `users/${user.uid}/profiles/${user.uid}`), profileData);
+        
+        toast({ title: "Sign Up Successful", description: "Your account has been created." });
+        router.push('/');
       }
-      // On success, AuthGuard will handle redirection, but we can push immediately.
-      router.push('/');
-    } catch (error) {
-      const firebaseError = error as FirebaseError;
-      toast({
-        variant: 'destructive',
-        title: 'Authentication Error',
-        description: firebaseError.message.replace('Firebase: ', ''),
-      });
+    } catch (error: any) {
+      const errorCode = error.code;
+      let errorMessage = "An unexpected error occurred. Please try again.";
+      if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
+          errorMessage = "Invalid email or password.";
+      } else if (errorCode === 'auth/email-already-in-use') {
+          errorMessage = "This email address is already in use.";
+      }
+      toast({ variant: "destructive", title: "Authentication Failed", description: errorMessage });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const title = isLogin ? 'Welcome Back' : 'Create an Account';
-  const description = isLogin ? 'Sign in to your Lifeline AI account.' : 'Get started with Lifeline AI.';
-  const submitButtonText = isLogin ? 'Sign In' : 'Create Account';
-  const toggleLinkText = isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In";
+  const toggleForm = () => {
+    setIsLogin(!isLogin);
+    form.reset();
+  };
+
+  if (isLoading) {
+    return <Loader />
+  }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background animated-gradient-bg p-4">
-      <Card className="w-full max-w-md shadow-2xl shadow-primary/10">
+    <div className="flex items-center justify-center min-h-screen bg-secondary/50 animated-gradient-bg">
+      <Card className="w-full max-w-md mx-4">
         <CardHeader className="text-center">
-          <div className="mx-auto flex items-center justify-center gap-2 mb-4">
-            <Stethoscope className="w-12 h-12 text-primary" />
-            <h1 className="text-3xl font-bold font-headline">Lifeline AI</h1>
-          </div>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
+            <div className="flex justify-center items-center gap-2 mb-4">
+                <Stethoscope className="w-10 h-10 text-primary"/>
+                <h1 className="text-3xl font-bold">Lifeline AI</h1>
+            </div>
+          <CardTitle>{isLogin ? "Welcome Back" : "Create an Account"}</CardTitle>
+          <CardDescription>{isLogin ? "Sign in to access your dashboard." : "Get started with your health journey."}</CardDescription>
         </CardHeader>
-        <CardContent className="px-6 pb-6">
+        <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {!isLogin && (
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="John Doe" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={form.control}
                 name="email"
@@ -121,16 +153,19 @@ export function AuthForm() {
                 )}
               />
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Loading...' : submitButtonText}
+                {isLoading ? 'Processing...' : (isLogin ? 'Log In' : 'Sign Up')}
               </Button>
             </form>
           </Form>
-          <div className="mt-6 text-center text-sm">
-            <Button variant="link" onClick={toggleFormMode} className="p-0 h-auto">
-              {toggleLinkText}
-            </Button>
-          </div>
         </CardContent>
+        <CardFooter className="text-center flex-col">
+          <p className="text-sm text-muted-foreground">
+            {isLogin ? "Don't have an account?" : "Already have an account?"}{' '}
+            <Button variant="link" onClick={toggleForm} className="p-0 h-auto">
+              {isLogin ? 'Sign Up' : 'Log In'}
+            </Button>
+          </p>
+        </CardFooter>
       </Card>
     </div>
   );

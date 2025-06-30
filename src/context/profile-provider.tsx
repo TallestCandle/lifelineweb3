@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -6,7 +5,7 @@ import { useAuth } from './auth-provider';
 import { Loader } from '@/components/ui/loader';
 import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDocs, addDoc, deleteDoc, updateDoc, query, writeBatch, orderBy, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import type { ThemeId } from './theme-provider';
 
 export interface Profile {
@@ -14,192 +13,111 @@ export interface Profile {
   name: string;
   age: string;
   gender: 'Male' | 'Female' | 'Other';
-  theme?: ThemeId;
+  theme: ThemeId;
 }
 
 interface ProfileContextType {
-  profiles: Profile[];
-  activeProfile: Profile | null;
+  profile: Profile | null;
   loading: boolean;
-  addProfile: (profileData: Omit<Profile, 'id' | 'theme'>) => Promise<void>;
-  switchProfile: (profileId: string) => Promise<void>;
-  deleteProfile: (profileId: string) => Promise<void>;
-  updateProfile: (profileId: string, profileData: Omit<Profile, 'id' | 'theme'>) => Promise<void>;
+  createProfile: (profileData: Omit<Profile, 'id' | 'theme'>) => Promise<void>;
+  updateProfile: (profileData: Partial<Omit<Profile, 'id' | 'theme'>>) => Promise<void>;
   updateProfileTheme: (themeId: ThemeId) => Promise<void>;
+  activeProfile: Profile | null; // For compatibility
 }
 
 const ProfileContext = createContext<ProfileContextType | null>(null);
 
-async function deleteCollection(collectionPath: string) {
-    const collectionRef = collection(db, collectionPath);
-    const q = query(collectionRef);
-    const snapshot = await getDocs(q);
-    
-    if (snapshot.empty) return;
-
-    const batch = writeBatch(db);
-    snapshot.docs.forEach(doc => {
-        batch.delete(doc.ref);
-    });
-    
-    await batch.commit();
-}
-
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   const pathname = usePathname();
   const router = useRouter();
 
-  const getActiveProfileKey = useCallback(() => user ? `nexus-lifeline-${user.uid}-active-profile-id` : null, [user]);
-
   useEffect(() => {
     if (authLoading) return;
 
-    const loadProfiles = async () => {
+    const loadProfile = async () => {
         setLoading(true);
-        if (!user) {
-            setProfiles([]);
-            setActiveProfile(null);
+        if (!user || !db) {
+            setProfile(null);
             setLoading(false);
             return;
         }
 
         try {
-            const profilesCollectionRef = collection(db, `users/${user.uid}/profiles`);
-            const q = query(profilesCollectionRef, orderBy("name"));
-            const querySnapshot = await getDocs(q);
-            const allProfiles: Profile[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Omit<Profile, 'id'>) }));
+            // In the simplified system, the profile ID is the same as the user ID.
+            const profileDocRef = doc(db, `users/${user.uid}/profiles/${user.uid}`);
+            const docSnap = await getDoc(profileDocRef);
             
-            setProfiles(allProfiles);
-            
-            const activeProfileIdKey = getActiveProfileKey();
-            const activeProfileId = activeProfileIdKey ? window.localStorage.getItem(activeProfileIdKey) : null;
-            let currentActiveProfile = allProfiles.find(p => p.id === activeProfileId) || allProfiles[0] || null;
-
-            setActiveProfile(currentActiveProfile);
-
-            if (activeProfileIdKey && currentActiveProfile && activeProfileId !== currentActiveProfile.id) {
-                window.localStorage.setItem(activeProfileIdKey, currentActiveProfile.id);
+            if (docSnap.exists()) {
+                setProfile({ id: docSnap.id, ...(docSnap.data() as Omit<Profile, 'id'>) });
+            } else {
+                setProfile(null);
             }
-
         } catch (error) {
-            console.error("Failed to load profiles from Firestore", error);
+            console.error("Failed to load profile from Firestore", error);
         } finally {
             setLoading(false);
         }
     };
     
-    loadProfiles();
-  }, [user, authLoading, getActiveProfileKey]);
+    loadProfile();
+  }, [user, authLoading]);
 
-
-  const switchProfile = async (profileId: string) => {
-    const profileToSwitch = profiles.find(p => p.id === profileId);
-    if (profileToSwitch) {
-      const activeProfileKey = getActiveProfileKey();
-      if(activeProfileKey) window.localStorage.setItem(activeProfileKey, profileId);
-      
-      // We reload here to ensure all data across the app refreshes for the new profile.
-      window.location.reload();
-    }
-  };
-
+  // Redirect to create profile if one doesn't exist
   useEffect(() => {
-    if (!loading && !authLoading && user && profiles.length === 0 && pathname !== '/profiles' && pathname !== '/auth') {
+    if (!loading && !authLoading && user && !profile && pathname !== '/profiles') {
       router.push('/profiles');
     }
-  }, [loading, authLoading, user, profiles, pathname, router]);
+  }, [loading, authLoading, user, profile, pathname, router]);
 
-  const addProfile = async (profileData: Omit<Profile, 'id' | 'theme'>) => {
-    if (!user) throw new Error("User not authenticated");
-    if (profiles.length >= 3) {
-      throw new Error("Maximum of 3 profiles reached.");
-    }
-    const profilesCollectionRef = collection(db, `users/${user.uid}/profiles`);
-    const newProfileData = { ...profileData, theme: 'theme-cool-flash' as ThemeId };
-    const docRef = await addDoc(profilesCollectionRef, newProfileData);
-    const newProfile: Profile = { ...newProfileData, id: docRef.id };
+  const createProfile = async (profileData: Omit<Profile, 'id' | 'theme'>) => {
+    if (!user || !db) throw new Error("User not authenticated or DB not available");
     
-    const updatedProfiles = [...profiles, newProfile].sort((a,b) => a.name.localeCompare(b.name));
-    setProfiles(updatedProfiles);
+    const newProfile: Profile = { 
+        ...profileData, 
+        id: user.uid, 
+        theme: 'theme-cool-flash' 
+    };
     
-    if (profiles.length === 0) {
-      await switchProfile(newProfile.id);
-    }
+    await setDoc(doc(db, `users/${user.uid}/profiles/${user.uid}`), {
+        name: newProfile.name,
+        age: newProfile.age,
+        gender: newProfile.gender,
+        theme: newProfile.theme,
+    });
+    setProfile(newProfile);
+    router.push('/');
   };
 
-
-  const deleteProfile = async (profileId: string) => {
-    if (!user) throw new Error("User not authenticated");
-    
-    await deleteDoc(doc(db, `users/${user.uid}/profiles/${profileId}`));
-    
-    const subCollections = ['vitals', 'daily_tasks', 'reminders', 'reminders_history', 'test_strips', 'alerts', 'guardians', 'bookmarked_tips', 'health_analyses', 'daily_diet_plans'];
-    for (const sub of subCollections) {
-        await deleteCollection(`users/${user.uid}/profiles/${profileId}/${sub}`);
-    }
-    
-    const updatedProfiles = profiles.filter(p => p.id !== profileId);
-    setProfiles(updatedProfiles);
-
-    if (activeProfile?.id === profileId) {
-      const newActiveProfile = updatedProfiles[0] || null;
-      const activeProfileKey = getActiveProfileKey();
-      
-      if (activeProfileKey) {
-          if (newActiveProfile) {
-            await switchProfile(newActiveProfile.id);
-          } else {
-            setActiveProfile(null);
-            window.localStorage.removeItem(activeProfileKey);
-            router.push('/profiles');
-          }
-      }
-    }
+  const updateProfile = async (profileData: Partial<Omit<Profile, 'id' | 'theme'>>) => {
+    if (!user || !profile || !db) throw new Error("No profile to update or DB not available");
+    const profileDocRef = doc(db, `users/${user.uid}/profiles/${user.uid}`);
+    await updateDoc(profileDocRef, profileData);
+    setProfile(prev => prev ? { ...prev, ...profileData } as Profile : null);
   };
-
-  const updateProfile = async (profileId: string, profileData: Omit<Profile, 'id' | 'theme'>) => {
-    if (!user) throw new Error("User not authenticated");
-    const profileDocRef = doc(db, `users/${user.uid}/profiles/${profileId}`);
-    const existingProfile = profiles.find(p => p.id === profileId);
-    const dataToUpdate = { ...profileData, theme: existingProfile?.theme || 'theme-cool-flash' };
-    
-    await updateDoc(profileDocRef, dataToUpdate);
-    
-    const updatedProfiles = profiles.map(p => p.id === profileId ? { ...dataToUpdate, id: profileId } : p).sort((a,b) => a.name.localeCompare(b.name));
-    setProfiles(updatedProfiles);
-
-    if (activeProfile?.id === profileId) {
-      setActiveProfile({ ...dataToUpdate, id: profileId });
-    }
-  };
-
+  
   const updateProfileTheme = async (themeId: ThemeId) => {
-    if (!user || !activeProfile) {
-      throw new Error("No active profile selected.");
-    }
-    // Update local state for immediate UI response
-    setActiveProfile(prev => (prev ? { ...prev, theme: themeId } : null));
+    if (!user || !profile || !db) throw new Error("No profile to update or DB not available");
+    
+    setProfile(prev => (prev ? { ...prev, theme: themeId } : null));
 
-    // Persist to Firestore in the background
-    const profileDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}`);
+    const profileDocRef = doc(db, `users/${user.uid}/profiles/${profile.id}`);
     await updateDoc(profileDocRef, { theme: themeId });
   };
-
-
+  
   if (authLoading || (loading && user)) {
     return <Loader />;
   }
   
-  if (user && profiles.length === 0 && pathname !== '/profiles') {
-      return <Loader />;
+  // This handles the case where the user is logged in, but has no profile yet.
+  if (user && !profile && pathname !== '/profiles' && !pathname.startsWith('/auth')) {
+      return <Loader />; // We are waiting for the redirect to /profiles
   }
   
-  const value = { profiles, activeProfile, loading, addProfile, switchProfile, deleteProfile, updateProfile, updateProfileTheme };
+  const value = { profile, loading, createProfile, updateProfile, updateProfileTheme, activeProfile: profile };
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
 }
@@ -209,5 +127,6 @@ export const useProfile = () => {
   if (context === null) {
     throw new Error('useProfile must be used within a ProfileProvider');
   }
+  // The rest of the app might use `activeProfile`, so we keep this alias for compatibility.
   return context;
 };
