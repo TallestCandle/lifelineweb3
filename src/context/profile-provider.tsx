@@ -21,7 +21,7 @@ interface ProfileContextType {
   profile: Profile | null;
   loading: boolean;
   createProfile: (profileData: Omit<Profile, 'id' | 'theme'>) => Promise<void>;
-  updateProfile: (profileData: Partial<Omit<Profile, 'id' | 'theme'>>) => Promise<void>;
+  updateProfile: (profileData: Partial<Omit<Profile, 'id'>>) => Promise<void>;
   updateProfileTheme: (themeId: ThemeId) => Promise<void>;
   activeProfile: Profile | null; // For compatibility
 }
@@ -37,7 +37,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (authLoading || !user) {
+    if (authLoading) {
+      return;
+    }
+    if (!user) {
       setLoading(false);
       setProfile(null);
       return;
@@ -52,13 +55,17 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-            const profileDocRef = doc(db, `users/${user.uid}/profiles/${user.uid}`);
+            // Using a simpler path: /users/{userId}
+            const profileDocRef = doc(db, 'users', user.uid);
             const docSnap = await getDoc(profileDocRef);
             
             if (docSnap.exists()) {
                 setProfile({ id: docSnap.id, ...(docSnap.data() as Omit<Profile, 'id'>) });
             } else {
                 setProfile(null);
+                if (pathname !== '/profiles') {
+                    router.replace('/profiles');
+                }
             }
         } catch (error) {
             console.error("Failed to load profile from Firestore", error);
@@ -69,9 +76,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     };
     
     loadProfile();
-  }, [user, authLoading]);
+  }, [user, authLoading, pathname, router]);
 
-  const createProfile = async (profileData: Omit<Profile, 'id' | 'theme'>) => {
+  const createProfile = useCallback(async (profileData: Omit<Profile, 'id' | 'theme'>) => {
     if (!user || !db) throw new Error("User not authenticated or DB not available");
     
     const newProfileData = { 
@@ -81,37 +88,32 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         theme: 'theme-cool-flash' as ThemeId,
     };
     
-    await setDoc(doc(db, `users/${user.uid}/profiles/${user.uid}`), newProfileData);
+    // Using a simpler path: /users/{userId}
+    await setDoc(doc(db, 'users', user.uid), newProfileData);
     setProfile({ ...newProfileData, id: user.uid });
     router.push('/');
-  };
+  }, [user, router]);
 
-  const updateProfile = async (profileData: Partial<Omit<Profile, 'id' | 'theme'>>) => {
+  const updateProfile = useCallback(async (profileData: Partial<Omit<Profile, 'id'>>) => {
     if (!user || !profile || !db) throw new Error("No profile to update or DB not available");
-    const profileDocRef = doc(db, `users/${user.uid}/profiles/${user.uid}`);
+    // Using a simpler path: /users/{userId}
+    const profileDocRef = doc(db, 'users', user.uid);
     await updateDoc(profileDocRef, profileData);
     setProfile(prev => prev ? { ...prev, ...profileData } as Profile : null);
-  };
+  }, [user, profile]);
   
-  const updateProfileTheme = async (themeId: ThemeId) => {
+  const updateProfileTheme = useCallback(async (themeId: ThemeId) => {
     if (!user || !profile || !db) throw new Error("No profile to update or DB not available");
-    
-    setProfile(prev => (prev ? { ...prev, theme: themeId } : null));
-
-    const profileDocRef = doc(db, `users/${user.uid}/profiles/${profile.id}`);
-    await updateDoc(profileDocRef, { theme: themeId });
-  };
+    await updateProfile({ theme: themeId });
+  }, [user, profile, updateProfile]);
   
-  // If authentication or profile data is still loading, show a loader.
   if (authLoading || loading) {
     return <Loader />;
   }
   
-  // If the user is logged in but has no profile, and they are not on the profile creation page,
-  // redirect them. This is the main fix for the infinite load.
+  // While redirecting to /profiles, show a loader.
   if (user && !profile && pathname !== '/profiles') {
-      router.replace('/profiles');
-      return <Loader />; // Show a loader while redirecting
+      return <Loader />;
   }
   
   const value = { profile, loading, createProfile, updateProfile, updateProfileTheme, activeProfile: profile };
