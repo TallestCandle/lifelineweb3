@@ -70,7 +70,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
           </div>
           <div className="flex items-center gap-4">
-              <ThemeToggle />
               {activeProfile && (
                   <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -92,6 +91,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                   </DropdownMenuItem>
                               ))}
                           </DropdownMenuGroup>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="focus:bg-transparent p-2">
+                            <ThemeToggle />
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                            <DropdownMenuItem onClick={() => router.push('/profiles')}>
                               <PlusCircle className="mr-2 h-4 w-4" />
