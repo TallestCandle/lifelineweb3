@@ -25,6 +25,7 @@ const pageTitles: Record<string, string> = {
   "/dietician": "AI Dietician",
   "/emergency": "Emergency",
   "/profiles": "Manage Profiles",
+  "/doctors": "Consult a Doctor",
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {

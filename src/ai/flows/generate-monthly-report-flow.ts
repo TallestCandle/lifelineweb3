@@ -87,7 +87,7 @@ Generate a structured report based on the provided data. Adhere strictly to the 
 4.  **Urine Test Strip Insights:** Analyze the results as a whole. Do the markers together point to something? e.g., "The presence of both glucose and ketones in urine on several occasions could suggest issues with glycemic control." If no data is available, state that clearly.
 5.  **Trends & Correlations (Crucial):** This is where you demonstrate your advanced capability. Uncover non-obvious patterns. Examples: "A correlation was observed between days with reported high blood pressure and subsequent trace levels of protein in urine." or "Emergency alerts were triggered twice, both within hours of a recorded low oxygen saturation event, indicating a potential link." Be specific. If there are no significant correlations, state that the data appears stable and uncorrelated.
 6.  **Risk Assessment:** Assign a risk level ('Low', 'Medium', 'High', 'Critical') and provide a strong justification.
-7.  **Personalized Recommendations:** Provide 3-5 clear, actionable recommendations directly tied to your findings in this report.
+7.  **Personalized Recommendations:** Provide 3-5 clear, actionable recommendations directly tied to your findings in this report. If the 'riskAssessment.level' is 'Medium', 'High', or 'Critical', one of the 'recommendations.points' MUST be to book a consultation with a doctor to discuss the report's findings.
 
 Do not invent data. If a data category (e.g., test strips) is empty, state that in the relevant section of your analysis. Produce the report in the required JSON format.`,
 });

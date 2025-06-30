@@ -14,7 +14,8 @@ import {
   Salad,
   Zap,
   Loader2,
-  Lightbulb
+  Lightbulb,
+  Video
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from '@/lib/utils';
@@ -25,7 +26,7 @@ import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { performComprehensiveAnalysis, type ComprehensiveAnalysisInput, type ComprehensiveAnalysisOutput } from '@/ai/flows/comprehensive-analysis-flow';
 
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -158,27 +159,44 @@ export function Dashboard() {
           ))}
       </div>
 
-      <Card className="col-span-4 mt-6 border-accent/50 shadow-accent/10 hover:border-accent/80 hover:shadow-accent/20">
-        <CardHeader className="flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-accent text-xl">Health Insights</CardTitle>
-            <CardDescription>Analyze your long-term health trends.</CardDescription>
-          </div>
-          <Button onClick={handleGeneralAnalysis} disabled={isAnalyzing} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Zap className="mr-2 h-5 w-5" />
-                Run Analysis
-              </>
-            )}
-          </Button>
-        </CardHeader>
-      </Card>
+      <div className="space-y-6 mt-6">
+          <Card className="border-accent/50 shadow-accent/10 hover:border-accent/80 hover:shadow-accent/20">
+            <CardHeader className="flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-accent text-xl">Health Insights</CardTitle>
+                <CardDescription>Analyze your long-term health trends.</CardDescription>
+              </div>
+              <Button onClick={handleGeneralAnalysis} disabled={isAnalyzing} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="mr-2 h-5 w-5" />
+                    Run Analysis
+                  </>
+                )}
+              </Button>
+            </CardHeader>
+          </Card>
+
+           <Link href="/doctors">
+                <Card className="border-primary/50 shadow-primary/10 hover:border-primary/80 hover:shadow-primary/20 transition-all hover:scale-[1.01]">
+                    <CardHeader className="flex-row items-center justify-between">
+                        <div>
+                            <CardTitle className="text-primary text-xl">Consult a Doctor</CardTitle>
+                            <CardDescription>Book a video or audio call with a professional.</CardDescription>
+                        </div>
+                        <Button size="lg">
+                            <Video className="mr-2 h-5 w-5" />
+                            Book Now
+                        </Button>
+                    </CardHeader>
+                </Card>
+            </Link>
+      </div>
 
       <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
         <DialogContent className="max-w-2xl">

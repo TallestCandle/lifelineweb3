@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI agent for generating personalized daily health tasks.
@@ -40,6 +41,7 @@ const prompt = ai.definePrompt({
 Analyze the user's recent health summary provided below. Based on this data, generate tasks that are relevant, supportive, and address any potential areas of concern without being alarming.
 
 If data is sparse or indicates good health, provide general wellness tasks.
+If the health data indicates any moderate or critical concerns, one of the tasks you generate MUST be to 'Book an appointment with a doctor for a check-up.' with the 'HeartPulse' icon.
 
 Recent Health Summary:
 {{{healthSummary}}}
