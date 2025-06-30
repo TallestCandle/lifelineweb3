@@ -58,7 +58,7 @@ export function LandingPage() {
                 <div className="container mx-auto flex h-20 items-center justify-between px-4">
                     <Link href="/landing" className="flex items-center gap-2 text-primary">
                         <Stethoscope className="w-8 h-8" />
-                        <h1 className="text-2xl font-bold font-headline">Nexus Lifeline</h1>
+                        <h1 className="text-2xl font-bold font-headline">Lifeline AI</h1>
                     </Link>
                     <div className="flex items-center gap-2">
                         <Button variant="ghost" asChild><Link href="/auth">Log In</Link></Button>
@@ -75,7 +75,7 @@ export function LandingPage() {
                         Early Disease Detection, For Everyone.
                     </h1>
                     <p className="max-w-3xl mx-auto text-lg md:text-xl text-muted-foreground mb-8">
-                        Nexus Lifeline uses affordable test kits and powerful AI to put control of your health back in your hands. Detect early signs of kidney failure, stroke, diabetes, and infections—affordably and instantly.
+                        Lifeline AI uses affordable test kits and powerful AI to put control of your health back in your hands. Detect early signs of kidney failure, stroke, diabetes, and infections—affordably and instantly.
                     </p>
                     <div className="flex justify-center gap-4">
                         <Button size="lg" asChild>
@@ -106,7 +106,7 @@ export function LandingPage() {
                                     <ScanLine className="w-8 h-8"/>
                                 </div>
                                 <h3 className="text-xl font-bold mb-2">2. Scan with App</h3>
-                                <p className="text-muted-foreground">Take a picture of the test strip with your phone using the Nexus Lifeline app.</p>
+                                <p className="text-muted-foreground">Take a picture of the test strip with your phone using the Lifeline AI app.</p>
                             </div>
                             <div className="bg-card/50 p-8 rounded-lg border border-primary/20 shadow-lg">
                                 <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -191,7 +191,7 @@ export function LandingPage() {
                         <div className="grid md:grid-cols-2 gap-8">
                             <Card className="p-6">
                                 <CardContent className="p-0">
-                                    <blockquote className="text-lg">"The app detected high protein in my urine, which I ignored. The AI insisted I see a doctor. It was early kidney disease. Nexus Lifeline saved my life."</blockquote>
+                                    <blockquote className="text-lg">"The app detected high protein in my urine, which I ignored. The AI insisted I see a doctor. It was early kidney disease. Lifeline AI saved my life."</blockquote>
                                     <footer className="mt-4 font-bold">- Fatima, Kaduna State</footer>
                                 </CardContent>
                             </Card>
@@ -209,7 +209,7 @@ export function LandingPage() {
                 <section className="py-20">
                     <div className="container mx-auto px-4 text-center">
                         <h2 className="text-3xl md:text-4xl font-bold font-headline">Ready to Take Control of Your Health?</h2>
-                        <p className="text-muted-foreground mt-2 mb-8 max-w-2xl mx-auto">Download Nexus Lifeline today and join a community empowered by knowledge and early detection. Your future self will thank you.</p>
+                        <p className="text-muted-foreground mt-2 mb-8 max-w-2xl mx-auto">Download Lifeline AI today and join a community empowered by knowledge and early detection. Your future self will thank you.</p>
                         <Button size="lg" asChild>
                            <Link href="/auth">
                              Download The App & Get Started <ArrowRight />
@@ -221,7 +221,7 @@ export function LandingPage() {
 
             <footer className="bg-secondary/30">
                 <div className="container mx-auto px-4 py-8 text-center text-muted-foreground">
-                    <p>&copy; {new Date().getFullYear()} Nexus Lifeline. All Rights Reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} Lifeline AI. All Rights Reserved.</p>
                     <p className="text-sm mt-2">Empowering proactive health for a better future.</p>
                 </div>
             </footer>

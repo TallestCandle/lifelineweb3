@@ -41,7 +41,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [activeProfile, setTheme]);
   
   const getPageTitle = () => {
-    return pageTitles[pathname] || "Nexus Lifeline";
+    return pageTitles[pathname] || "Lifeline AI";
   }
 
   const handleLogout = async () => {
@@ -61,7 +61,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-4">
             <a href="/" className="flex items-center gap-2 text-primary">
                 <Stethoscope className="w-8 h-8" />
-                <h1 className="text-xl font-headline font-bold hidden sm:block">Nexus Lifeline</h1>
+                <h1 className="text-xl font-headline font-bold hidden sm:block">Lifeline AI</h1>
             </a>
             {pathname !== '/' && (
                 <>

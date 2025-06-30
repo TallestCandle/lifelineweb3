@@ -6,7 +6,7 @@ import { AuthGuard } from '@/components/auth/auth-guard';
 import { ThemeProvider } from '@/context/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'Nexus Lifeline',
+  title: 'Lifeline AI',
   description: 'Your personal health and wellness companion.',
 };
 

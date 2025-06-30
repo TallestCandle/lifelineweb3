@@ -94,7 +94,7 @@ export function AuthForm() {
         <div className="mb-6 flex justify-center">
             <div className="flex items-center gap-2">
                 <Stethoscope className="w-12 h-12 text-primary" />
-                <h1 className="text-3xl font-bold font-headline">Nexus Lifeline</h1>
+                <h1 className="text-3xl font-bold font-headline">Lifeline AI</h1>
             </div>
         </div>
         <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); form.reset(); }} className="w-full">
@@ -107,7 +107,7 @@ export function AuthForm() {
               <CardHeader>
                 <CardTitle>Welcome Back</CardTitle>
                 <CardDescription>
-                  Sign in to your Nexus Lifeline account.
+                  Sign in to your Lifeline AI account.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -152,7 +152,7 @@ export function AuthForm() {
               <CardHeader>
                 <CardTitle>Create an Account</CardTitle>
                 <CardDescription>
-                  Start your journey with Nexus Lifeline today.
+                  Start your journey with Lifeline AI today.
                 </CardDescription>
               </CardHeader>
               <CardContent>
