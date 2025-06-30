@@ -25,7 +25,8 @@ const ComprehensiveAnalysisOutputSchema = z.object({
     supportingData: z.string().describe("A brief mention of the data points that support this insight."),
   })).describe("A list of deep, granular insights uncovered from analyzing trends, correlations, and anomalies in the user's health data over time."),
   overallAssessment: z.string().describe("A detailed paragraph summarizing the user's overall health trajectory based on the provided history. This should synthesize all insights into a coherent narrative."),
-  urgency: z.enum(['Mild', 'Moderate', 'Critical']).describe("An urgency level classification for the overall health status based on historical trends. 'Mild' for minor long-term concerns, 'Moderate' for trends that need attention, and 'Critical' for patterns indicating a serious underlying issue."),
+  criticalityScore: z.number().int().min(1).max(100).describe("A numerical score from 1-100 representing the overall criticality, where 100 is most critical. This score is derived from a rubric based on the severity and number of concerning trends."),
+  urgency: z.enum(['Mild', 'Moderate', 'Critical']).describe("The urgency level classification derived from the criticalityScore. 'Mild' for minor long-term concerns, 'Moderate' for trends that need attention, and 'Critical' for patterns indicating a serious underlying issue."),
 });
 
 export type ComprehensiveAnalysisOutput = z.infer<typeof ComprehensiveAnalysisOutputSchema>;
@@ -51,11 +52,15 @@ Your analysis MUST be deep and granular. Do not just summarize the data. Look fo
 - **Anomalies and Outliers:** Significant deviations from the user's baseline.
 - **Cyclical Patterns:** Are there patterns that repeat weekly or monthly?
 
-Based on your deep analysis, provide a response in the required JSON format with four fields:
-1. 'keyObservations': A bulleted list of the most important findings.
-2. 'deepInsights': A list of non-obvious, granular insights. Each insight should be an object with the insight itself and the data that supports it.
-3. 'overallAssessment': A detailed paragraph summarizing the user's health trajectory and synthesizing your findings.
-4. 'urgency': Classify the overall situation as 'Mild', 'Moderate', or 'Critical' based on the severity and nature of the patterns you've identified.`,
+Based on your deep analysis, provide a response in the required JSON format with five fields:
+1.  'keyObservations': A bulleted list of the most important findings.
+2.  'deepInsights': A list of non-obvious, granular insights. Each insight should be an object with the insight itself and the data that supports it.
+3.  'overallAssessment': A detailed paragraph summarizing the user's health trajectory and synthesizing your findings.
+4.  'criticalityScore': First, you MUST calculate a numerical score from 1 to 100 based on the severity and number of issues found. Use the following rubric:
+    - **1-40 (Mild):** No significant negative trends. Data is stable or shows improvement.
+    - **41-70 (Moderate):** One or more clear negative trends or consistent anomalies that require monitoring (e.g., consistently borderline-high blood pressure).
+    - **71-100 (Critical):** Multiple significant negative trends, strong correlations between concerning data points, or clear red-flag events (e.g., sharp drops in oxygen, very high blood sugar readings). The higher the score, the more urgent the situation.
+5.  'urgency': Based *only* on the 'criticalityScore' you just calculated, classify the situation as 'Mild' (score 1-40), 'Moderate' (score 41-70), or 'Critical' (score 71-100).`,
 });
 
 
