@@ -20,7 +20,6 @@ interface ProfileContextType {
   createProfile: (data: Omit<Profile, 'theme'>) => Promise<void>;
   updateProfile: (data: Partial<Omit<Profile, 'theme'>>) => Promise<void>;
   updateProfileTheme: (theme: ThemeId) => Promise<void>;
-  activeProfile: Profile | null; 
 }
 
 const ProfileContext = createContext<ProfileContextType | null>(null);
@@ -31,13 +30,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (authLoading || !user) {
-      setProfile(null);
-      setLoading(!authLoading);
+    if (authLoading) {
+      setLoading(true);
       return;
     }
-
-    const profileDocRef = doc(db, 'users', user.uid);
+    if (!user) {
+      setLoading(false);
+      setProfile(null);
+      return;
+    }
+    
+    setLoading(true);
+    // SIMPLIFIED PATH: Use a top-level 'profiles' collection with the user's UID as the document ID.
+    const profileDocRef = doc(db, 'profiles', user.uid);
     getDoc(profileDocRef).then(docSnap => {
       if (docSnap.exists()) {
         setProfile(docSnap.data() as Profile);
@@ -58,21 +63,24 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       ...data,
       theme: 'theme-cool-flash', // Default theme
     };
-    const profileDocRef = doc(db, 'users', user.uid);
+    // SIMPLIFIED PATH
+    const profileDocRef = doc(db, 'profiles', user.uid);
     await setDoc(profileDocRef, newProfile);
     setProfile(newProfile);
   }, [user]);
 
   const updateProfile = useCallback(async (data: Partial<Omit<Profile, 'theme'>>) => {
     if (!user || !profile) throw new Error("User or profile not available");
-    const profileDocRef = doc(db, 'users', user.uid);
+    // SIMPLIFIED PATH
+    const profileDocRef = doc(db, 'profiles', user.uid);
     await updateDoc(profileDocRef, data);
     setProfile(prev => ({ ...prev!, ...data }));
   }, [user, profile]);
 
   const updateProfileTheme = useCallback(async (theme: ThemeId) => {
     if (!user || !profile) throw new Error("User or profile not available");
-    const profileDocRef = doc(db, 'users', user.uid);
+    // SIMPLIFIED PATH
+    const profileDocRef = doc(db, 'profiles', user.uid);
     await updateDoc(profileDocRef, { theme });
     setProfile(prev => ({ ...prev!, theme }));
   }, [user, profile]);
@@ -83,7 +91,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     createProfile,
     updateProfile,
     updateProfileTheme,
-    activeProfile: profile, // for compatibility
   };
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;

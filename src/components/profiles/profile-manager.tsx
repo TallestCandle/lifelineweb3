@@ -3,7 +3,6 @@
 
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useProfile } from '@/context/profile-provider';
@@ -29,7 +28,6 @@ export function ProfileManager() {
   const { user } = useAuth();
   const { profile, createProfile, updateProfile } = useProfile();
   const { toast } = useToast();
-  const router = useRouter();
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -53,12 +51,12 @@ export function ProfileManager() {
     try {
       if (profile) {
         await updateProfile(values);
-        toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
+        toast({ title: "Profile Updated", description: "Your profile has been successfully updated. Redirecting..." });
       } else {
         await createProfile(values);
-        toast({ title: "Profile Created", description: "Welcome! Your profile is now set up." });
+        toast({ title: "Profile Created", description: "Welcome! Your profile is now set up. Redirecting..." });
       }
-      router.push('/'); // Redirect to dashboard after profile is set up/updated
+      // The ProfileGuard will handle the redirect automatically after the profile state updates.
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     }
