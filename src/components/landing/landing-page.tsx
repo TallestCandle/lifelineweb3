@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Stethoscope, ShieldCheck, Zap, Bot, ArrowRight, MessageSquare, TestTube, ScanLine, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,6 +29,8 @@ const partners = [
 
 export function LandingPage() {
     const [aiResponse, setAiResponse] = useState<AskLifelineOutput | null>(null);
+    const [displayedAnswer, setDisplayedAnswer] = useState('');
+    const [isTyping, setIsTyping] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
@@ -40,10 +42,13 @@ export function LandingPage() {
     const onSubmit = async (data: AskFormValues) => {
         setIsLoading(true);
         setAiResponse(null);
+        setDisplayedAnswer('');
         setError(null);
+        setIsTyping(false);
         try {
             const result = await askLifeline({ query: data.question });
             setAiResponse(result);
+            setIsTyping(true);
         } catch (err) {
             console.error(err);
             setError("Sorry, I couldn't process that question. Please try again.");
@@ -51,6 +56,23 @@ export function LandingPage() {
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (isTyping && aiResponse) {
+            let i = 0;
+            const answer = aiResponse.answer;
+            const interval = setInterval(() => {
+                if (i < answer.length) {
+                    setDisplayedAnswer(prev => prev + answer.charAt(i));
+                    i++;
+                } else {
+                    clearInterval(interval);
+                    setIsTyping(false);
+                }
+            }, 25);
+            return () => clearInterval(interval);
+        }
+    }, [isTyping, aiResponse]);
   
     return (
         <div className="bg-background text-foreground font-body antialiased animated-gradient-bg">
@@ -126,7 +148,7 @@ export function LandingPage() {
                             <h2 className="text-3xl md:text-4xl font-bold font-headline">Have a Health Question?</h2>
                             <p className="text-muted-foreground mt-2">Ask our AI for general health information. Try it now.</p>
                         </div>
-                        <Card className="max-w-3xl mx-auto p-6 shadow-2xl shadow-primary/10">
+                        <Card className="max-w-3xl mx-auto p-4 md:p-6 shadow-2xl shadow-primary/10">
                             <CardContent className="p-0">
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col sm:flex-row gap-4">
@@ -150,19 +172,24 @@ export function LandingPage() {
                                 {isLoading && <div className="flex justify-center p-8"><Loader className="w-12 h-12"/></div>}
                                 {error && <p className="text-destructive text-center p-4">{error}</p>}
                                 {aiResponse && (
-                                    <div className="mt-8 p-6 bg-secondary/30 rounded-lg">
+                                    <div className="mt-8 p-4 md:p-6 bg-secondary/30 rounded-lg">
                                         <div className="flex items-start gap-4">
                                             <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-primary/10 text-primary">
                                                 <Bot />
                                             </div>
-                                            <div className="flex-grow">
+                                            <div className="flex-grow min-w-0">
                                                 <h4 className="font-bold text-lg">Lifeline AI Says:</h4>
-                                                <p className="text-muted-foreground whitespace-pre-line">{aiResponse.answer}</p>
+                                                <p className="text-muted-foreground whitespace-pre-line break-words">
+                                                    {displayedAnswer}
+                                                    {isTyping && <span className="inline-block w-2 h-5 bg-primary animate-pulse ml-1 align-bottom" />}
+                                                </p>
                                             </div>
                                         </div>
-                                        <p className="text-xs text-muted-foreground/80 mt-6 pt-4 border-t border-muted/20">
-                                            <strong>Disclaimer:</strong> {aiResponse.disclaimer}
-                                        </p>
+                                        {!isTyping && aiResponse.disclaimer && (
+                                            <p className="text-xs text-muted-foreground/80 mt-6 pt-4 border-t border-muted/20">
+                                                <strong>Disclaimer:</strong> {aiResponse.disclaimer}
+                                            </p>
+                                        )}
                                     </div>
                                 )}
                             </CardContent>
