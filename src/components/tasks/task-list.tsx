@@ -1,19 +1,22 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Apple, GlassWater, HeartPulse, Move } from "lucide-react";
+import { Apple, GlassWater, HeartPulse, Move, Beaker, Bed, Clock } from "lucide-react";
 import { useProfile } from '@/context/profile-provider';
 import { useAuth } from '@/context/auth-provider';
+import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDocs, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, getDoc, query, where, orderBy, limit } from 'firebase/firestore';
 import Confetti from 'react-confetti';
+import { format, subDays } from 'date-fns';
+import { generateDailyTasks } from '@/ai/flows/generate-daily-tasks-flow';
+import { Loader } from '../ui/loader';
 
 interface Task {
-  id: string;
   text: string;
   iconName: keyof typeof TaskIcons;
   completed: boolean;
@@ -24,27 +27,15 @@ const TaskIcons = {
     GlassWater,
     Move,
     Apple,
+    Beaker,
+    Bed,
 };
 
-const defaultTasksRaw: Omit<Task, 'id' | 'completed'>[] = [
-    { text: 'Take your blood pressure', iconName: 'HeartPulse' },
-    { text: 'Drink a glass of water', iconName: 'GlassWater' },
-    { text: 'Stretch for 5 minutes', iconName: 'Move' },
-    { text: 'Eat fruits', iconName: 'Apple' },
-];
-
 const useWindowDimensions = () => {
-    const [windowDimensions, setWindowDimensions] = React.useState({
-        width: 0,
-        height: 0,
-    });
-
-    React.useEffect(() => {
+    const [windowDimensions, setWindowDimensions] = useState({ width: 0, height: 0 });
+    useEffect(() => {
         function handleResize() {
-            setWindowDimensions({
-                width: window.innerWidth,
-                height: window.innerHeight,
-            });
+            setWindowDimensions({ width: window.innerWidth, height: window.innerHeight });
         }
         if (typeof window !== 'undefined') {
             handleResize();
@@ -52,141 +43,193 @@ const useWindowDimensions = () => {
             return () => window.removeEventListener('resize', handleResize);
         }
     }, []);
-
     return windowDimensions;
 };
 
+const calculateTimeLeft = () => {
+    const now = new Date();
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 59, 999);
+    const difference = endOfDay.getTime() - now.getTime();
+    if (difference <= 0) return { hours: 0, minutes: 0, seconds: 0 };
+    return {
+        hours: Math.floor(difference / (1000 * 60 * 60)),
+        minutes: Math.floor((difference / 1000 / 60) % 60),
+        seconds: Math.floor((difference / 1000) % 60),
+    };
+};
+
 export function TaskList() {
-  const [tasks, setTasks] = React.useState<Task[]>([]);
-  const [isClient, setIsClient] = React.useState(false);
-  const [showConfetti, setShowConfetti] = React.useState(false);
-  const { activeProfile } = useProfile();
-  const { user } = useAuth();
-  const { width, height } = useWindowDimensions();
-  
-  React.useEffect(() => {
-    setIsClient(true);
-  }, []);
+    const { user } = useAuth();
+    const { activeProfile } = useProfile();
+    const { toast } = useToast();
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isClient, setIsClient] = useState(false);
+    const [showConfetti, setShowConfetti] = useState(false);
+    const { width, height } = useWindowDimensions();
+    const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
 
-  React.useEffect(() => {
-    if (!isClient || !user || !activeProfile) {
-        setTasks([]);
-        return;
-    }
-    
-    const tasksCollectionRef = collection(db, `users/${user.uid}/profiles/${activeProfile.id}/tasks`);
+    useEffect(() => {
+      setIsClient(true);
+    }, []);
 
-    const initializeTasks = async () => {
-        const batch = writeBatch(db);
-        const newTasks: Task[] = [];
-        defaultTasksRaw.forEach((task, index) => {
-            const id = `task${index + 1}`;
-            const taskData = { ...task, completed: false };
-            batch.set(doc(tasksCollectionRef, id), taskData);
-            newTasks.push({ ...taskData, id });
-        });
-        await batch.commit();
-        setTasks(newTasks);
-    };
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setTimeLeft(calculateTimeLeft());
+        }, 1000);
+        return () => clearTimeout(timer);
+    });
 
-    const fetchTasks = async () => {
-        const querySnapshot = await getDocs(tasksCollectionRef);
-        if (querySnapshot.empty) {
-            await initializeTasks();
-        } else {
-            const fetchedTasks = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
-            setTasks(fetchedTasks);
+    useEffect(() => {
+        if (!isClient || !user || !activeProfile) {
+            setIsLoading(false);
+            setTasks([]);
+            return;
         }
-    };
-    
-    fetchTasks().catch(error => console.error("Error fetching tasks:", error));
 
-  }, [isClient, user, activeProfile]);
+        const todayDateStr = format(new Date(), 'yyyy-MM-dd');
+        const tasksDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/daily_tasks`, todayDateStr);
 
-  const handleTaskToggle = async (taskId: string) => {
-    if (!user || !activeProfile) return;
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
+        const fetchAndSetTasks = async () => {
+            const docSnap = await getDoc(tasksDocRef);
 
-    const newCompletedStatus = !task.completed;
-    const taskDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/tasks`, taskId);
-    
-    try {
-        await updateDoc(taskDocRef, { completed: newCompletedStatus });
-        const updatedTasks = tasks.map(t =>
-          t.id === taskId ? { ...t, completed: newCompletedStatus } : t
-        );
-        setTasks(updatedTasks);
+            if (docSnap.exists()) {
+                setTasks(docSnap.data().tasks);
+                setIsLoading(false);
+            } else {
+                setIsLoading(true);
+                try {
+                    const sevenDaysAgo = subDays(new Date(), 7).toISOString();
+                    const basePath = `users/${user.uid}/profiles/${activeProfile.id}`;
+                    
+                    const vitalsCol = collection(db, `${basePath}/vitals`);
+                    const stripsCol = collection(db, `${basePath}/test_strips`);
+                    const analysesCol = collection(db, `${basePath}/health_analyses`);
+                    
+                    const [vitalsSnap, stripsSnap, analysesSnap] = await Promise.all([
+                        getDocs(query(vitalsCol, where('date', '>=', sevenDaysAgo), orderBy('date', 'desc'), limit(20))),
+                        getDocs(query(stripsCol, where('date', '>=', sevenDaysAgo), orderBy('date', 'desc'), limit(20))),
+                        getDocs(query(analysesCol, where('timestamp', '>=', sevenDaysAgo), orderBy('timestamp', 'desc'), limit(10))),
+                    ]);
+                    
+                    const healthSummary = JSON.stringify({
+                        vitals: vitalsSnap.docs.map(d => d.data()),
+                        strips: stripsSnap.docs.map(d => d.data()),
+                        analyses: analysesSnap.docs.map(d => d.data().analysisResult),
+                    });
+
+                    const result = await generateDailyTasks({ healthSummary });
+                    const newTasks = result.tasks.map(task => ({ ...task, completed: false }));
+                    await setDoc(tasksDocRef, { tasks: newTasks });
+                    setTasks(newTasks);
+                } catch (error) {
+                    console.error("Failed to generate AI tasks:", error);
+                    toast({ variant: 'destructive', title: "AI Error", description: "Could not generate daily tasks." });
+                } finally {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        fetchAndSetTasks();
+
+    }, [isClient, user, activeProfile, toast]);
+
+    const handleTaskToggle = useCallback(async (taskIndex: number) => {
+        if (!user || !activeProfile) return;
+
+        const newTasks = [...tasks];
+        const task = newTasks[taskIndex];
+        if (!task) return;
         
-        if (newCompletedStatus) {
-            const allTasksCompleted = updatedTasks.every(t => t.completed);
-            if(allTasksCompleted) {
+        newTasks[taskIndex] = { ...task, completed: !task.completed };
+        setTasks(newTasks);
+
+        const todayDateStr = format(new Date(), 'yyyy-MM-dd');
+        const taskDocRef = doc(db, `users/${user.uid}/profiles/${activeProfile.id}/daily_tasks`, todayDateStr);
+
+        try {
+            await setDoc(taskDocRef, { tasks: newTasks });
+            if (newTasks.every(t => t.completed)) {
                 setShowConfetti(true);
                 setTimeout(() => setShowConfetti(false), 5000);
             }
+        } catch (error) {
+            console.error("Error updating task:", error);
+            toast({ variant: 'destructive', title: "Update Failed", description: "Could not save task status." });
+            setTasks(tasks); // Revert on failure
         }
+    }, [user, activeProfile, tasks, toast]);
 
-    } catch (error) {
-        console.error("Error updating task:", error);
-    }
-  };
+    const completedTasks = tasks.filter(task => task.completed).length;
+    const totalTasks = tasks.length;
+    const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  const completedTasks = tasks.filter(task => task.completed).length;
-  const totalTasks = tasks.length;
-  const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+    if (!isClient || !activeProfile) return null;
 
-  if (!isClient || !activeProfile) {
-    return null;
-  }
-
-  return (
-    <>
-      {showConfetti && <Confetti width={width} height={height} recycle={false} numberOfPieces={500} gravity={0.2} />}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-glow">Daily Health Tasks</CardTitle>
-          <CardDescription>
-            {completedTasks} of {totalTasks} tasks completed. Keep it up!
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center gap-4">
-            <Progress value={progressPercentage} className="w-full" />
-            <span className="text-sm font-bold text-muted-foreground whitespace-nowrap">
-              {Math.round(progressPercentage)}%
-            </span>
-          </div>
-          <div className="space-y-4">
-            {tasks.map((task) => {
-              const Icon = TaskIcons[task.iconName];
-              return (
-                  <div
-                    key={task.id}
-                    data-completed={task.completed}
-                    className="flex items-center space-x-4 p-4 rounded-lg transition-colors border border-transparent data-[completed=true]:border-primary/50 data-[completed=true]:bg-primary/10"
-                  >
-                    <Checkbox
-                        id={task.id}
-                        checked={task.completed}
-                        onCheckedChange={() => handleTaskToggle(task.id)}
-                        aria-labelledby={`${task.id}-label`}
-                    />
-                    <div className="flex items-center gap-3 flex-grow">
-                        <Icon className={`w-6 h-6 transition-colors ${task.completed ? "text-primary/50" : "text-primary"}`} />
-                        <Label
-                          htmlFor={task.id}
-                          id={`${task.id}-label`}
-                          className={`text-base cursor-pointer transition-colors ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}
-                        >
-                          {task.text}
-                        </Label>
+    return (
+        <>
+            {showConfetti && <Confetti width={width} height={height} recycle={false} numberOfPieces={500} gravity={0.2} />}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-glow">Your AI-Powered Daily Plan</CardTitle>
+                    <CardDescription>
+                        {completedTasks} of {totalTasks} tasks completed. Keep it up!
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/50 p-2 rounded-lg">
+                            <Clock className="w-4 h-4 text-primary"/>
+                            <span>New tasks in:</span>
+                            <span className="font-mono font-bold text-foreground">{String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <Progress value={progressPercentage} className="w-full" />
+                            <span className="text-sm font-bold text-muted-foreground whitespace-nowrap">
+                                {Math.round(progressPercentage)}%
+                            </span>
+                        </div>
                     </div>
-                  </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
-    </>
-  );
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center h-48 gap-4">
+                            <Loader />
+                            <p className="text-muted-foreground">Your AI coach is creating a personalized plan...</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {tasks.map((task, index) => {
+                                const Icon = TaskIcons[task.iconName] || Move;
+                                return (
+                                    <div
+                                        key={index}
+                                        data-completed={task.completed}
+                                        className="flex items-center space-x-4 p-4 rounded-lg transition-colors border border-transparent data-[completed=true]:border-primary/50 data-[completed=true]:bg-primary/10"
+                                    >
+                                        <Checkbox
+                                            id={`task-${index}`}
+                                            checked={task.completed}
+                                            onCheckedChange={() => handleTaskToggle(index)}
+                                            aria-labelledby={`task-label-${index}`}
+                                        />
+                                        <div className="flex items-center gap-3 flex-grow">
+                                            <Icon className={`w-6 h-6 transition-colors ${task.completed ? "text-primary/50" : "text-primary"}`} />
+                                            <Label
+                                                htmlFor={`task-${index}`}
+                                                id={`task-label-${index}`}
+                                                className={`text-base cursor-pointer transition-colors ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}
+                                            >
+                                                {task.text}
+                                            </Label>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        </>
+    );
 }
