@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -6,8 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { auth } from '@/lib/firebase';
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
@@ -38,19 +38,17 @@ export function AuthForm() {
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
-    if (!auth || !db) {
+    if (!auth) {
         toast({ variant: "destructive", title: "Configuration Error", description: "Firebase is not configured. Please check your environment variables." });
         setIsLoading(false);
         return;
     }
     try {
       if (isLogin) {
-        // Login logic
         await signInWithEmailAndPassword(auth, data.email, data.password);
         toast({ title: "Login Successful", description: "Welcome back!" });
         router.push('/');
       } else {
-        // Sign Up logic
         if (!data.name) {
             form.setError("name", { type: "manual", message: "Name is required for sign up." });
             setIsLoading(false);
@@ -59,19 +57,9 @@ export function AuthForm() {
         const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
         const user = userCredential.user;
         
-        // Update Firebase Auth profile
         await updateProfile(user, { displayName: data.name });
-
-        // Create a basic profile document in Firestore, with the ID matching the user's UID
-        const profileData = {
-            name: data.name,
-            age: '',
-            gender: 'Other',
-            theme: 'theme-cool-flash'
-        };
-        await setDoc(doc(db, `users/${user.uid}/profiles/${user.uid}`), profileData);
         
-        toast({ title: "Sign Up Successful", description: "Your account has been created." });
+        toast({ title: "Sign Up Successful", description: "Your account has been created. Let's set up your profile." });
         router.push('/');
       }
     } catch (error: any) {
