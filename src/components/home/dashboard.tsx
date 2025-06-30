@@ -134,9 +134,7 @@ export function Dashboard() {
         <p className="text-muted-foreground">Here's your command center for a healthier life.</p>
       </div>
       <div className="grid grid-cols-4 gap-4 pt-4">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          return (
+        {menuItems.map((item) => (
             <Link 
               key={item.href}
               href={item.href}
@@ -151,21 +149,20 @@ export function Dashboard() {
                   "absolute inset-0 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300",
                   item.glowClass
                 )} />
-                <Icon className={cn("w-6 h-6 transition-colors duration-300", item.colorClass)} />
+                <item.icon className={cn("w-6 h-6 transition-colors duration-300", item.colorClass)} />
               </div>
               <div className="h-8 flex items-center">
                   <p className="text-xs font-bold text-foreground/80 transition-colors duration-300 group-hover:text-foreground">{item.label}</p>
               </div>
             </Link>
-          );
-        })}
+          ))}
       </div>
 
       <Card className="col-span-4 mt-6 border-accent/50 shadow-accent/10 hover:border-accent/80 hover:shadow-accent/20">
         <CardHeader className="flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-accent text-xl">General Health Analysis</CardTitle>
-            <CardDescription>Get deep insights from your historical data.</CardDescription>
+            <CardTitle className="text-accent text-xl">Health Insights</CardTitle>
+            <CardDescription>Analyze your long-term health trends.</CardDescription>
           </div>
           <Button onClick={handleGeneralAnalysis} disabled={isAnalyzing} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
             {isAnalyzing ? (
@@ -188,7 +185,7 @@ export function Dashboard() {
             <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                     <BrainCircuit className="text-primary"/>
-                    Comprehensive Analysis Results
+                    Health Insights
                 </DialogTitle>
                 <DialogDescription>
                     An AI-powered deep dive into your health trends for {activeProfile?.name}.
