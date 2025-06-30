@@ -22,6 +22,7 @@ const pageTitles: Record<string, string> = {
   "/reminders": "Medication Reminders",
   "/analysis": "AI Analysis",
   "/report": "Health Report",
+  "/dietician": "AI Dietician",
   "/emergency": "Emergency",
   "/profiles": "Manage Profiles",
 };

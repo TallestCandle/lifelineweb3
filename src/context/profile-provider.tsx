@@ -6,7 +6,7 @@ import { useAuth } from './auth-provider';
 import { Loader } from '@/components/ui/loader';
 import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDocs, addDoc, deleteDoc, updateDoc, query, writeBatch, orderBy } from 'firebase/firestore';
+import { collection, doc, getDocs, addDoc, deleteDoc, updateDoc, query, writeBatch, orderBy, where } from 'firebase/firestore';
 import type { ThemeId } from './theme-provider';
 
 export interface Profile {
@@ -138,7 +138,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     
     await deleteDoc(doc(db, `users/${user.uid}/profiles/${profileId}`));
     
-    const subCollections = ['vitals', 'tasks', 'reminders', 'reminders_history', 'test_strips', 'alerts', 'guardians', 'bookmarked_tips', 'health_analyses'];
+    const subCollections = ['vitals', 'tasks', 'reminders', 'reminders_history', 'test_strips', 'alerts', 'guardians', 'bookmarked_tips', 'health_analyses', 'daily_diet_plans'];
     for (const sub of subCollections) {
         await deleteCollection(`users/${user.uid}/profiles/${profileId}/${sub}`);
     }

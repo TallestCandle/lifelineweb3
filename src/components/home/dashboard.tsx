@@ -11,7 +11,7 @@ import {
   BrainCircuit,
   FileText,
   Siren,
-  Users,
+  Salad,
   Zap,
   Loader2,
   Lightbulb
@@ -31,7 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
-type DashboardColor = "chart-1" | "destructive" | "chart-2" | "chart-4" | "chart-5" | "primary" | "chart-6";
+type DashboardColor = "chart-1" | "destructive" | "chart-2" | "chart-4" | "chart-5" | "primary" | "chart-3";
 
 interface MenuItem {
   href: string;
@@ -50,8 +50,8 @@ const menuItems: MenuItem[] = [
     { href: "/reminders", label: "Medication", icon: Pill, colorClass: "text-chart-4", borderClass: "group-hover:border-chart-4", shadowClass: "group-hover:shadow-chart-4/40", glowClass: "bg-chart-4/10" },
     { href: "/analysis", label: "AI Analysis", icon: BrainCircuit, colorClass: "text-chart-5", borderClass: "group-hover:border-chart-5", shadowClass: "group-hover:shadow-chart-5/40", glowClass: "bg-chart-5/10" },
     { href: "/report", label: "Health Report", icon: FileText, colorClass: "text-primary", borderClass: "group-hover:border-primary", shadowClass: "group-hover:shadow-primary/40", glowClass: "bg-primary/10" },
+    { href: "/dietician", label: "AI Dietician", icon: Salad, colorClass: "text-chart-3", borderClass: "group-hover:border-chart-3", shadowClass: "group-hover:shadow-chart-3/40", glowClass: "bg-chart-3/10" },
     { href: "/emergency", label: "Emergency", icon: Siren, colorClass: "text-destructive", borderClass: "group-hover:border-destructive", shadowClass: "group-hover:shadow-destructive/40", glowClass: "bg-destructive/10" },
-    { href: "/profiles", label: "Profiles", icon: Users, colorClass: "text-chart-6", borderClass: "group-hover:border-chart-6", shadowClass: "group-hover:shadow-chart-6/40", glowClass: "bg-chart-6/10" },
 ];
 
 const UrgencyConfig: Record<string, { color: string; text: string }> = {
