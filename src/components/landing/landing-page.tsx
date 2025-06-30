@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Stethoscope, ShieldCheck, Zap, Bot, ArrowRight, MessageSquare, TestTube, ScanLine, Sparkles, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,6 +30,7 @@ const partners = [
 ];
 
 export function LandingPage() {
+    const router = useRouter();
     const [aiResponse, setAiResponse] = useState<AskLifelineOutput | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -37,6 +39,10 @@ export function LandingPage() {
         resolver: zodResolver(askSchema),
         defaultValues: { question: "" },
     });
+
+    const handleAuthRedirect = () => {
+        router.push('/auth');
+    };
 
     const onSubmit = async (data: AskFormValues) => {
         setIsLoading(true);
@@ -62,8 +68,8 @@ export function LandingPage() {
                         <h1 className="text-2xl font-bold font-headline">Lifeline AI</h1>
                     </Link>
                     <div className="flex items-center gap-2">
-                        <Button variant="ghost" asChild><Link href="/auth">Log In</Link></Button>
-                        <Button asChild><Link href="/auth">Get Started</Link></Button>
+                        <Button variant="ghost" onClick={handleAuthRedirect}>Log In</Button>
+                        <Button onClick={handleAuthRedirect}>Get Started</Button>
                     </div>
                 </div>
             </header>
@@ -80,10 +86,8 @@ export function LandingPage() {
                                 Lifeline AI uses affordable test kits and powerful AI to detect early signs of deadly diseases. Take control of your health today.
                             </p>
                             <div className="flex justify-center md:justify-start gap-4">
-                                <Button size="lg" asChild>
-                                   <Link href="/auth">
+                                <Button size="lg" onClick={handleAuthRedirect}>
                                      Get Your Free Health Check <ArrowRight />
-                                   </Link>
                                 </Button>
                             </div>
                         </div>
@@ -236,10 +240,8 @@ export function LandingPage() {
                     <div className="container mx-auto px-4 text-center">
                         <h2 className="text-3xl md:text-4xl font-bold font-headline">Ready to Take Control of Your Health?</h2>
                         <p className="text-muted-foreground mt-2 mb-8 max-w-2xl mx-auto">Download Lifeline AI today and join a community empowered by knowledge and early detection. Your future self will thank you.</p>
-                        <Button size="lg" asChild>
-                           <Link href="/auth">
+                        <Button size="lg" onClick={handleAuthRedirect}>
                              Download The App & Get Started <ArrowRight />
-                           </Link>
                         </Button>
                     </div>
                 </section>
@@ -254,5 +256,3 @@ export function LandingPage() {
         </div>
     );
 }
-
-    
