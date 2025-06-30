@@ -159,8 +159,9 @@ export function Dashboard() {
           ))}
       </div>
 
-      <div className="space-y-6 mt-6">
-          <Card className="border-accent/50 shadow-accent/10 hover:border-accent/80 hover:shadow-accent/20">
+      <div className="mt-6">
+        <div className="relative rounded-lg shadow-lg shadow-black/5 dark:shadow-black/20">
+          <Card className="border-accent/50 hover:border-accent/80 rounded-b-none border-b-0 shadow-none">
             <CardHeader className="flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-accent text-xl">Health Insights</CardTitle>
@@ -182,8 +183,8 @@ export function Dashboard() {
             </CardHeader>
           </Card>
 
-           <Link href="/doctors">
-                <Card className="border-primary/50 shadow-primary/10 hover:border-primary/80 hover:shadow-primary/20 transition-all hover:scale-[1.01]">
+           <Link href="/doctors" className="block">
+                <Card className="border-primary/50 hover:border-primary/80 transition-all hover:scale-[1.01] rounded-t-none -mt-px shadow-none">
                     <CardHeader className="flex-row items-center justify-between">
                         <div>
                             <CardTitle className="text-primary text-xl">Consult a Doctor</CardTitle>
@@ -196,6 +197,7 @@ export function Dashboard() {
                     </CardHeader>
                 </Card>
             </Link>
+        </div>
       </div>
 
       <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
