@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,7 +12,8 @@ import * as z from 'zod';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import Image from 'next/image';
 
-import { initiateConsultation, type InitiateConsultationInput, type InitiateConsultationOutput } from '@/ai/flows/initiate-consultation-flow';
+import { submitNewConsultation, type SubmitConsultationClientInput } from '@/ai/flows/initiate-consultation-flow';
+import type { InitiateConsultationOutput } from '@/ai/flows/initiate-consultation-flow';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
@@ -89,60 +90,35 @@ export function AiDoctorConsultation() {
     setIsLoading(true);
     
     try {
-      // Fetch recent health data to provide context to the AI
-      const basePath = `users/${user.uid}`;
-      
-      const vitalsCol = collection(db, `${basePath}/vitals`);
-      const stripsCol = collection(db, `${basePath}/test_strips`);
-      const analysesCol = collection(db, `${basePath}/health_analyses`);
-
-      const [vitalsSnap, stripsSnap, analysesSnap] = await Promise.all([
-          getDocs(query(vitalsCol, orderBy('date', 'desc'), limit(100))),
-          getDocs(query(stripsCol, orderBy('date', 'desc'), limit(100))),
-          getDocs(query(analysesCol, orderBy('timestamp', 'desc'), limit(50))),
-      ]);
-      
-      const vitalsHistory = vitalsSnap.docs.map(d => d.data());
-      const testStripHistory = stripsSnap.docs.map(d => d.data());
-      const previousAnalyses = analysesSnap.docs.map(d => d.data().analysisResult);
-
-      const input: InitiateConsultationInput = {
-        symptoms: data.symptoms,
-        vitalsHistory: JSON.stringify(vitalsHistory),
-        testStripHistory: JSON.stringify(testStripHistory),
-        previousAnalyses: JSON.stringify(previousAnalyses),
-      };
-
-      if (imageDataUri) {
-        input.imageDataUri = imageDataUri;
-      }
-
-      const aiResponse = await initiateConsultation(input);
-
-      // Construct the object to be saved to Firestore, ensuring no `undefined` fields.
-      const userInput: { symptoms: string, imageDataUri?: string } = {
-        symptoms: data.symptoms,
-      };
-      if (imageDataUri) {
-        userInput.imageDataUri = imageDataUri;
-      }
-
-      const newConsultation = {
+      const clientInput: SubmitConsultationClientInput = {
         userId: user.uid,
-        userName: user.displayName || 'Anonymous',
-        status: 'pending_review' as const,
-        createdAt: new Date().toISOString(),
-        userInput: userInput,
-        aiAnalysis: aiResponse,
+        userName: user.displayName || 'Anonymous User',
+        symptoms: data.symptoms,
       };
 
-      const docRef = await addDoc(collection(db, "consultations"), newConsultation);
-      setConsultations(prev => [{ ...newConsultation, id: docRef.id } as Consultation, ...prev]);
-      
-      toast({ title: 'Consultation Submitted', description: 'Your case has been sent for review. A doctor will approve your plan shortly.' });
-      form.reset();
-      setImageDataUri(null);
-      setView('history');
+      if (imageDataUri) {
+        clientInput.imageDataUri = imageDataUri;
+      }
+
+      const result = await submitNewConsultation(clientInput);
+
+      if (result.success) {
+        // Optimistically add the new consultation to the UI
+        const newConsultationEntry = {
+          id: result.consultationId,
+          status: 'pending_review' as const,
+          createdAt: new Date().toISOString(),
+          userInput: { symptoms: data.symptoms },
+        };
+        setConsultations(prev => [newConsultationEntry, ...prev]);
+
+        toast({ title: 'Consultation Submitted', description: 'Your case has been sent for review. A doctor will approve your plan shortly.' });
+        form.reset();
+        setImageDataUri(null);
+        setView('history');
+      } else {
+        throw new Error("Submission failed on the server.");
+      }
 
     } catch (error) {
       console.error("Failed to start consultation:", error);

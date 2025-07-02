@@ -1,16 +1,19 @@
-
 'use server';
 /**
  * @fileOverview An AI agent for conducting an initial health consultation using a user's full health history.
  *
- * - initiateConsultation - A function that handles the initial analysis.
- * - InitiateConsultationInput - The input type for the function.
- * - InitiateConsultationOutput - The return type for the function.
+ * - submitNewConsultation - A function that orchestrates fetching history, running AI analysis, and saving the case.
+ * - InitiateConsultationInput - The input type for the internal AI analysis.
+ * - InitiateConsultationOutput - The return type for the internal AI analysis.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { db } from '@/lib/firebase';
+import { collection, query, getDocs, addDoc, orderBy, limit } from 'firebase/firestore';
 
+
+// Internal Zod schema for the full data required by the AI prompt.
 const InitiateConsultationInputSchema = z.object({
   symptoms: z.string().describe("A detailed description of the user's current symptoms."),
   vitalsHistory: z.string().describe("A JSON string representing an array of historical vital signs readings."),
@@ -20,6 +23,8 @@ const InitiateConsultationInputSchema = z.object({
 });
 export type InitiateConsultationInput = z.infer<typeof InitiateConsultationInputSchema>;
 
+
+// Internal Zod schema for the AI's structured output.
 const InitiateConsultationOutputSchema = z.object({
   analysisSummary: z.string().describe("A concise summary of the case for a human doctor to review. It should synthesize all inputs, including current symptoms and historical data."),
   potentialConditions: z.array(z.object({
@@ -39,11 +44,76 @@ const InitiateConsultationOutputSchema = z.object({
 export type InitiateConsultationOutput = z.infer<typeof InitiateConsultationOutputSchema>;
 
 
-export async function initiateConsultation(input: InitiateConsultationInput): Promise<InitiateConsultationOutput> {
-  return initiateConsultationFlow(input);
+// Public-facing Zod schema for the data submitted from the client.
+const SubmitConsultationClientInputSchema = z.object({
+    userId: z.string(),
+    userName: z.string(),
+    symptoms: z.string(),
+    imageDataUri: z.string().optional(),
+});
+export type SubmitConsultationClientInput = z.infer<typeof SubmitConsultationClientInputSchema>;
+
+
+/**
+ * The main public-facing function that orchestrates the entire consultation submission process.
+ * It fetches data, runs AI analysis, and saves the results for a doctor to review.
+ */
+export async function submitNewConsultation(input: SubmitConsultationClientInput): Promise<{ success: boolean, consultationId: string }> {
+    const { userId, userName, symptoms, imageDataUri } = input;
+
+    // Step 1: Fetch user's historical data from Firestore.
+    const basePath = `users/${userId}`;
+    const vitalsCol = collection(db, `${basePath}/vitals`);
+    const stripsCol = collection(db, `${basePath}/test_strips`);
+    const analysesCol = collection(db, `${basePath}/health_analyses`);
+
+    const [vitalsSnap, stripsSnap, analysesSnap] = await Promise.all([
+        getDocs(query(vitalsCol, orderBy('date', 'desc'), limit(100))),
+        getDocs(query(stripsCol, orderBy('date', 'desc'), limit(100))),
+        getDocs(query(analysesCol, orderBy('timestamp', 'desc'), limit(50))),
+    ]);
+    
+    const vitalsHistory = JSON.stringify(vitalsSnap.docs.map(d => d.data()));
+    const testStripHistory = JSON.stringify(stripsSnap.docs.map(d => d.data()));
+    const previousAnalyses = JSON.stringify(analysesSnap.docs.map(d => d.data().analysisResult));
+
+    // Step 2: Prepare the full input for the internal AI analysis flow.
+    const aiFlowInput: InitiateConsultationInput = {
+        symptoms,
+        vitalsHistory,
+        testStripHistory,
+        previousAnalyses,
+    };
+    if (imageDataUri) {
+        aiFlowInput.imageDataUri = imageDataUri;
+    }
+
+    // Step 3: Call the internal AI flow to get the analysis.
+    const aiResponse = await initiateConsultationFlow(aiFlowInput);
+
+    // Step 4: Save the complete consultation case to the central 'consultations' collection for doctors.
+    const userInputData: { symptoms: string, imageDataUri?: string } = { symptoms };
+    if (imageDataUri) {
+        userInputData.imageDataUri = imageDataUri;
+    }
+
+    const newConsultation = {
+        userId,
+        userName,
+        status: 'pending_review' as const,
+        createdAt: new Date().toISOString(),
+        userInput: userInputData,
+        aiAnalysis: aiResponse,
+    };
+    
+    const docRef = await addDoc(collection(db, "consultations"), newConsultation);
+    
+    return { success: true, consultationId: docRef.id };
 }
 
-const prompt = ai.definePrompt({
+
+// Internal Genkit prompt. This is not exported.
+const initiateConsultationPrompt = ai.definePrompt({
   name: 'initiateConsultationPrompt',
   input: { schema: InitiateConsultationInputSchema },
   output: { schema: InitiateConsultationOutputSchema },
@@ -69,12 +139,13 @@ Based on ALL the provided information (current symptoms and full history), gener
 2.  **potentialConditions:** Identify 'potentialConditions'. For each, provide the condition name, a 'probability' percentage, and 'reasoning' that explicitly links to both current symptoms and historical data points (e.g., "High probability due to reported chest pain and a historical trend of increasing blood pressure.").
 3.  **suggestedTreatmentPlan:** Create a comprehensive but cautious 'suggestedTreatmentPlan'. Include 'medications', 'lifestyleChanges', and necessary 'furtherTests'. The plan should address both the acute symptoms and any underlying trends.
 4.  **justification:** Write a clear 'justification' for your suggested plan, explaining how it addresses the holistic picture of the user's health.
-5.  **urgency:** Assign an 'urgency' level ('Low', 'Medium', 'High', or 'Critical') based on the complete case.
+5.  **urgency:** Assign an 'urgency' level ('Low', 'Medium', 'High', 'Critical') based on the complete case.
 6.  **followUpPlan:** Propose a 'followUpPlan' for how the AI assistant should follow up with the patient (e.g., "Request updated blood pressure readings daily for 5 days.").
 
 Your entire output must be in the specified JSON format. Be thorough, logical, and safe.`,
 });
 
+// Internal Genkit flow. This is not exported.
 const initiateConsultationFlow = ai.defineFlow(
   {
     name: 'initiateConsultationFlow',
@@ -82,7 +153,7 @@ const initiateConsultationFlow = ai.defineFlow(
     outputSchema: InitiateConsultationOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input);
+    const { output } = await initiateConsultationPrompt(input);
     if (!output) {
       throw new Error("The AI model did not return a valid consultation analysis.");
     }
