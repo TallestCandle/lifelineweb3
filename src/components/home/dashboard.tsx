@@ -4,54 +4,70 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import {
-  ListChecks,
   HeartPulse,
-  Beaker,
-  Pill,
   BrainCircuit,
   FileText,
-  Siren,
   Salad,
-  Zap,
-  Loader2,
-  Lightbulb,
-  Bot
+  Bot,
+  ArrowRight
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
+import { useToast } from '@/hooks/use-toast';
+import {
+  performComprehensiveAnalysis,
+  type ComprehensiveAnalysisInput,
+  type ComprehensiveAnalysisOutput,
+} from '@/ai/flows/comprehensive-analysis-flow';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
-import { useToast } from '@/hooks/use-toast';
-import { performComprehensiveAnalysis, type ComprehensiveAnalysisInput, type ComprehensiveAnalysisOutput } from '@/ai/flows/comprehensive-analysis-flow';
 
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Loader2, Lightbulb, Zap } from 'lucide-react';
+import { TaskList } from '../tasks/task-list';
 
-type DashboardColor = "chart-1" | "destructive" | "chart-2" | "chart-4" | "chart-5" | "primary" | "chart-3";
-
-interface MenuItem {
+interface DashboardCardProps {
   href: string;
-  label: string;
   icon: LucideIcon;
-  colorClass: `text-${DashboardColor}`;
-  borderClass: `group-hover:border-${DashboardColor}`;
-  shadowClass: `group-hover:shadow-${DashboardColor}/40`;
-  glowClass: `bg-${DashboardColor}/10`;
+  title: string;
+  description: string;
+  color: string;
 }
 
-const menuItems: MenuItem[] = [
-    { href: "/tasks", label: "Daily Tasks", icon: ListChecks, colorClass: "text-chart-1", borderClass: "group-hover:border-chart-1", shadowClass: "group-hover:shadow-chart-1/40", glowClass: "bg-chart-1/10" },
-    { href: "/vitals", label: "Vitals Log", icon: HeartPulse, colorClass: "text-destructive", borderClass: "group-hover:border-destructive", shadowClass: "group-hover:shadow-destructive/40", glowClass: "bg-destructive/10" },
-    { href: "/test-strips", label: "Test Strips", icon: Beaker, colorClass: "text-chart-2", borderClass: "group-hover:border-chart-2", shadowClass: "group-hover:shadow-chart-2/40", glowClass: "bg-chart-2/10" },
-    { href: "/reminders", label: "Medication", icon: Pill, colorClass: "text-chart-4", borderClass: "group-hover:border-chart-4", shadowClass: "group-hover:shadow-chart-4/40", glowClass: "bg-chart-4/10" },
-    { href: "/analysis", label: "AI Analysis", icon: BrainCircuit, colorClass: "text-chart-5", borderClass: "group-hover:border-chart-5", shadowClass: "group-hover:shadow-chart-5/40", glowClass: "bg-chart-5/10" },
-    { href: "/report", label: "Health Report", icon: FileText, colorClass: "text-primary", borderClass: "group-hover:border-primary", shadowClass: "group-hover:shadow-primary/40", glowClass: "bg-primary/10" },
-    { href: "/dietician", label: "AI Dietician", icon: Salad, colorClass: "text-chart-3", borderClass: "group-hover:border-chart-3", shadowClass: "group-hover:shadow-chart-3/40", glowClass: "bg-chart-3/10" },
-    { href: "/emergency", label: "Emergency", icon: Siren, colorClass: "text-destructive", borderClass: "group-hover:border-destructive", shadowClass: "group-hover:shadow-destructive/40", glowClass: "bg-destructive/10" },
+const mainFeatures: DashboardCardProps[] = [
+  {
+    href: "/vitals",
+    icon: HeartPulse,
+    title: "Log Vitals",
+    description: "Track BP, sugar, temp & more.",
+    color: "text-red-400",
+  },
+  {
+    href: "/analysis",
+    icon: BrainCircuit,
+    title: "AI Snapshot",
+    description: "Get an instant analysis of your health.",
+    color: "text-blue-400",
+  },
+  {
+    href: "/dietician",
+    icon: Salad,
+    title: "AI Dietician",
+    description: "Personalized meal plans for you.",
+    color: "text-green-400",
+  },
+  {
+    href: "/report",
+    icon: FileText,
+    title: "Monthly Report",
+    description: "Review your detailed health summary.",
+    color: "text-purple-400",
+  },
 ];
 
 const UrgencyConfig: Record<string, { color: string; text: string }> = {
@@ -59,6 +75,19 @@ const UrgencyConfig: Record<string, { color: string; text: string }> = {
     'Moderate': { color: 'bg-orange-500', text: 'Moderate' },
     'Critical': { color: 'bg-red-600', text: 'Critical' },
 };
+
+const DashboardCard: React.FC<DashboardCardProps> = ({ href, icon: Icon, title, description, color }) => (
+  <Link href={href} className="group block">
+    <Card className="h-full transition-all duration-300 hover:border-primary/50 hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/10">
+      <CardHeader>
+        <Icon className={cn("w-8 h-8 mb-2", color)} />
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+    </Card>
+  </Link>
+);
+
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -69,9 +98,8 @@ export function Dashboard() {
   const [showResultDialog, setShowResultDialog] = useState(false);
   
   const firstName = user?.displayName?.split(' ')[0] || 'User';
-  const greeting = `Welcome, ${firstName}.`;
 
-  const handleGeneralAnalysis = async () => {
+  const handleDeepAnalysis = async () => {
     if (!user) {
         toast({ variant: 'destructive', title: 'Error', description: 'No user found.' });
         return;
@@ -82,31 +110,23 @@ export function Dashboard() {
     try {
         const basePath = `users/${user.uid}`;
         
-        const vitalsCol = collection(db, `${basePath}/vitals`);
-        const stripsCol = collection(db, `${basePath}/test_strips`);
-        const analysesCol = collection(db, `${basePath}/health_analyses`);
-
         const [vitalsSnap, stripsSnap, analysesSnap] = await Promise.all([
-            getDocs(query(vitalsCol, orderBy('date', 'desc'), limit(50))),
-            getDocs(query(stripsCol, orderBy('date', 'desc'), limit(50))),
-            getDocs(query(analysesCol, orderBy('timestamp', 'desc'), limit(20))),
+            getDocs(query(collection(db, `${basePath}/vitals`), orderBy('date', 'desc'), limit(100))),
+            getDocs(query(collection(db, `${basePath}/test_strips`), orderBy('date', 'desc'), limit(100))),
+            getDocs(query(collection(db, `${basePath}/health_analyses`), orderBy('timestamp', 'desc'), limit(50))),
         ]);
 
-        const vitalsHistory = vitalsSnap.docs.map(d => d.data());
-        const testStripHistory = stripsSnap.docs.map(d => d.data());
-        const previousAnalyses = analysesSnap.docs.map(d => d.data().analysisResult);
-
-        if (vitalsHistory.length === 0 && testStripHistory.length === 0 && previousAnalyses.length === 0) {
+        const input: ComprehensiveAnalysisInput = {
+            vitalsHistory: JSON.stringify(vitalsSnap.docs.map(d => d.data())),
+            testStripHistory: JSON.stringify(stripsSnap.docs.map(d => d.data())),
+            previousAnalyses: JSON.stringify(analysesSnap.docs.map(d => d.data().analysisResult)),
+        };
+        
+        if (vitalsSnap.empty && stripsSnap.empty && analysesSnap.empty) {
             toast({ variant: 'destructive', title: 'Not Enough Data', description: 'There is no historical data to analyze yet.' });
             setIsAnalyzing(false);
             return;
         }
-
-        const input: ComprehensiveAnalysisInput = {
-            vitalsHistory: JSON.stringify(vitalsHistory),
-            testStripHistory: JSON.stringify(testStripHistory),
-            previousAnalyses: JSON.stringify(previousAnalyses),
-        };
 
         const result = await performComprehensiveAnalysis(input);
         setAnalysisResult(result);
@@ -114,8 +134,7 @@ export function Dashboard() {
     } catch (error) {
         console.error("Comprehensive analysis failed:", error);
         toast({
-            variant: 'destructive',
-            title: 'Analysis Failed',
+            variant: 'destructive', title: 'Analysis Failed',
             description: 'Could not perform the analysis. Please try again later.',
         });
     } finally {
@@ -123,90 +142,72 @@ export function Dashboard() {
     }
   };
 
-
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-foreground/90">
-          {greeting}
+    <div className="space-y-8">
+      <div className="space-y-2">
+        <h1 className="text-3xl md:text-4xl font-bold text-foreground/90">
+          Welcome back, {firstName}.
         </h1>
-        <p className="text-muted-foreground">Here's your command center for a healthier life.</p>
-      </div>
-      <div className="grid grid-cols-4 gap-4 pt-4">
-        {menuItems.map((item) => (
-            <Link 
-              key={item.href}
-              href={item.href}
-              className="flex flex-col items-center justify-start text-center gap-2 cursor-pointer group"
-            >
-              <div className={cn(
-                "relative flex items-center justify-center bg-card p-3 rounded-full shadow-lg border-2 border-foreground/10 transition-all duration-300 group-hover:-translate-y-1",
-                item.borderClass,
-                `group-hover:shadow-lg ${item.shadowClass}`
-              )}>
-                <div className={cn(
-                  "absolute inset-0 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300",
-                  item.glowClass
-                )} />
-                <item.icon className={cn("w-6 h-6 transition-colors duration-300", item.colorClass)} />
-              </div>
-              <div className="h-8 flex items-center">
-                  <p className="text-xs font-bold text-foreground/80 transition-colors duration-300 group-hover:text-foreground">{item.label}</p>
-              </div>
-            </Link>
-          ))}
+        <p className="text-lg text-muted-foreground">Let's check on your health today.</p>
       </div>
 
-      <div className="mt-6">
-        <div className="relative rounded-lg shadow-lg shadow-black/5">
-          <Card className="border-accent/50 hover:border-accent/80 rounded-b-none border-b-0 shadow-none">
-            <CardHeader className="flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-accent-foreground text-xl">Health Insights</CardTitle>
-                <CardDescription>Analyze your long-term health trends.</CardDescription>
-              </div>
-              <Button onClick={handleGeneralAnalysis} disabled={isAnalyzing} size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
-                {isAnalyzing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Zap className="mr-2 h-5 w-5" />
-                    Run Analysis
-                  </>
-                )}
-              </Button>
+      <Card className="bg-primary/10 border-primary/20">
+        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <CardTitle className="flex items-center gap-2"><Bot /> AI Consultation</CardTitle>
+                <CardDescription className="mt-1">Feeling unwell? Chat with our AI for a preliminary diagnosis and get a doctor-verified plan.</CardDescription>
+            </div>
+            <Link href="/doctors" passHref>
+                <Button size="lg" className="w-full md:w-auto">Start Consultation <ArrowRight className="ml-2"/></Button>
+            </Link>
+        </CardHeader>
+      </Card>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Quick Actions</CardTitle>
+              <CardDescription>Key tools for your health journey.</CardDescription>
             </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
+                {mainFeatures.map((feature) => (
+                    <DashboardCard key={feature.href} {...feature} />
+                ))}
+            </CardContent>
           </Card>
-
-           <Link href="/doctors" className="block">
-                <Card className="border-primary/50 hover:border-primary/80 transition-all hover:scale-[1.01] rounded-t-none -mt-px shadow-none">
-                    <CardHeader className="flex-row items-center justify-between">
-                        <div>
-                            <CardTitle className="text-primary text-xl">AI Consultation</CardTitle>
-                            <CardDescription>Get a doctor-verified plan from our 24/7 AI.</CardDescription>
-                        </div>
-                        <Button size="lg">
-                            <Bot className="mr-2 h-5 w-5" />
-                            Start Consultation
-                        </Button>
-                    </CardHeader>
-                </Card>
-            </Link>
+        </div>
+        <div className="lg:col-span-1">
+          <TaskList />
         </div>
       </div>
+      
+       <Card className="bg-card/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Zap /> Deep Dive Analysis</CardTitle>
+            <CardDescription>Let our AI perform a comprehensive review of your entire health history to find hidden trends and insights.</CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <Button variant="outline" onClick={handleDeepAnalysis} disabled={isAnalyzing}>
+               {isAnalyzing ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing History...</>
+                ) : (
+                  <>Run Deep Analysis</>
+                )}
+            </Button>
+          </CardFooter>
+      </Card>
+
 
       <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
         <DialogContent className="max-w-2xl">
             <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                     <BrainCircuit className="text-primary"/>
-                    Health Insights
+                    Comprehensive Health Analysis
                 </DialogTitle>
                 <DialogDescription>
-                    An AI-powered deep dive into your health trends for {user?.displayName}.
+                    An AI-powered deep dive into your health trends.
                 </DialogDescription>
             </DialogHeader>
             {analysisResult ? (
@@ -248,7 +249,6 @@ export function Dashboard() {
             )}
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

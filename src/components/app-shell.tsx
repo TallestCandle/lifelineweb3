@@ -1,35 +1,57 @@
 
-"use client"
+"use client";
 
-import * as React from "react"
-import { Stethoscope, LogOut } from "lucide-react"
-import { usePathname, useRouter } from "next/navigation"
-import { signOut } from "firebase/auth"
-import { auth } from "@/lib/firebase"
-import { useAuth } from "@/context/auth-provider"
-import { Button } from "./ui/button"
+import React from 'react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { useAuth } from '@/context/auth-provider';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarFooter,
+  SidebarTrigger,
+  SidebarProvider,
+  SidebarInset,
+} from '@/components/ui/sidebar';
+import {
+  ListChecks,
+  HeartPulse,
+  Beaker,
+  Pill,
+  BrainCircuit,
+  FileText,
+  Siren,
+  Salad,
+  LayoutDashboard,
+  LogOut,
+  Stethoscope,
+  Bot
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
-const pageTitles: Record<string, string> = {
-  "/": "Dashboard",
-  "/tasks": "Daily Tasks",
-  "/vitals": "Vitals Log",
-  "/test-strips": "Test Strips",
-  "/reminders": "Medication Reminders",
-  "/analysis": "AI Analysis",
-  "/report": "Health Report",
-  "/dietician": "AI Dietician",
-  "/emergency": "Emergency",
-  "/doctors": "AI Consultation",
-};
+const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/tasks", label: "Daily Tasks", icon: ListChecks },
+  { href: "/vitals", label: "Vitals Log", icon: HeartPulse },
+  { href: "/test-strips", label: "Test Strips", icon: Beaker },
+  { href: "/analysis", label: "AI Analysis", icon: BrainCircuit },
+  { href: "/doctors", label: "AI Consultation", icon: Bot },
+  { href: "/dietician", label: "AI Dietician", icon: Salad },
+  { href: "/report", label: "Health Report", icon: FileText },
+  { href: "/reminders", label: "Medication", icon: Pill },
+  { href: "/emergency", label: "Emergency", icon: Siren },
+];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
-  
-  const getPageTitle = () => {
-    return pageTitles[pathname] || "Lifeline AI";
-  }
 
   const handleLogout = async () => {
     try {
@@ -42,32 +64,59 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const getPageTitle = () => {
+    return menuItems.find(item => pathname.startsWith(item.href) && item.href !== '/')?.label ||
+           (pathname === '/' ? 'Dashboard' : 'Lifeline AI');
+  };
+
   return (
-    <div className="min-h-screen w-full flex flex-col">
-      <header className="flex items-center justify-between p-4 border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-          <div className="flex items-center gap-4">
-            <a href="/" className="flex items-center gap-2 text-primary">
-                <Stethoscope className="w-8 h-8" />
-                <h1 className="text-xl font-headline font-bold hidden sm:block">Lifeline AI</h1>
-            </a>
-            {pathname !== '/' && (
-                <>
-                    <div className="w-px h-6 bg-border mx-2 hidden sm:block"></div>
-                    <h2 className="text-xl font-bold font-headline text-foreground/80">{getPageTitle()}</h2>
-                </>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-              <span className="text-sm font-bold hidden sm:inline-block">{user?.displayName || 'User'}</span>
-              <Button variant="ghost" size="sm" onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </Button>
-          </div>
-      </header>
-      <main className="flex-1 p-4 md:p-6 lg:p-8 animated-gradient-bg">
-          {children}
-      </main>
-    </div>
-  )
+    <SidebarProvider>
+      <Sidebar side="left" collapsible="icon" className="border-primary/20">
+        <SidebarHeader className="h-20 items-center justify-center p-2">
+            <Link href="/" className="flex items-center gap-2 text-primary group-data-[state=expanded]:w-full group-data-[state=expanded]:justify-start group-data-[state=collapsed]:justify-center">
+                <Stethoscope className="w-8 h-8 shrink-0" />
+                <span className="text-xl font-bold group-data-[state=collapsed]:hidden">Lifeline AI</span>
+            </Link>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarMenu>
+            {menuItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <Link href={item.href} legacyBehavior passHref>
+                  <SidebarMenuButton isActive={pathname === item.href} tooltip={item.label}>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarContent>
+        <SidebarFooter>
+           <SidebarMenu>
+                <SidebarMenuItem>
+                    <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
+                        <LogOut />
+                        <span>Logout</span>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+           </SidebarMenu>
+        </SidebarFooter>
+      </Sidebar>
+      <SidebarInset>
+        <header className="flex h-20 items-center justify-between p-4 border-b border-border/10 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+            <div className="flex items-center gap-4">
+                <SidebarTrigger className="md:hidden" />
+                <h2 className="text-xl font-bold text-foreground/90">{getPageTitle()}</h2>
+            </div>
+            <div className="flex items-center gap-4">
+                <span className="text-sm font-bold hidden sm:inline-block">{user?.displayName || 'User'}</span>
+            </div>
+        </header>
+        <main className="flex-1 p-4 md:p-6 lg:p-8 animated-gradient-bg">
+            {children}
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
+  );
 }

@@ -11,11 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { Loader } from '../ui/loader';
+import { Loader2 } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { Bot, User, Check, X, Pencil, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
+import { Badge } from '../ui/badge';
+import { cn } from '@/lib/utils';
 
 interface Consultation {
   id: string;
@@ -36,6 +38,13 @@ interface Consultation {
     followUpPlan: string;
   };
 }
+
+const UrgencyConfig: Record<string, { color: string; text: string }> = {
+    'Low': { color: 'bg-blue-500', text: 'Low' },
+    'Medium': { color: 'bg-yellow-500', text: 'Medium' },
+    'High': { color: 'bg-orange-500', text: 'High' },
+    'Critical': { color: 'bg-red-600', text: 'Critical' },
+};
 
 export function DoctorDashboard() {
   const { user } = useAuth();
@@ -86,33 +95,35 @@ export function DoctorDashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-foreground/90">Welcome, Dr. {doctorName}.</h1>
-        <p className="text-muted-foreground">Here are the AI-flagged consultations awaiting your review.</p>
+    <div className="space-y-8">
+      <div className="space-y-2">
+        <h1 className="text-3xl md:text-4xl font-bold text-foreground/90">Doctor's Dashboard</h1>
+        <p className="text-lg text-muted-foreground">Welcome, {doctorName}.</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Pending Reviews ({consultations.length})</CardTitle>
-          <CardDescription>Consultations requiring your professional expertise and approval.</CardDescription>
+          <CardDescription>AI-flagged consultations awaiting your professional review and approval.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? <Loader /> : (
+          {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
             <div className="space-y-4">
               {consultations.length > 0 ? consultations.map(c => (
-                <div key={c.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary">
-                  <div>
-                    <p className="font-bold">Case for {c.userName || 'Anonymous User'}</p>
+                <div key={c.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg hover:bg-secondary/50 transition-colors">
+                  <div className="mb-4 sm:mb-0">
+                    <p className="font-bold text-lg">Case for: {c.userName || 'Anonymous User'}</p>
                     <p className="text-sm text-muted-foreground">
                       Submitted {formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}
                     </p>
-                    <p className="text-sm font-bold text-primary">Urgency: {c.aiAnalysis.urgency}</p>
+                    <Badge className={cn("mt-2 text-white", UrgencyConfig[c.aiAnalysis.urgency]?.color || "bg-gray-500")}>
+                        Urgency: {c.aiAnalysis.urgency}
+                    </Badge>
                   </div>
                   <Button onClick={() => openReviewDialog(c)}>Review Case <ArrowRight className="ml-2"/></Button>
                 </div>
               )) : (
-                <p className="text-center text-muted-foreground py-8">No pending reviews. Well done!</p>
+                <p className="text-center text-muted-foreground py-12">No pending reviews. Well done, Doctor!</p>
               )}
             </div>
           )}
@@ -127,7 +138,6 @@ export function DoctorDashboard() {
               <DialogDescription>Submitted {formatDistanceToNow(parseISO(selectedCase.createdAt), { addSuffix: true })}. Urgency: {selectedCase.aiAnalysis.urgency}</DialogDescription>
             </DialogHeader>
             <div className="grid md:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto p-4">
-              {/* User Input Column */}
               <div className="space-y-4">
                 <h3 className="font-bold text-lg flex items-center gap-2"><User/>Patient's Submission</h3>
                 <Card>
@@ -147,7 +157,6 @@ export function DoctorDashboard() {
                   </Card>
                 )}
               </div>
-              {/* AI Analysis Column */}
               <div className="space-y-4">
                 <h3 className="font-bold text-lg flex items-center gap-2"><Bot/>AI's Analysis</h3>
                 <Alert variant={selectedCase.aiAnalysis.urgency === 'Critical' ? 'destructive' : 'default'}>

@@ -5,121 +5,64 @@
 
 @layer base {
   :root {
-    /* "Cool Flash" Dark Theme (Default Fallback) */
-    --background: 242 36% 9%;
+    /* Lifeline Pro Theme (New Default) */
+    --background: 240 21% 15%; /* #1E1E2F */
     --foreground: 240 8% 90%;
-    --card: 242 36% 12%;
+    --card: 240 21% 18%;
     --card-foreground: 240 8% 90%;
-    --popover: 242 36% 9%;
+    --popover: 240 21% 15%;
     --popover-foreground: 240 8% 90%;
-    --primary: 195 100% 50%; /* Electric Blue */
-    --primary-foreground: 242 36% 9%;
-    --secondary: 242 36% 15%;
+    --primary: 173 71% 42%; /* #1BB9A8 */
+    --primary-foreground: 240 21% 10%;
+    --secondary: 240 21% 25%;
     --secondary-foreground: 240 8% 90%;
-    --muted: 242 36% 15%;
+    --muted: 240 21% 25%;
     --muted-foreground: 240 5% 75%;
-    --accent: 328 100% 54%; /* Hot Pink */
+    --accent: 282 96% 62%; /* #E040FB */
     --accent-foreground: 240 8% 98%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 195 100% 50%;
-    --input: 242 36% 15%;
-    --ring: 328 100% 54%;
-    --radius: 0.75rem;
-
-    --chart-1: 120 61% 50%; /* Lime Green */
-    --chart-2: 282 100% 61%; /* Cyber Purple */
-    --chart-3: 328 100% 54%; /* Hot Pink */
-    --chart-4: 39 100% 50%; /* Bright Orange */
-    --chart-5: 195 100% 50%; /* Electric Blue */
-  }
-
-  .theme-cool-flash {
-    --background: 242 36% 9%;
-    --foreground: 240 8% 90%;
-    --card: 242 36% 12%;
-    --card-foreground: 240 8% 90%;
-    --popover: 242 36% 9%;
-    --popover-foreground: 240 8% 90%;
-    --primary: 195 100% 50%; /* Electric Blue */
-    --primary-foreground: 242 36% 9%;
-    --secondary: 242 36% 15%;
-    --secondary-foreground: 240 8% 90%;
-    --muted: 242 36% 15%;
-    --muted-foreground: 240 5% 75%;
-    --accent: 328 100% 54%; /* Hot Pink */
-    --accent-foreground: 240 8% 98%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 195 100% 50%;
-    --input: 242 36% 15%;
-    --ring: 328 100% 54%;
-    --radius: 0.75rem;
-
-    --chart-1: 120 61% 50%;
-    --chart-2: 282 100% 61%;
-    --chart-3: 328 100% 54%;
-    --chart-4: 39 100% 50%;
-    --chart-5: 195 100% 50%;
-  }
-
-  .theme-serene-sky {
-    --background: 208 100% 97%; /* Very Light Blue */
-    --foreground: 215 25% 27%;  /* Dark Slate Gray */
-    --card: 0 0% 100%;
-    --card-foreground: 215 25% 27%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 27%;
-    --primary: 203 65% 63%; /* Soft Blue */
-    --primary-foreground: 215 25% 27%;
-    --secondary: 210 40% 90%;
-    --secondary-foreground: 215 25% 27%;
-    --muted: 210 40% 90%;
-    --muted-foreground: 215 20% 45%;
-    --accent: 261 44% 70%; /* Muted Purple */
-    --accent-foreground: 215 25% 27%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 203 65% 63%;
-    --input: 210 40% 90%;
-    --ring: 261 44% 70%;
+    --border: 173 71% 42%;
+    --input: 240 21% 25%;
+    --ring: 282 96% 62%;
     --radius: 0.75rem;
 
-    --chart-1: 140 58% 50%; /* Sea Green */
-    --chart-2: 261 44% 70%; /* Muted Purple */
-    --chart-3: 340 82% 76%; /* Soft Pink */
-    --chart-4: 25 84% 65%; /* Soft Orange */
-    --chart-5: 203 65% 63%; /* Soft Blue */
+    --chart-1: 173 71% 42%; /* Primary Teal */
+    --chart-2: 282 96% 62%; /* Accent Purple */
+    --chart-3: 39 100% 50%; /* Bright Orange */
+    --chart-4: 220 85% 60%; /* Bright Blue */
+    --chart-5: 50 100% 50%;  /* Yellow */
   }
 
-  .theme-classic-blue {
-    --background: 0 0% 100%; /* White */
-    --foreground: 222 47% 11%; /* Dark Blue/Almost Black text */
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 211 100% 50%; /* #007BFF */
-    --primary-foreground: 0 0% 98%; /* White text on primary */
-    --secondary: 210 40% 96.1%; /* Light Gray */
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215 20% 65.1%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84.2% 60.2%;
+  .theme-lifeline-pro {
+    --background: 240 21% 15%; /* #1E1E2F */
+    --foreground: 240 8% 90%;
+    --card: 240 21% 18%;
+    --card-foreground: 240 8% 90%;
+    --popover: 240 21% 15%;
+    --popover-foreground: 240 8% 90%;
+    --primary: 173 71% 42%; /* #1BB9A8 */
+    --primary-foreground: 240 21% 10%;
+    --secondary: 240 21% 25%;
+    --secondary-foreground: 240 8% 90%;
+    --muted: 240 21% 25%;
+    --muted-foreground: 240 5% 75%;
+    --accent: 282 96% 62%; /* #E040FB */
+    --accent-foreground: 240 8% 98%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 214.3 31.8% 91.4%; /* Light Gray for borders */
-    --input: 214.3 31.8% 91.4%;
-    --ring: 211 100% 50%;
-    --radius: 0.5rem; /* Sharper radius */
+    --border: 173 71% 42%;
+    --input: 240 21% 25%;
+    --ring: 282 96% 62%;
+    --radius: 0.75rem;
 
-    --chart-1: 211 100% 50%; /* Primary Blue */
-    --chart-2: 22 95% 53%; /* Orange */
-    --chart-3: 142 76% 36%; /* Green */
-    --chart-4: 262 83% 58%; /* Purple */
-    --chart-5: 340 82% 76%; /* Pink */
+    --chart-1: 173 71% 42%;
+    --chart-2: 282 96% 62%;
+    --chart-3: 39 100% 50%;
+    --chart-4: 220 85% 60%;
+    --chart-5: 50 100% 50%;
   }
+
 }
 
 @layer base {
@@ -128,7 +71,7 @@
   }
   body {
     @apply bg-background text-foreground font-body;
-    font-family: 'PT Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 }
 
