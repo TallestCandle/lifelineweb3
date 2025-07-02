@@ -51,9 +51,6 @@ User's New Follow-Up Data:
 5.  **Formulate Recommendation:** Based on your analysis, provide a short 'recommendation' for the user. If 'alertDoctor' is true, the recommendation must state that their doctor has been notified.
 
 Provide the response in the required JSON format.`,
-    config: {
-        retries: 3,
-    },
 });
 
 const followUpFlow = ai.defineFlow(

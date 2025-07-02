@@ -43,7 +43,6 @@ User's Question:
 
 Based on this question, generate a helpful and safe answer, and provide the mandatory disclaimer in the required JSON format.`,
   config: {
-    retries: 3,
     safetySettings: [
         {
           category: 'HARM_CATEGORY_DANGEROUS_CONTENT',

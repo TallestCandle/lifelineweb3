@@ -143,9 +143,6 @@ Based on ALL the provided information (the interview, the image, and the full hi
 6.  **followUpPlan:** Propose a 'followUpPlan'.
 
 Your entire output must be in the specified JSON format. Be thorough, logical, and safe.`,
-    config: {
-        retries: 3,
-    },
 });
 
 // Internal Genkit flow. This is not exported.

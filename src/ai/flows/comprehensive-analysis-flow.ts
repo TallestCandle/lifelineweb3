@@ -62,9 +62,6 @@ Based on your deep analysis, provide a response in the required JSON format with
     - **41-70 (Moderate):** One or more clear negative trends or consistent anomalies that require monitoring (e.g., consistently borderline-high blood pressure).
     - **71-100 (Critical):** Multiple significant negative trends, strong correlations between concerning data points, or clear red-flag events (e.g., sharp drops in oxygen, very high blood sugar readings). The higher the score, the more urgent the situation.
 5.  'urgency': Based *only* on the 'criticalityScore' you just calculated, classify the situation as 'Mild' (score 1-40), 'Moderate' (score 41-70), or 'Critical' (score 71-100).`,
-    config: {
-        retries: 3,
-    },
 });
 
 

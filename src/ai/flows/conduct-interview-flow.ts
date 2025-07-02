@@ -59,9 +59,6 @@ const prompt = ai.definePrompt({
 {{/each}}
 
 Based on this history, generate your response in the required JSON format. Provide the 'nextQuestion', the accurate 'questionCount', and the correctly set 'isFinalQuestion' flag.`,
-    config: {
-        retries: 3,
-    },
 });
 
 
