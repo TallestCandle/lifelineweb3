@@ -65,8 +65,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   const getPageTitle = () => {
-    return menuItems.find(item => pathname.startsWith(item.href) && item.href !== '/')?.label ||
-           (pathname === '/' ? 'Dashboard' : 'Lifeline AI');
+    // Check for exact match first, especially for "/"
+    const exactMatch = menuItems.find(item => item.href === pathname);
+    if (exactMatch) return exactMatch.label;
+    
+    // Fallback for nested routes, avoiding "/"
+    const nestedMatch = menuItems.find(item => item.href !== '/' && pathname.startsWith(item.href));
+    if (nestedMatch) return nestedMatch.label;
+
+    return 'Lifeline AI';
   };
 
   return (
@@ -82,12 +89,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <SidebarMenu>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href} legacyBehavior passHref>
-                  <SidebarMenuButton isActive={pathname === item.href} tooltip={item.label}>
+                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
+                  <Link href={item.href}>
                     <item.icon />
                     <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </Link>
+                  </Link>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
