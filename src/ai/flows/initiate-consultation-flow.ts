@@ -11,7 +11,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
-export const InitiateConsultationInputSchema = z.object({
+const InitiateConsultationInputSchema = z.object({
   symptoms: z.string().describe("A detailed description of the user's current symptoms."),
   vitalsHistory: z.string().describe("A JSON string representing an array of historical vital signs readings."),
   testStripHistory: z.string().describe("A JSON string representing an array of historical urine test strip results."),
@@ -20,7 +20,7 @@ export const InitiateConsultationInputSchema = z.object({
 });
 export type InitiateConsultationInput = z.infer<typeof InitiateConsultationInputSchema>;
 
-export const InitiateConsultationOutputSchema = z.object({
+const InitiateConsultationOutputSchema = z.object({
   analysisSummary: z.string().describe("A concise summary of the case for a human doctor to review. It should synthesize all inputs, including current symptoms and historical data."),
   potentialConditions: z.array(z.object({
     condition: z.string().describe("The name of the potential health condition."),

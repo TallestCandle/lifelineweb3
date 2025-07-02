@@ -11,13 +11,13 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
-export const FollowUpInputSchema = z.object({
+const FollowUpInputSchema = z.object({
   originalConsultation: z.string().describe("A JSON string of the original consultation details, including user input, AI analysis, and the approved treatment plan."),
   followUpData: z.string().describe("A JSON string of the user's latest follow-up data, including symptoms and vital signs."),
 });
 export type FollowUpInput = z.infer<typeof FollowUpInputSchema>;
 
-export const FollowUpOutputSchema = z.object({
+const FollowUpOutputSchema = z.object({
   progressSummary: z.string().describe("A concise summary of the user's progress since the last check-in, comparing new data to old data."),
   isImproving: z.boolean().describe("A boolean indicating if the user's condition is generally improving based on the follow-up data."),
   alertDoctor: z.boolean().describe("A boolean that is true if the follow-up data indicates a significant worsening of the condition or a new critical issue that requires the human doctor's immediate attention."),
