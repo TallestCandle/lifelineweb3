@@ -18,6 +18,7 @@ import {
   SidebarTrigger,
   SidebarProvider,
   SidebarInset,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import {
   HeartPulse,
@@ -33,6 +34,7 @@ import {
   Bot
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -50,6 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
+  const { openMobile } = useSidebar();
 
   const handleLogout = async () => {
     try {
@@ -111,7 +114,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <SidebarInset>
         <header className="flex h-20 items-center justify-between p-4 border-b border-border/10 bg-background/80 backdrop-blur-sm sticky top-0 z-[60]">
             <div className="flex items-center gap-4">
-                <SidebarTrigger className="md:hidden" />
+                <SidebarTrigger className={cn("md:hidden", openMobile && "invisible")} />
                 <h2 className="text-xl font-bold text-foreground/90">{getPageTitle()}</h2>
             </div>
             <div className="flex items-center gap-4">

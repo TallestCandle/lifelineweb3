@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Tooltip,
@@ -156,6 +156,41 @@ const SidebarProvider = React.forwardRef<
 )
 SidebarProvider.displayName = "SidebarProvider"
 
+const AnimatedHamburgerIcon = ({ open }: { open: boolean }) => (
+  <div className="relative h-5 w-5" aria-hidden="true">
+    <span
+      className={cn(
+        "absolute block h-0.5 w-full rounded-full bg-current transition-all duration-300 ease-in-out",
+        open ? "top-1/2 -translate-y-1/2 rotate-45" : "top-[25%]"
+      )}
+    />
+    <span
+      className={cn(
+        "absolute top-1/2 block h-0.5 w-full -translate-y-1/2 rounded-full bg-current transition-opacity duration-300 ease-in-out",
+        open && "opacity-0"
+      )}
+    />
+    <span
+      className={cn(
+        "absolute block h-0.5 w-full rounded-full bg-current transition-all duration-300 ease-in-out",
+        open ? "bottom-1/2 translate-y-1/2 -rotate-45" : "bottom-[25%]"
+      )}
+    />
+  </div>
+);
+
+const SidebarMobileCloseButton = () => {
+    const { openMobile } = useSidebar();
+    return (
+        <SheetClose asChild>
+            <Button variant="ghost" size="icon" className="absolute top-4 left-4 h-8 w-8 z-50">
+                <AnimatedHamburgerIcon open={openMobile} />
+                <span className="sr-only">Close sidebar</span>
+            </Button>
+        </SheetClose>
+    )
+}
+
 const Sidebar = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
@@ -198,7 +233,7 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground"
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -206,8 +241,9 @@ const Sidebar = React.forwardRef<
             }
             side={side}
           >
+            <SidebarMobileCloseButton />
             <SheetTitle className="sr-only">Sidebar</SheetTitle>
-            <div className="flex h-full w-full flex-col">{children}</div>
+            <div className="flex h-full w-full flex-col pt-16">{children}</div>
           </SheetContent>
         </Sheet>
       )
@@ -259,29 +295,6 @@ const Sidebar = React.forwardRef<
   }
 )
 Sidebar.displayName = "Sidebar"
-
-const AnimatedHamburgerIcon = ({ open }: { open: boolean }) => (
-  <div className="relative h-5 w-5" aria-hidden="true">
-    <span
-      className={cn(
-        "absolute block h-0.5 w-full rounded-full bg-current transition-all duration-300 ease-in-out",
-        open ? "top-1/2 -translate-y-1/2 rotate-45" : "top-[25%]"
-      )}
-    />
-    <span
-      className={cn(
-        "absolute top-1/2 block h-0.5 w-full -translate-y-1/2 rounded-full bg-current transition-opacity duration-300 ease-in-out",
-        open && "opacity-0"
-      )}
-    />
-    <span
-      className={cn(
-        "absolute block h-0.5 w-full rounded-full bg-current transition-all duration-300 ease-in-out",
-        open ? "bottom-1/2 translate-y-1/2 -rotate-45" : "bottom-[25%]"
-      )}
-    />
-  </div>
-);
 
 const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
