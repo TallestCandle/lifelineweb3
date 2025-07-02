@@ -228,12 +228,12 @@ export function AiDoctorConsultation() {
   return (
     <div className="space-y-8">
       <Card>
-        <CardHeader className="flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <CardTitle className="flex items-center gap-2"><Sparkles /> 24/7 AI Doctor Consultation</CardTitle>
             <CardDescription>Chat with our AI to analyze your symptoms. A licensed doctor reviews every case.</CardDescription>
           </div>
-          <Button onClick={() => view === 'form' ? setView('history') : startNewConsultation()}>
+          <Button onClick={() => view === 'form' ? setView('history') : startNewConsultation()} className="w-full sm:w-auto">
             {view === 'form' ? <><FileClock className="mr-2"/> View History</> : <><PlusCircle className="mr-2"/> New Consultation</>}
           </Button>
         </CardHeader>
@@ -247,7 +247,7 @@ export function AiDoctorConsultation() {
                         {messages.map((message, index) => (
                              <div key={index} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                 {message.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center"><Bot size={20}/></div>}
-                                <div className={`max-w-md rounded-lg p-3 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+                                <div className={`max-w-[90%] md:max-w-md rounded-lg p-3 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
                                     {isChatLoading && index === messages.length - 1 && message.role === 'model' ? (
                                         <div className="flex items-center justify-center gap-1.5 h-5">
                                             <span className="h-2 w-2 rounded-full bg-current animate-bounce [animation-delay:-0.3s]"></span>
@@ -304,16 +304,22 @@ export function AiDoctorConsultation() {
                     <Accordion type="single" collapsible className="w-full">
                         {consultations.map(c => (
                             <AccordionItem value={c.id} key={c.id}>
-                                <AccordionTrigger>
-                                    <div className="flex justify-between items-center w-full pr-4">
+                                <AccordionTrigger className="text-left">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full pr-4 gap-2">
                                         <div className="flex items-center gap-3">
                                             <span className={`w-3 h-3 rounded-full ${statusConfig[c.status]?.color || 'bg-gray-400'}`} />
-                                            <div className="text-left">
-                                                <p>Consultation from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
-                                                <p className="text-xs text-muted-foreground">{formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}</p>
+                                            <div>
+                                                <p className="font-bold">
+                                                    Consultation from {format(parseISO(c.createdAt), 'MMM d, yyyy')}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}
+                                                </p>
                                             </div>
                                         </div>
-                                        <Badge variant="outline">{statusConfig[c.status]?.text}</Badge>
+                                        <Badge variant="outline" className="mt-1 sm:mt-0 self-end sm:self-center">
+                                            {statusConfig[c.status]?.text}
+                                        </Badge>
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="space-y-4 pt-2">
@@ -332,25 +338,4 @@ export function AiDoctorConsultation() {
                                             <AlertTitle>Plan Not Approved</AlertTitle>
                                             <AlertDescription>
                                             The doctor has reviewed your case and determined an alternate course of action is needed. Please start a new consultation or contact support if you have questions.
-                                            </AlertDescription>
-                                        </Alert>
-                                    )}
-                                    {c.status === 'pending_review' && (
-                                        <Alert variant="default" className="bg-secondary">
-                                            <AlertTitle>Awaiting Review</AlertTitle>
-                                            <AlertDescription>An AI-generated plan is being reviewed by a licensed doctor. You will be notified upon approval.</AlertDescription>
-                                        </Alert>
-                                    )}
-                                </AccordionContent>
-                            </AccordionItem>
-                        ))}
-                    </Accordion>
-                ) : (
-                    <p className="text-muted-foreground text-center py-4">You have no past consultations.</p>
-                )}
-            </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-}
+                                            </Aler
