@@ -22,7 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader } from '@/components/ui/loader';
-import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles } from 'lucide-react';
+import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 
 // Types
@@ -46,6 +46,60 @@ const statusConfig = {
   rejected: { text: 'Plan Rejected', color: 'bg-red-500' },
   in_progress: { text: 'Follow-up in Progress', color: 'bg-blue-500' },
   completed: { text: 'Consultation Completed', color: 'bg-gray-500' },
+};
+
+const renderTreatmentPlan = (plan: any) => {
+    let parsedPlan;
+
+    if (typeof plan === 'string') {
+        try {
+            // Try to parse it as JSON, in case the doctor approved the AI plan without modification or just edited the JSON string
+            parsedPlan = JSON.parse(plan);
+        } catch (e) {
+            // If it fails, it's just a plain string from the doctor's modification
+            return <p className="text-sm whitespace-pre-wrap">{plan}</p>;
+        }
+    } else {
+        // It's already an object
+        parsedPlan = plan;
+    }
+
+    if (typeof parsedPlan !== 'object' || parsedPlan === null) {
+        return <p className="text-sm text-muted-foreground">The treatment plan is not available in a readable format. Please contact support.</p>;
+    }
+
+    const { medications, lifestyleChanges, furtherTests } = parsedPlan;
+
+    const hasContent = (arr: any) => Array.isArray(arr) && arr.length > 0;
+
+    return (
+        <div className="space-y-3 pt-2">
+            {hasContent(medications) && (
+                <div>
+                    <h5 className="font-bold text-base">Medications</h5>
+                    <ul className="list-disc list-inside pl-2 mt-1 space-y-1 text-muted-foreground">
+                        {medications.map((item: string, index: number) => <li key={`med-${index}`}>{item}</li>)}
+                    </ul>
+                </div>
+            )}
+            {hasContent(lifestyleChanges) && (
+                <div>
+                    <h5 className="font-bold text-base">Lifestyle Changes</h5>
+                    <ul className="list-disc list-inside pl-2 mt-1 space-y-1 text-muted-foreground">
+                        {lifestyleChanges.map((item: string, index: number) => <li key={`life-${index}`}>{item}</li>)}
+                    </ul>
+                </div>
+            )}
+            {hasContent(furtherTests) && (
+                <div>
+                    <h5 className="font-bold text-base">Further Tests</h5>
+                    <ul className="list-disc list-inside pl-2 mt-1 space-y-1 text-muted-foreground">
+                        {furtherTests.map((item: string, index: number) => <li key={`test-${index}`}>{item}</li>)}
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
 };
 
 
@@ -144,12 +198,18 @@ export function AiDoctorConsultation() {
       try {
         const chatTranscript = messages.map(m => `${m.role === 'user' ? 'Patient' : 'AI Doctor'}: ${m.content}`).join('\n\n');
         
-        const result = await submitNewConsultation({
+        const newConsultationData = {
             userId: user.uid,
             userName: user.displayName || "User",
             chatTranscript,
             imageDataUri: imageDataUri || undefined,
-        });
+        };
+        
+        if (newConsultationData.imageDataUri === undefined) {
+            delete newConsultationData.imageDataUri;
+        }
+
+        const result = await submitNewConsultation(newConsultationData);
 
         if (result.success) {
             toast({ title: 'Consultation Submitted', description: 'Your case has been sent for review. A doctor will approve your plan shortly.' });
@@ -251,24 +311,25 @@ export function AiDoctorConsultation() {
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="space-y-4 pt-2">
-                                     <div>
-                                        <h4 className="font-bold mb-2">Interview Transcript</h4>
-                                        <ScrollArea className="h-48 rounded-md border bg-secondary/50 p-3">
-                                            <p className="text-xs whitespace-pre-wrap">{c.userInput.chatTranscript}</p>
-                                        </ScrollArea>
-                                    </div>
-                                    {c.status === 'approved' && c.finalTreatmentPlan && (
+                                     {c.status === 'approved' && c.finalTreatmentPlan && (
                                         <Alert>
                                             <ShieldCheck className="h-4 w-4" />
                                             <AlertTitle>Doctor-Approved Treatment Plan</AlertTitle>
-                                            <AlertDescription>
-                                                <pre className="text-xs whitespace-pre-wrap font-mono bg-secondary p-2 rounded-md mt-2">
-                                                    {typeof c.finalTreatmentPlan === 'string' ? c.finalTreatmentPlan : JSON.stringify(c.finalTreatmentPlan, null, 2)}
-                                                </pre>
+                                            <AlertDescription asChild>
+                                                {renderTreatmentPlan(c.finalTreatmentPlan)}
                                             </AlertDescription>
                                         </Alert>
                                     )}
-                                     {c.status === 'pending_review' && (
+                                    {c.status === 'rejected' && (
+                                        <Alert variant="destructive">
+                                            <XCircle className="h-4 w-4"/>
+                                            <AlertTitle>Plan Not Approved</AlertTitle>
+                                            <AlertDescription>
+                                            The doctor has reviewed your case and determined an alternate course of action is needed. Please start a new consultation or contact support if you have questions.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+                                    {c.status === 'pending_review' && (
                                         <Alert variant="default" className="bg-secondary">
                                             <AlertTitle>Awaiting Review</AlertTitle>
                                             <AlertDescription>An AI-generated plan is being reviewed by a licensed doctor. You will be notified upon approval.</AlertDescription>
