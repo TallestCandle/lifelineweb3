@@ -193,7 +193,7 @@ ${Object.entries(inputData).filter(([key]) => key !== 'imageDataUri').map(([key,
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <BrainCircuit className="w-8 h-8 text-primary" />
-                        <span className="text-2xl">AI-Powered Health Analysis</span>
+                        <span>AI-Powered Health Analysis</span>
                     </CardTitle>
                     <CardDescription>Enter your current health data, upload an image, and get an instant AI-powered analysis.</CardDescription>
                 </CardHeader>
@@ -202,7 +202,7 @@ ${Object.entries(inputData).filter(([key]) => key !== 'imageDataUri').map(([key,
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                             <section>
                                 <h3 className="text-lg font-bold mb-2 flex items-center gap-2"><HeartPulse />Vitals</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                                     <FormField control={form.control} name="systolic" render={({ field }) => (<FormItem><FormLabel>Systolic (mmHg)</FormLabel><FormControl><Input placeholder="120" {...field} /></FormControl></FormItem>)} />
                                     <FormField control={form.control} name="diastolic" render={({ field }) => (<FormItem><FormLabel>Diastolic (mmHg)</FormLabel><FormControl><Input placeholder="80" {...field} /></FormControl></FormItem>)} />
                                     <FormField control={form.control} name="bloodSugar" render={({ field }) => (<FormItem><FormLabel>Blood Sugar (mg/dL)</FormLabel><FormControl><Input placeholder="100" {...field} /></FormControl></FormItem>)} />
@@ -213,7 +213,7 @@ ${Object.entries(inputData).filter(([key]) => key !== 'imageDataUri').map(([key,
                             </section>
                             <section>
                                 <h3 className="text-lg font-bold mb-2 flex items-center gap-2"><Beaker />Urine Test Strip</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                                     {markers.map(marker => (
                                         <FormField
                                             key={marker.value}

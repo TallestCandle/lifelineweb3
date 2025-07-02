@@ -170,7 +170,7 @@ export function Dashboard() {
               <CardTitle>Your Quick Actions</CardTitle>
               <CardDescription>Key tools for your health journey.</CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4">
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {mainFeatures.map((feature) => (
                     <DashboardCard key={feature.href} {...feature} />
                 ))}
