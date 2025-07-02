@@ -109,7 +109,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-20 items-center justify-between p-4 border-b border-border/10 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+        <header className="flex h-20 items-center justify-between p-4 border-b border-border/10 bg-background/80 backdrop-blur-sm sticky top-0 z-[60]">
             <div className="flex items-center gap-4">
                 <SidebarTrigger className="md:hidden" />
                 <h2 className="text-xl font-bold text-foreground/90">{getPageTitle()}</h2>
