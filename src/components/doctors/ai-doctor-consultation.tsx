@@ -162,7 +162,7 @@ export function AiDoctorConsultation() {
 
     try {
       // Optimistically add user message and temporary AI thinking message
-      const thinkingMessage: Message = { role: 'model', content: '...' };
+      const thinkingMessage: Message = { role: 'model', content: '' };
       setMessages([...newMessages, thinkingMessage]);
 
       const result = await conductInterview({ chatHistory: newMessages });
@@ -206,7 +206,7 @@ export function AiDoctorConsultation() {
         };
         
         if (newConsultationData.imageDataUri === undefined) {
-            delete newConsultationData.imageDataUri;
+            delete (newConsultationData as any).imageDataUri;
         }
 
         const result = await submitNewConsultation(newConsultationData);
@@ -248,7 +248,13 @@ export function AiDoctorConsultation() {
                              <div key={index} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                 {message.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center"><Bot size={20}/></div>}
                                 <div className={`max-w-md rounded-lg p-3 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
-                                    {isChatLoading && index === messages.length - 1 && message.role === 'model' ? <div className="flex items-center gap-2"><span>Thinking</span><Loader className="w-4 h-4 border-2" /></div> : <p className="whitespace-pre-wrap">{message.content}</p>}
+                                    {isChatLoading && index === messages.length - 1 && message.role === 'model' ? (
+                                        <div className="flex items-center justify-center gap-1.5 h-5">
+                                            <span className="h-2 w-2 rounded-full bg-current animate-bounce [animation-delay:-0.3s]"></span>
+                                            <span className="h-2 w-2 rounded-full bg-current animate-bounce [animation-delay:-0.15s]"></span>
+                                            <span className="h-2 w-2 rounded-full bg-current animate-bounce"></span>
+                                        </div>
+                                    ) : <p className="whitespace-pre-wrap">{message.content}</p>}
                                 </div>
                                 {message.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center"><User size={20}/></div>}
                             </div>
