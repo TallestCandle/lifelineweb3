@@ -1,5 +1,6 @@
-import { DoctorBooking } from "@/components/doctors/doctor-booking";
+
+import { AiDoctorConsultation } from "@/components/doctors/ai-doctor-consultation";
 
 export default function DoctorsPage() {
-  return <DoctorBooking />;
+  return <AiDoctorConsultation />;
 }

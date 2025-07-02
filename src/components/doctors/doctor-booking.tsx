@@ -1,146 +1,234 @@
 
 "use client";
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Star, Video, Phone, MessageSquare } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-provider';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { format, formatDistanceToNow, parseISO } from 'date-fns';
+import Image from 'next/image';
 
-const doctors = [
-  {
-    name: 'Dr. Amina Okoro',
-    specialty: 'Cardiologist',
-    rating: 4.9,
-    reviews: 124,
-    image: 'https://placehold.co/100x100.png',
-    dataAiHint: 'woman doctor',
-    availability: ['Video Call', 'Audio Call'],
-  },
-  {
-    name: 'Dr. Ben Carter',
-    specialty: 'General Physician',
-    rating: 4.8,
-    reviews: 210,
-    image: 'https://placehold.co/100x100.png',
-    dataAiHint: 'man doctor',
-    availability: ['Video Call', 'Audio Call', 'Chat'],
-  },
-  {
-    name: 'Dr. Chidinma Eze',
-    specialty: 'Endocrinologist',
-    rating: 5.0,
-    reviews: 98,
-    image: 'https://placehold.co/100x100.png',
-    dataAiHint: 'woman doctor smiling',
-    availability: ['Video Call'],
-  },
-  {
-    name: 'Dr. Tunde Adebayo',
-    specialty: 'Pediatrician',
-    rating: 4.7,
-    reviews: 150,
-    image: 'https://placehold.co/100x100.png',
-    dataAiHint: 'man doctor portrait',
-    availability: ['Audio Call', 'Chat'],
-  },
-];
+import { initiateConsultation, type InitiateConsultationOutput } from '@/ai/flows/initiate-consultation-flow';
 
-const AvailabilityIcons: Record<string, React.ElementType> = {
-  'Video Call': Video,
-  'Audio Call': Phone,
-  'Chat': MessageSquare,
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Loader } from '@/components/ui/loader';
+import { Bot, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, HeartPulse, Thermometer, Droplets } from 'lucide-react';
+
+const consultationSchema = z.object({
+  symptoms: z.string().min(20, { message: "Please describe your symptoms in at least 20 characters." }),
+  vitals: z.object({
+    systolic: z.string().optional(),
+    diastolic: z.string().optional(),
+    temperature: z.string().optional(),
+    bloodSugar: z.string().optional(),
+  }).optional(),
+});
+type ConsultationFormValues = z.infer<typeof consultationSchema>;
+
+interface Consultation {
+  id: string;
+  status: 'pending_review' | 'approved' | 'rejected' | 'in_progress' | 'completed';
+  createdAt: string;
+  userInput: { symptoms: string; };
+  aiAnalysis?: InitiateConsultationOutput;
+  finalTreatmentPlan?: any;
+}
+
+const statusConfig = {
+  pending_review: { text: 'Awaiting Doctor Review', color: 'bg-yellow-500' },
+  approved: { text: 'Plan Approved', color: 'bg-green-500' },
+  rejected: { text: 'Plan Rejected', color: 'bg-red-500' },
+  in_progress: { text: 'Follow-up in Progress', color: 'bg-blue-500' },
+  completed: { text: 'Consultation Completed', color: 'bg-gray-500' },
 };
 
-export function DoctorBooking() {
+export function AiDoctorConsultation() {
   const { user } = useAuth();
-  const router = useRouter();
+  const { toast } = useToast();
 
-  const handleBooking = (doctorName: string) => {
-    const channelName = doctorName.replace(/\s+/g, '-').toLowerCase();
-    router.push(`/call/${channelName}`);
+  const [isLoading, setIsLoading] = useState(false);
+  const [view, setView] = useState<'form' | 'history'>('history');
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [imageDataUri, setImageDataUri] = useState<string | null>(null);
+  
+  const form = useForm<ConsultationFormValues>({
+    resolver: zodResolver(consultationSchema),
+    defaultValues: { symptoms: "", vitals: { systolic: '', diastolic: '', temperature: '', bloodSugar: '' } },
+  });
+
+  useEffect(() => {
+    if (!user) return;
+    setIsLoading(true);
+    const q = query(collection(db, "consultations"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
+    getDocs(q).then(snapshot => {
+      setConsultations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Consultation)));
+      setIsLoading(false);
+    }).catch(err => {
+        console.error("Error fetching consultations: ", err);
+        toast({variant: 'destructive', title: 'Error', description: 'Could not fetch past consultations.'});
+        setIsLoading(false);
+    });
+  }, [user, toast]);
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setImageDataUri(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const onSubmit = async (data: ConsultationFormValues) => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const input = {
+        symptoms: data.symptoms,
+        vitals: data.vitals ? JSON.stringify(Object.fromEntries(Object.entries(data.vitals).filter(([_, v]) => v))) : undefined,
+        imageDataUri: imageDataUri || undefined,
+      };
+
+      const aiResponse = await initiateConsultation(input);
+
+      const newConsultation = {
+        userId: user.uid,
+        userName: user.displayName || 'Anonymous',
+        status: 'pending_review' as const,
+        createdAt: new Date().toISOString(),
+        userInput: {
+            symptoms: data.symptoms,
+            vitals: input.vitals,
+            imageDataUri: input.imageDataUri,
+        },
+        aiAnalysis: aiResponse,
+      };
+
+      const docRef = await addDoc(collection(db, "consultations"), newConsultation);
+      setConsultations(prev => [{ ...newConsultation, id: docRef.id }, ...prev]);
+      
+      toast({ title: 'Consultation Submitted', description: 'Your case has been sent for review. A doctor will approve your plan shortly.' });
+      form.reset();
+      setImageDataUri(null);
+      setView('history');
+
+    } catch (error) {
+      console.error("Failed to start consultation:", error);
+      toast({ variant: 'destructive', title: 'Submission Failed', description: 'Could not submit your consultation. Please try again.' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="space-y-8">
       <Card>
-        <CardHeader>
-          <CardTitle>Consult a Doctor</CardTitle>
-          <CardDescription>Book a secure, high-quality audio or video call with a licensed professional powered by Agora.</CardDescription>
+        <CardHeader className="flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2"><Bot /> 24/7 AI Doctor Consultation</CardTitle>
+            <CardDescription>Submit your case and get a doctor-verified treatment plan.</CardDescription>
+          </div>
+          <Button onClick={() => setView(v => v === 'form' ? 'history' : 'form')}>
+            {view === 'form' ? <><FileClock className="mr-2"/> View History</> : <><PlusCircle className="mr-2"/> New Consultation</>}
+          </Button>
         </CardHeader>
       </Card>
+      
+      {view === 'form' ? (
+        <Card>
+            <CardHeader><CardTitle>New Consultation Form</CardTitle></CardHeader>
+            <CardContent>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <FormField control={form.control} name="symptoms" render={({ field }) => (<FormItem><FormLabel>Describe your symptoms in detail</FormLabel><FormControl><Textarea placeholder="e.g., I have had a headache for 2 days, a mild fever, and a runny nose..." {...field} rows={5} /></FormControl><FormMessage /></FormItem>)} />
+                        
+                        <div>
+                            <h3 className="text-lg font-bold mb-2 flex items-center gap-2">Vitals (Optional)</h3>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <FormField control={form.control} name="vitals.systolic" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-1"><HeartPulse size={14}/>Systolic</FormLabel><FormControl><Input placeholder="120" {...field} /></FormControl></FormItem>)} />
+                                <FormField control={form.control} name="vitals.diastolic" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-1"><HeartPulse size={14}/>Diastolic</FormLabel><FormControl><Input placeholder="80" {...field} /></FormControl></FormItem>)} />
+                                <FormField control={form.control} name="vitals.temperature" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-1"><Thermometer size={14}/>Temp (°F)</FormLabel><FormControl><Input placeholder="98.6" {...field} /></FormControl></FormItem>)} />
+                                <FormField control={form.control} name="vitals.bloodSugar" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-1"><Droplets size={14}/>Sugar (mg/dL)</FormLabel><FormControl><Input placeholder="100" {...field} /></FormControl></FormItem>)} />
+                            </div>
+                        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {doctors.map((doctor, index) => (
-          <Card key={index} className="flex flex-col">
-            <CardHeader className="flex-row items-center gap-4">
-              <Avatar className="w-16 h-16 border-2 border-primary">
-                <AvatarImage src={doctor.image} alt={doctor.name} data-ai-hint={doctor.dataAiHint} />
-                <AvatarFallback>{doctor.name.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <div>
-                <CardTitle className="text-xl">{doctor.name}</CardTitle>
-                <CardDescription>{doctor.specialty}</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-grow space-y-4">
-              <div className="flex items-center gap-2">
-                <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-                <span className="font-bold">{doctor.rating.toFixed(1)}</span>
-                <span className="text-sm text-muted-foreground">({doctor.reviews} reviews)</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {doctor.availability.map((type) => {
-                  const Icon = AvailabilityIcons[type];
-                  return (
-                    <Badge key={type} variant="secondary" className="flex items-center gap-1.5">
-                      {Icon && <Icon className="w-3.5 h-3.5" />}
-                      {type}
-                    </Badge>
-                  );
-                })}
-              </div>
+                        <FormItem>
+                            <FormLabel className="flex items-center gap-2"><Camera /> Image Upload (Optional)</FormLabel>
+                            <FormControl><Input type="file" accept="image/*" onChange={handleImageUpload} className="file:text-foreground" /></FormControl>
+                            {imageDataUri && (
+                                <div className="mt-4 relative w-fit">
+                                    <Image src={imageDataUri} alt="Preview" width={150} height={150} className="rounded-md border" />
+                                    <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 rounded-full h-7 w-7" onClick={() => setImageDataUri(null)}>
+                                        <Trash2 className="h-4 w-4" /><span className="sr-only">Remove</span>
+                                    </Button>
+                                </div>
+                            )}
+                        </FormItem>
+                        <Button type="submit" className="w-full" disabled={isLoading}>{isLoading ? 'Submitting...' : 'Submit for Review'}</Button>
+                    </form>
+                </Form>
             </CardContent>
-            <CardFooter>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button className="w-full">Book Now</Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Start In-App Call</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      You are about to start a secure video call with {doctor.name}. Please ensure you have given browser permissions for your camera and microphone.
-                      <br /><br />
-                      This call will be for user: <strong>{user?.displayName}</strong>.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleBooking(doctor.name)}>
-                      Proceed to Call
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+        </Card>
+      ) : (
+        <Card>
+            <CardHeader><CardTitle>Consultation History</CardTitle></CardHeader>
+            <CardContent>
+                {isLoading ? <Loader /> : consultations.length > 0 ? (
+                    <Accordion type="single" collapsible className="w-full">
+                        {consultations.map(c => (
+                            <AccordionItem value={c.id} key={c.id}>
+                                <AccordionTrigger>
+                                    <div className="flex justify-between items-center w-full pr-4">
+                                        <div className="flex items-center gap-3">
+                                            <span className={`w-3 h-3 rounded-full ${statusConfig[c.status]?.color || 'bg-gray-400'}`} />
+                                            <div className="text-left">
+                                                <p>Consultation from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
+                                                <p className="text-xs text-muted-foreground">{formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}</p>
+                                            </div>
+                                        </div>
+                                        <Badge variant="outline">{statusConfig[c.status]?.text}</Badge>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="space-y-4 pt-2">
+                                    <p><strong className="font-bold">Symptoms Submitted:</strong> {c.userInput.symptoms}</p>
+                                    {c.status === 'approved' && c.finalTreatmentPlan && (
+                                        <Alert>
+                                            <ShieldCheck className="h-4 w-4" />
+                                            <AlertTitle>Doctor-Approved Treatment Plan</AlertTitle>
+                                            <AlertDescription>
+                                                <pre className="text-xs whitespace-pre-wrap font-mono bg-secondary p-2 rounded-md mt-2">
+                                                    {typeof c.finalTreatmentPlan === 'string' ? c.finalTreatmentPlan : JSON.stringify(c.finalTreatmentPlan, null, 2)}
+                                                </pre>
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+                                     {c.status === 'pending_review' && (
+                                        <Alert variant="default" className="bg-secondary">
+                                            <AlertTitle>Awaiting Review</AlertTitle>
+                                            <AlertDescription>An AI-generated plan is being reviewed by a licensed doctor. You will be notified upon approval.</AlertDescription>
+                                        </Alert>
+                                    )}
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                ) : (
+                    <p className="text-muted-foreground text-center py-4">You have no past consultations.</p>
+                )}
+            </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

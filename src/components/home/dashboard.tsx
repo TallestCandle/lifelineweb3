@@ -15,7 +15,7 @@ import {
   Zap,
   Loader2,
   Lightbulb,
-  Video
+  Bot
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from '@/lib/utils';
@@ -185,12 +185,12 @@ export function Dashboard() {
                 <Card className="border-primary/50 hover:border-primary/80 transition-all hover:scale-[1.01] rounded-t-none -mt-px shadow-none">
                     <CardHeader className="flex-row items-center justify-between">
                         <div>
-                            <CardTitle className="text-primary text-xl">Consult a Doctor</CardTitle>
-                            <CardDescription>Book a video or audio call with a professional.</CardDescription>
+                            <CardTitle className="text-primary text-xl">AI Consultation</CardTitle>
+                            <CardDescription>Get a doctor-verified plan from our 24/7 AI.</CardDescription>
                         </div>
                         <Button size="lg">
-                            <Video className="mr-2 h-5 w-5" />
-                            Book Now
+                            <Bot className="mr-2 h-5 w-5" />
+                            Start Consultation
                         </Button>
                     </CardHeader>
                 </Card>

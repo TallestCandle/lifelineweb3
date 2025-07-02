@@ -1,26 +1,26 @@
+
 "use client";
 
-import { AgoraCall } from "@/components/call/agora-call";
-import { Loader } from "@/components/ui/loader";
-import { useParams } from 'next/navigation';
-import { Suspense } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
-function CallPageContent() {
-    const params = useParams();
-    const channelName = Array.isArray(params.channel) ? params.channel[0] : params.channel;
-
-    if (!channelName) {
-        return <div className="flex items-center justify-center h-screen">Invalid channel.</div>;
-    }
-
-    return <AgoraCall channelName={channelName} />;
-}
-
-
-export default function CallPage() {
+export default function DeprecatedCallPage() {
     return (
-        <Suspense fallback={<Loader />}>
-            <CallPageContent />
-        </Suspense>
+        <div className="flex items-center justify-center h-screen">
+            <Card className="w-full max-w-md">
+                <CardHeader>
+                    <CardTitle>Feature Updated</CardTitle>
+                </CardHeader>
+                <CardContent className="text-center">
+                    <p className="text-muted-foreground mb-4">
+                        Live video calls have been replaced by our new 24/7 AI Doctor Consultation service.
+                    </p>
+                    <Button asChild>
+                        <Link href="/doctors">Start an AI Consultation</Link>
+                    </Button>
+                </CardContent>
+            </Card>
+        </div>
     );
 }

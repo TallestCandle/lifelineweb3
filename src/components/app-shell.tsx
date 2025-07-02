@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -18,7 +19,7 @@ const pageTitles: Record<string, string> = {
   "/report": "Health Report",
   "/dietician": "AI Dietician",
   "/emergency": "Emergency",
-  "/doctors": "Consult a Doctor",
+  "/doctors": "AI Consultation",
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {

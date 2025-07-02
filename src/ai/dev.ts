@@ -6,3 +6,5 @@ import './flows/generate-daily-tasks-flow';
 import './flows/generate-monthly-report-flow';
 import './flows/generate-diet-plan-flow';
 import './flows/lifeline-ai-flow';
+import './flows/initiate-consultation-flow';
+import './flows/follow-up-flow';
