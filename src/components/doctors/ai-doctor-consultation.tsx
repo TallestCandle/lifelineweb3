@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, formatDistanceToNow, parseISO, subDays } from 'date-fns';
+import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import Image from 'next/image';
 
 import { initiateConsultation, type InitiateConsultationInput, type InitiateConsultationOutput } from '@/ai/flows/initiate-consultation-flow';
@@ -90,7 +90,6 @@ export function AiDoctorConsultation() {
     
     try {
       // Fetch recent health data to provide context to the AI
-      const ninetyDaysAgo = subDays(new Date(), 90).toISOString();
       const basePath = `users/${user.uid}`;
       
       const vitalsCol = collection(db, `${basePath}/vitals`);
@@ -98,9 +97,9 @@ export function AiDoctorConsultation() {
       const analysesCol = collection(db, `${basePath}/health_analyses`);
 
       const [vitalsSnap, stripsSnap, analysesSnap] = await Promise.all([
-          getDocs(query(vitalsCol, where('date', '>=', ninetyDaysAgo), orderBy('date', 'desc'), limit(100))),
-          getDocs(query(stripsCol, where('date', '>=', ninetyDaysAgo), orderBy('date', 'desc'), limit(100))),
-          getDocs(query(analysesCol, where('timestamp', '>=', ninetyDaysAgo), orderBy('timestamp', 'desc'), limit(50))),
+          getDocs(query(vitalsCol, orderBy('date', 'desc'), limit(100))),
+          getDocs(query(stripsCol, orderBy('date', 'desc'), limit(100))),
+          getDocs(query(analysesCol, orderBy('timestamp', 'desc'), limit(50))),
       ]);
       
       const vitalsHistory = vitalsSnap.docs.map(d => d.data());
