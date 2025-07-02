@@ -95,7 +95,7 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-20 items-center justify-between p-4 border-b border-border/10 bg-background/80 backdrop-blur-sm sticky top-0 z-[60]">
+        <header className="flex h-20 items-center justify-between p-4 border-b border-border/10 bg-background/80 backdrop-blur-sm sticky top-0 z-40">
             <div className="flex items-center gap-4">
                 <SidebarTrigger className={cn("md:hidden", openMobile && "invisible")} />
                 <Link href="/" className="flex items-center gap-2 text-primary">
