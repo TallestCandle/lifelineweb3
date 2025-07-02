@@ -48,7 +48,8 @@ const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/emergency", label: "Emergency", icon: Siren },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+
+function AppShellLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
@@ -78,7 +79,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <SidebarProvider>
+    <>
       <Sidebar side="left" collapsible="icon" className="border-primary/20">
         <SidebarHeader className="h-20 items-center justify-center p-2">
             <Link href="/" className="flex items-center gap-2 text-primary group-data-[state=expanded]:w-full group-data-[state=expanded]:justify-start group-data-[state=collapsed]:justify-center">
@@ -125,6 +126,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {children}
         </main>
       </SidebarInset>
-    </SidebarProvider>
+    </>
   );
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+    return (
+        <SidebarProvider>
+            <AppShellLayout>{children}</AppShellLayout>
+        </SidebarProvider>
+    )
 }
