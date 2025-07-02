@@ -29,7 +29,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Lightbulb, Zap } from 'lucide-react';
-import { TaskList } from '../tasks/task-list';
 
 interface DashboardCardProps {
   href: string;
@@ -164,7 +163,7 @@ export function Dashboard() {
       </Card>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-3">
           <Card>
             <CardHeader>
               <CardTitle>Your Quick Actions</CardTitle>
@@ -176,9 +175,6 @@ export function Dashboard() {
                 ))}
             </CardContent>
           </Card>
-        </div>
-        <div className="lg:col-span-1">
-          <TaskList />
         </div>
       </div>
       

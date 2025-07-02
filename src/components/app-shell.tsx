@@ -20,7 +20,6 @@ import {
   SidebarInset,
 } from '@/components/ui/sidebar';
 import {
-  ListChecks,
   HeartPulse,
   Beaker,
   Pill,
@@ -37,7 +36,6 @@ import type { LucideIcon } from 'lucide-react';
 
 const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/tasks", label: "Daily Tasks", icon: ListChecks },
   { href: "/vitals", label: "Vitals Log", icon: HeartPulse },
   { href: "/test-strips", label: "Test Strips", icon: Beaker },
   { href: "/analysis", label: "AI Analysis", icon: BrainCircuit },
