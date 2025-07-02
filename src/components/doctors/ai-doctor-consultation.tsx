@@ -108,28 +108,36 @@ export function AiDoctorConsultation() {
 
       const input: InitiateConsultationInput = {
         symptoms: data.symptoms,
-        imageDataUri: imageDataUri || undefined,
         vitalsHistory: JSON.stringify(vitalsHistory),
         testStripHistory: JSON.stringify(testStripHistory),
         previousAnalyses: JSON.stringify(previousAnalyses),
       };
 
+      if (imageDataUri) {
+        input.imageDataUri = imageDataUri;
+      }
+
       const aiResponse = await initiateConsultation(input);
+
+      // Construct the object to be saved to Firestore, ensuring no `undefined` fields.
+      const userInput: { symptoms: string, imageDataUri?: string } = {
+        symptoms: data.symptoms,
+      };
+      if (imageDataUri) {
+        userInput.imageDataUri = imageDataUri;
+      }
 
       const newConsultation = {
         userId: user.uid,
         userName: user.displayName || 'Anonymous',
         status: 'pending_review' as const,
         createdAt: new Date().toISOString(),
-        userInput: {
-            symptoms: data.symptoms,
-            imageDataUri: input.imageDataUri,
-        },
+        userInput: userInput,
         aiAnalysis: aiResponse,
       };
 
       const docRef = await addDoc(collection(db, "consultations"), newConsultation);
-      setConsultations(prev => [{ ...newConsultation, id: docRef.id }, ...prev]);
+      setConsultations(prev => [{ ...newConsultation, id: docRef.id } as Consultation, ...prev]);
       
       toast({ title: 'Consultation Submitted', description: 'Your case has been sent for review. A doctor will approve your plan shortly.' });
       form.reset();
