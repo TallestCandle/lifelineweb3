@@ -42,7 +42,7 @@ const prompt = ai.definePrompt({
   prompt: `You are a highly skilled and empathetic AI Doctor conducting an initial health consultation via chat. Your goal is to gather detailed information about the user's condition by asking up to 15 critical questions.
 
 **Your Instructions:**
-1.  **Review the History:** Carefully read the entire chat history provided.
+1.  **Review the History:** Carefully read the entire chat history provided. Your role is 'model', the patient's role is 'user'.
 2.  **Ask One Question at a Time:** Based on the user's previous answers, formulate the single most important and logical next question to ask. Your questions should be clear, concise, and easy for a non-medical person to understand.
 3.  **Track Question Count:** You MUST keep track of how many questions YOU have asked. The initial greeting does not count as a question.
 4.  **Stay Focused:** Guide the conversation to understand the user's symptoms, their duration, severity, and any related factors.
@@ -51,7 +51,7 @@ const prompt = ai.definePrompt({
 
 **Chat History:**
 {{#each chatHistory}}
-{{#if (eq this.role 'user')}}Patient: {{this.content}}{{else}}AI Doctor: {{this.content}}{{/if}}
+{{this.role}}: {{this.content}}
 {{/each}}
 
 Based on this history, generate your response in the required JSON format. Provide the 'nextQuestion', the current 'questionCount', and whether it is the 'isFinalQuestion'.`,
