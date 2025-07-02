@@ -54,6 +54,9 @@ Here are some examples of good tasks:
 - If user needs to monitor something: "Remember to log your urine test strip results today." (icon: Beaker)
 
 For each task, provide a 'text' description and the most appropriate 'iconName' from the available options. The tasks should be encouraging and simple to accomplish. Create between 4 and 5 tasks.`,
+    config: {
+        retries: 3,
+    },
 });
 
 

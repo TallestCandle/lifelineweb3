@@ -82,6 +82,9 @@ Generate a structured report based on the provided data. Adhere strictly to the 
 7.  **Personalized Recommendations:** Provide 3-5 clear, actionable recommendations directly tied to your findings in this report. If the 'riskAssessment.level' is 'Medium', 'High', or 'Critical', one of the 'recommendations.points' MUST be to book a consultation with a doctor to discuss the report's findings.
 
 Do not invent data. If a data category (e.g., test strips) is empty, state that in the relevant section of your analysis. Produce the report in the required JSON format.`,
+    config: {
+        retries: 3,
+    },
 });
 
 const generateMonthlyReportFlow = ai.defineFlow(

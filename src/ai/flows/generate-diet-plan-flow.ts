@@ -61,6 +61,9 @@ Your task is to analyze the user's recent health summary to create a one-day mea
 3.  **Provide General Advice:** Give 3-4 bullet points of clear, simple, and actionable dietary advice. Be direct, e.g., "Avoid oily foods," "Drink more water," or "Reduce your salt intake." If the health data shows significant issues (e.g., very high blood pressure, uncontrolled blood sugar), one of your 'generalAdvice' points MUST be to 'Discuss this dietary plan with a doctor. You can book an appointment in the app.'
 
 Generate the response in the required JSON format.`,
+    config: {
+        retries: 3,
+    },
 });
 
 
