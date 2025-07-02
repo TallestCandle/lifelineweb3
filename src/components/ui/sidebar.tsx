@@ -1,9 +1,9 @@
+
 "use client"
 
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
-import { PanelLeft } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -260,11 +260,34 @@ const Sidebar = React.forwardRef<
 )
 Sidebar.displayName = "Sidebar"
 
+const AnimatedHamburgerIcon = ({ open }: { open: boolean }) => (
+  <div className="relative h-5 w-5" aria-hidden="true">
+    <span
+      className={cn(
+        "absolute block h-0.5 w-full rounded-full bg-current transition-all duration-300 ease-in-out",
+        open ? "top-1/2 -translate-y-1/2 rotate-45" : "top-[25%]"
+      )}
+    />
+    <span
+      className={cn(
+        "absolute top-1/2 block h-0.5 w-full -translate-y-1/2 rounded-full bg-current transition-opacity duration-300 ease-in-out",
+        open && "opacity-0"
+      )}
+    />
+    <span
+      className={cn(
+        "absolute block h-0.5 w-full rounded-full bg-current transition-all duration-300 ease-in-out",
+        open ? "bottom-1/2 translate-y-1/2 -rotate-45" : "bottom-[25%]"
+      )}
+    />
+  </div>
+);
+
 const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
 >(({ className, onClick, ...props }, ref) => {
-  const { toggleSidebar } = useSidebar()
+  const { toggleSidebar, openMobile } = useSidebar()
 
   return (
     <Button
@@ -272,14 +295,14 @@ const SidebarTrigger = React.forwardRef<
       data-sidebar="trigger"
       variant="ghost"
       size="icon"
-      className={cn("h-7 w-7", className)}
+      className={cn("h-8 w-8", className)}
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()
       }}
       {...props}
     >
-      <PanelLeft />
+      <AnimatedHamburgerIcon open={openMobile} />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )
