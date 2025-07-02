@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, orderBy } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../ui/card";
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
@@ -24,7 +24,6 @@ interface Consultation {
   createdAt: string;
   userInput: {
     symptoms: string;
-    vitals?: string;
     imageDataUri?: string;
   };
   aiAnalysis: {
@@ -85,24 +84,6 @@ export function DoctorDashboard() {
     setIsModifying(false);
   };
 
-  const renderVitals = (vitalsString?: string) => {
-    if (!vitalsString) return <p className="text-sm text-muted-foreground">No vitals provided.</p>;
-    try {
-      const vitals = JSON.parse(vitalsString);
-      return (
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          {Object.entries(vitals).map(([key, value]) => (
-            <div key={key}>
-              <span className="font-bold capitalize">{key.replace(/([A-Z])/g, ' $1')}: </span>{String(value)}
-            </div>
-          ))}
-        </div>
-      );
-    } catch {
-      return <p className="text-sm">{vitalsString}</p>;
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -149,12 +130,8 @@ export function DoctorDashboard() {
               <div className="space-y-4">
                 <h3 className="font-bold text-lg flex items-center gap-2"><User/>Patient's Submission</h3>
                 <Card>
-                  <CardHeader><CardTitle className="text-base">Symptoms</CardTitle></CardHeader>
+                  <CardHeader><CardTitle className="text-base">Current Symptoms</CardTitle></CardHeader>
                   <CardContent><p className="text-sm whitespace-pre-line">{selectedCase.userInput.symptoms}</p></CardContent>
-                </Card>
-                <Card>
-                  <CardHeader><CardTitle className="text-base">Vitals</CardTitle></CardHeader>
-                  <CardContent>{renderVitals(selectedCase.userInput.vitals)}</CardContent>
                 </Card>
                 {selectedCase.userInput.imageDataUri && (
                   <Card>
