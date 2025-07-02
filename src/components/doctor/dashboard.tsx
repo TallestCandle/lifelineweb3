@@ -15,6 +15,7 @@ import { Loader } from '../ui/loader';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { Bot, User, Check, X, Pencil, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface Consultation {
   id: string;
@@ -23,7 +24,7 @@ interface Consultation {
   status: 'pending_review' | 'approved' | 'rejected' | 'in_progress' | 'completed';
   createdAt: string;
   userInput: {
-    symptoms: string;
+    chatTranscript: string;
     imageDataUri?: string;
   };
   aiAnalysis: {
@@ -130,8 +131,12 @@ export function DoctorDashboard() {
               <div className="space-y-4">
                 <h3 className="font-bold text-lg flex items-center gap-2"><User/>Patient's Submission</h3>
                 <Card>
-                  <CardHeader><CardTitle className="text-base">Current Symptoms</CardTitle></CardHeader>
-                  <CardContent><p className="text-sm whitespace-pre-line">{selectedCase.userInput.symptoms}</p></CardContent>
+                  <CardHeader><CardTitle className="text-base">Interview Transcript</CardTitle></CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-64">
+                        <p className="text-sm whitespace-pre-line">{selectedCase.userInput.chatTranscript}</p>
+                    </ScrollArea>
+                  </CardContent>
                 </Card>
                 {selectedCase.userInput.imageDataUri && (
                   <Card>

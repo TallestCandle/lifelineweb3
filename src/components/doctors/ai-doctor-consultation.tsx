@@ -1,41 +1,41 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import Image from 'next/image';
 
-import { submitNewConsultation, type SubmitConsultationClientInput } from '@/ai/flows/initiate-consultation-flow';
+// AI Flows
+import { conductInterview } from '@/ai/flows/conduct-interview-flow';
 import type { InitiateConsultationOutput } from '@/ai/flows/initiate-consultation-flow';
+import { submitNewConsultation } from '@/ai/flows/initiate-consultation-flow';
 
+// UI Components
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Textarea } from '@/components/ui/textarea';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader } from '@/components/ui/loader';
-import { Bot, PlusCircle, FileClock, Camera, Trash2, ShieldCheck } from 'lucide-react';
+import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles } from 'lucide-react';
+import { ScrollArea } from '../ui/scroll-area';
 
-const consultationSchema = z.object({
-  symptoms: z.string().min(20, { message: "Please describe your symptoms in at least 20 characters." }),
-});
-type ConsultationFormValues = z.infer<typeof consultationSchema>;
+// Types
+interface Message {
+  role: 'user' | 'model';
+  content: string;
+}
 
 interface Consultation {
   id: string;
   status: 'pending_review' | 'approved' | 'rejected' | 'in_progress' | 'completed';
   createdAt: string;
-  userInput: { symptoms: string; };
+  userInput: { chatTranscript: string; imageDataUri?: string; };
   aiAnalysis?: InitiateConsultationOutput;
   finalTreatmentPlan?: any;
 }
@@ -48,33 +48,85 @@ const statusConfig = {
   completed: { text: 'Consultation Completed', color: 'bg-gray-500' },
 };
 
+
 export function AiDoctorConsultation() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<'form' | 'history'>('history');
   const [consultations, setConsultations] = useState<Consultation[]>([]);
-  const [imageDataUri, setImageDataUri] = useState<string | null>(null);
   
-  const form = useForm<ConsultationFormValues>({
-    resolver: zodResolver(consultationSchema),
-    defaultValues: { symptoms: "" },
-  });
+  // Chat state
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [userInput, setUserInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [interviewState, setInterviewState] = useState<'not_started' | 'in_progress' | 'awaiting_upload' | 'submitting'>('not_started');
+  const [imageDataUri, setImageDataUri] = useState<string | null>(null);
 
+  // Scroll to bottom of chat
   useEffect(() => {
-    if (!user) return;
-    setIsLoading(true);
-    const q = query(collection(db, "consultations"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
-    getDocs(q).then(snapshot => {
-      setConsultations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Consultation)));
-      setIsLoading(false);
-    }).catch(err => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.parentElement?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  }, [messages]);
+  
+  // Fetch history
+  useEffect(() => {
+    if (view === 'history' && user) {
+      setIsLoading(true);
+      const q = query(collection(db, "consultations"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
+      getDocs(q).then(snapshot => {
+        setConsultations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Consultation)));
+      }).catch(err => {
         console.error("Error fetching consultations: ", err);
         toast({variant: 'destructive', title: 'Error', description: 'Could not fetch past consultations.'});
-        setIsLoading(false);
-    });
-  }, [user, toast]);
+      }).finally(() => {
+          setIsLoading(false);
+      });
+    }
+  }, [user, toast, view]);
+
+  const startNewConsultation = () => {
+      setMessages([{ role: 'model', content: "Hello! I'm your AI Doctor. To get started, please briefly describe your main health concern." }]);
+      setInterviewState('in_progress');
+      setView('form');
+      setImageDataUri(null);
+  };
+  
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!userInput.trim() || isChatLoading) return;
+
+    const newMessages: Message[] = [...messages, { role: 'user', content: userInput }];
+    setMessages(newMessages);
+    const currentInput = userInput;
+    setUserInput('');
+    setIsChatLoading(true);
+
+    try {
+      // Optimistically add user message and temporary AI thinking message
+      const thinkingMessage: Message = { role: 'model', content: '...' };
+      setMessages([...newMessages, thinkingMessage]);
+
+      const result = await conductInterview({ chatHistory: newMessages });
+      
+      // Replace thinking message with actual AI response
+      setMessages([...newMessages, { role: 'model', content: result.nextQuestion }]);
+      
+      if (result.isFinalQuestion) {
+        setInterviewState('awaiting_upload');
+      }
+    } catch (error) {
+      console.error("AI chat failed:", error);
+      toast({ variant: 'destructive', title: 'Chat Error', description: 'Could not get a response from the AI.' });
+      setMessages([...newMessages, { role: 'model', content: "I'm sorry, I'm having trouble connecting. Please try again in a moment." }]);
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -84,59 +136,44 @@ export function AiDoctorConsultation() {
       reader.readAsDataURL(file);
     }
   };
+  
+  const handleFinalSubmission = async () => {
+      if (!user) return;
+      setInterviewState('submitting');
+      
+      try {
+        const chatTranscript = messages.map(m => `${m.role === 'user' ? 'Patient' : 'AI Doctor'}: ${m.content}`).join('\n\n');
+        
+        const result = await submitNewConsultation({
+            userId: user.uid,
+            userName: user.displayName || "User",
+            chatTranscript,
+            imageDataUri: imageDataUri || undefined,
+        });
 
-  const onSubmit = async (data: ConsultationFormValues) => {
-    if (!user) return;
-    setIsLoading(true);
-    
-    try {
-      const clientInput: SubmitConsultationClientInput = {
-        userId: user.uid,
-        userName: user.displayName || 'Anonymous User',
-        symptoms: data.symptoms,
-      };
-
-      if (imageDataUri) {
-        clientInput.imageDataUri = imageDataUri;
+        if (result.success) {
+            toast({ title: 'Consultation Submitted', description: 'Your case has been sent for review. A doctor will approve your plan shortly.' });
+            setInterviewState('not_started');
+            setView('history');
+        } else {
+             throw new Error("Submission failed on the server.");
+        }
+      } catch (error) {
+          console.error("Failed to submit consultation:", error);
+          toast({ variant: 'destructive', title: 'Submission Failed', description: 'Could not submit your consultation. Please try again.' });
+          setInterviewState('awaiting_upload');
       }
-
-      const result = await submitNewConsultation(clientInput);
-
-      if (result.success) {
-        // Optimistically add the new consultation to the UI
-        const newConsultationEntry = {
-          id: result.consultationId,
-          status: 'pending_review' as const,
-          createdAt: new Date().toISOString(),
-          userInput: { symptoms: data.symptoms },
-        };
-        setConsultations(prev => [newConsultationEntry, ...prev]);
-
-        toast({ title: 'Consultation Submitted', description: 'Your case has been sent for review. A doctor will approve your plan shortly.' });
-        form.reset();
-        setImageDataUri(null);
-        setView('history');
-      } else {
-        throw new Error("Submission failed on the server.");
-      }
-
-    } catch (error) {
-      console.error("Failed to start consultation:", error);
-      toast({ variant: 'destructive', title: 'Submission Failed', description: 'Could not submit your consultation. Please try again.' });
-    } finally {
-      setIsLoading(false);
-    }
   };
-
+  
   return (
     <div className="space-y-8">
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2"><Bot /> 24/7 AI Doctor Consultation</CardTitle>
-            <CardDescription>Describe your symptoms and our AI will analyze your case with your health history.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Sparkles /> 24/7 AI Doctor Consultation</CardTitle>
+            <CardDescription>Chat with our AI to analyze your symptoms. A licensed doctor reviews every case.</CardDescription>
           </div>
-          <Button onClick={() => setView(v => v === 'form' ? 'history' : 'form')}>
+          <Button onClick={() => view === 'form' ? setView('history') : startNewConsultation()}>
             {view === 'form' ? <><FileClock className="mr-2"/> View History</> : <><PlusCircle className="mr-2"/> New Consultation</>}
           </Button>
         </CardHeader>
@@ -144,30 +181,53 @@ export function AiDoctorConsultation() {
       
       {view === 'form' ? (
         <Card>
-            <CardHeader>
-              <CardTitle>New Consultation Form</CardTitle>
-              <CardDescription>The AI will automatically review your entire health history along with the symptoms you provide below.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        <FormField control={form.control} name="symptoms" render={({ field }) => (<FormItem><FormLabel>Describe your symptoms in detail</FormLabel><FormControl><Textarea placeholder="e.g., I have had a headache for 2 days, a mild fever, and a runny nose..." {...field} rows={5} /></FormControl><FormMessage /></FormItem>)} />
-                        
-                        <FormItem>
-                            <FormLabel className="flex items-center gap-2"><Camera /> Image Upload (Optional)</FormLabel>
-                            <FormControl><Input type="file" accept="image/*" onChange={handleImageUpload} className="file:text-foreground" /></FormControl>
-                            {imageDataUri && (
-                                <div className="mt-4 relative w-fit">
-                                    <Image src={imageDataUri} alt="Preview" width={150} height={150} className="rounded-md border" />
-                                    <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 rounded-full h-7 w-7" onClick={() => setImageDataUri(null)}>
-                                        <Trash2 className="h-4 w-4" /><span className="sr-only">Remove</span>
-                                    </Button>
+            <CardContent className="p-0">
+                <ScrollArea className="h-[50vh] p-4" ref={scrollAreaRef}>
+                    <div className="space-y-4">
+                        {messages.map((message, index) => (
+                             <div key={index} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                {message.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center"><Bot size={20}/></div>}
+                                <div className={`max-w-md rounded-lg p-3 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+                                    {isChatLoading && index === messages.length - 1 && message.role === 'model' ? <div className="flex items-center gap-2"><span>Thinking</span><Loader className="w-4 h-4 border-2" /></div> : <p className="whitespace-pre-wrap">{message.content}</p>}
                                 </div>
-                            )}
-                        </FormItem>
-                        <Button type="submit" className="w-full" disabled={isLoading}>{isLoading ? 'Analyzing Your Case...' : 'Submit for Review'}</Button>
-                    </form>
-                </Form>
+                                {message.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center"><User size={20}/></div>}
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
+                <CardFooter className="p-4 border-t">
+                    {interviewState === 'in_progress' ? (
+                        <form onSubmit={handleSendMessage} className="w-full flex items-center gap-2">
+                            <Input value={userInput} onChange={(e) => setUserInput(e.target.value)} placeholder="Type your message..." disabled={isChatLoading} />
+                            <Button type="submit" disabled={isChatLoading || !userInput.trim()}><Send /></Button>
+                        </form>
+                    ) : interviewState === 'awaiting_upload' ? (
+                        <div className="w-full space-y-4">
+                            <Alert>
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertTitle>Interview Complete!</AlertTitle>
+                                <AlertDescription>You can now upload any relevant lab results or images for the doctor to review.</AlertDescription>
+                            </Alert>
+                             <div className="flex flex-col sm:flex-row items-center gap-4">
+                                <Button variant="outline" className="w-full sm:w-auto" onClick={() => fileInputRef.current?.click()}><Camera className="mr-2"/> Upload Image</Button>
+                                <Input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                                {imageDataUri && (
+                                    <div className="relative w-fit">
+                                        <Image src={imageDataUri} alt="Preview" width={40} height={40} className="rounded-md border" />
+                                        <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 rounded-full h-6 w-6" onClick={() => setImageDataUri(null)}><Trash2 className="h-4 w-4" /></Button>
+                                    </div>
+                                )}
+                                <div className="flex-grow"/>
+                                <Button className="w-full sm:w-auto" onClick={handleFinalSubmission}>Submit to Doctor</Button>
+                            </div>
+                        </div>
+                    ) : (
+                         <div className="w-full flex items-center justify-center h-10">
+                            <Loader />
+                            <p className="ml-4 text-muted-foreground">Submitting your case for review...</p>
+                         </div>
+                    )}
+                </CardFooter>
             </CardContent>
         </Card>
       ) : (
@@ -191,7 +251,12 @@ export function AiDoctorConsultation() {
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="space-y-4 pt-2">
-                                    <p><strong className="font-bold">Symptoms Submitted:</strong> {c.userInput.symptoms}</p>
+                                     <div>
+                                        <h4 className="font-bold mb-2">Interview Transcript</h4>
+                                        <ScrollArea className="h-48 rounded-md border bg-secondary/50 p-3">
+                                            <p className="text-xs whitespace-pre-wrap">{c.userInput.chatTranscript}</p>
+                                        </ScrollArea>
+                                    </div>
                                     {c.status === 'approved' && c.finalTreatmentPlan && (
                                         <Alert>
                                             <ShieldCheck className="h-4 w-4" />

@@ -8,3 +8,4 @@ import './flows/generate-diet-plan-flow';
 import './flows/lifeline-ai-flow';
 import './flows/initiate-consultation-flow';
 import './flows/follow-up-flow';
+import './flows/conduct-interview-flow';
