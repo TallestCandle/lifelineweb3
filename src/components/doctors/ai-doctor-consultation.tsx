@@ -337,5 +337,20 @@ export function AiDoctorConsultation() {
                                             <XCircle className="h-4 w-4"/>
                                             <AlertTitle>Plan Not Approved</AlertTitle>
                                             <AlertDescription>
-                                            The doctor has reviewed your case and determined an alternate course of action is needed. Please start a new consultation or contact support if you have questions.
-                                            </Aler
+                                                The doctor has reviewed your case and determined an alternate course of action is needed. Please start a new consultation or contact support if you have questions.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                ) : (
+                    <p className="text-muted-foreground text-center py-4">You have no past consultations.</p>
+                )}
+            </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
