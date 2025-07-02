@@ -160,19 +160,19 @@ const AnimatedHamburgerIcon = ({ open }: { open: boolean }) => (
   <div className="relative h-5 w-5" aria-hidden="true">
     <span
       className={cn(
-        "absolute block h-0.5 w-full rounded-full bg-current transition-all duration-300 ease-in-out",
+        "absolute block h-[2.5px] w-full rounded-full bg-current transition-all duration-300 ease-in-out",
         open ? "top-1/2 -translate-y-1/2 rotate-45" : "top-[25%]"
       )}
     />
     <span
       className={cn(
-        "absolute top-1/2 block h-0.5 w-full -translate-y-1/2 rounded-full bg-current transition-opacity duration-300 ease-in-out",
+        "absolute top-1/2 block h-[2.5px] w-full -translate-y-1/2 rounded-full bg-current transition-opacity duration-300 ease-in-out",
         open && "opacity-0"
       )}
     />
     <span
       className={cn(
-        "absolute block h-0.5 w-full rounded-full bg-current transition-all duration-300 ease-in-out",
+        "absolute block h-[2.5px] w-full rounded-full bg-current transition-all duration-300 ease-in-out",
         open ? "bottom-1/2 translate-y-1/2 -rotate-45" : "bottom-[25%]"
       )}
     />
@@ -183,7 +183,7 @@ const SidebarMobileCloseButton = () => {
     const { openMobile } = useSidebar();
     return (
         <SheetClose asChild>
-            <Button variant="ghost" size="icon" className="absolute top-4 left-4 h-8 w-8 z-50">
+            <Button variant="ghost" size="icon" className="absolute top-4 left-4 h-8 w-8 z-50 text-white">
                 <AnimatedHamburgerIcon open={openMobile} />
                 <span className="sr-only">Close sidebar</span>
             </Button>
