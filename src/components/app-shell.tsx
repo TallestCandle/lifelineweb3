@@ -69,9 +69,6 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Sidebar side="left" collapsible="icon" className="border-primary/20">
-        <SidebarHeader className="h-20 items-center justify-center p-2">
-            {/* Logo removed as requested */}
-        </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
             {menuItems.map((item) => (
@@ -103,7 +100,7 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
                 <SidebarTrigger className={cn("md:hidden", openMobile && "invisible")} />
                 <Link href="/" className="flex items-center gap-2 text-primary">
                     <Stethoscope className="w-8 h-8" />
-                    <span className="text-2xl font-bold">Lifeline</span>
+                    <span className="text-2d font-bold">Lifeline</span>
                 </Link>
             </div>
             <div className="flex items-center gap-4">
