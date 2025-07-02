@@ -179,18 +179,6 @@ const AnimatedHamburgerIcon = ({ open }: { open: boolean }) => (
   </div>
 );
 
-const SidebarMobileCloseButton = () => {
-    const { openMobile } = useSidebar();
-    return (
-        <SheetClose asChild>
-            <Button variant="ghost" size="icon" className="absolute top-4 left-4 h-8 w-8 z-50">
-                <AnimatedHamburgerIcon open={openMobile} />
-                <span className="sr-only">Close sidebar</span>
-            </Button>
-        </SheetClose>
-    )
-}
-
 const Sidebar = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
@@ -233,7 +221,7 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground"
+            className="flex w-[--sidebar-width] flex-col bg-sidebar p-0 text-sidebar-foreground"
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -241,9 +229,16 @@ const Sidebar = React.forwardRef<
             }
             side={side}
           >
-            <SidebarMobileCloseButton />
+             <div className="flex items-center justify-end p-2 border-b shrink-0 border-primary/20">
+                <SheetClose asChild>
+                    <Button variant="ghost" size="icon" className="h-10 w-10">
+                        <AnimatedHamburgerIcon open={openMobile} />
+                        <span className="sr-only">Close sidebar</span>
+                    </Button>
+                </SheetClose>
+            </div>
             <SheetTitle className="sr-only">Sidebar</SheetTitle>
-            <div className="flex h-full w-full flex-col pt-16">{children}</div>
+            <div className="flex-1 overflow-y-auto">{children}</div>
           </SheetContent>
         </Sheet>
       )
