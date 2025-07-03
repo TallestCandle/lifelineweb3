@@ -8,7 +8,7 @@ import {
   BrainCircuit,
   FileText,
   Salad,
-  Bot,
+  Search,
   ArrowRight
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -153,11 +153,11 @@ export function Dashboard() {
       <Card className="bg-primary/10 border-primary/20">
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
-                <CardTitle className="flex items-center gap-2"><Bot /> AI Consultation</CardTitle>
-                <CardDescription className="mt-1">Feeling unwell? Chat with our AI for a preliminary diagnosis and get a doctor-verified plan.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><Search /> Health Investigation</CardTitle>
+                <CardDescription className="mt-1">Feeling unwell? Start a step-by-step investigation with our AI to identify the issue.</CardDescription>
             </div>
-            <Link href="/doctors" passHref>
-                <Button size="lg" className="w-full md:w-auto">Start Consultation <ArrowRight className="ml-2"/></Button>
+            <Link href="/investigation" passHref>
+                <Button size="lg" className="w-full md:w-auto">Start Investigation <ArrowRight className="ml-2"/></Button>
             </Link>
         </CardHeader>
       </Card>

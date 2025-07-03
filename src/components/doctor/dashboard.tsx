@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from "@/context/auth-provider";
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, orderBy, onSnapshot } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../ui/card";
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -13,31 +13,36 @@ import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import { Bot, User, Check, X, Pencil, ArrowRight } from 'lucide-react';
+import { Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface Consultation {
+
+type InvestigationStatus = 'pending_review' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected';
+
+interface Investigation {
   id: string;
   userId: string;
   userName: string;
-  status: 'pending_review' | 'approved' | 'rejected' | 'in_progress' | 'completed';
+  status: InvestigationStatus;
   createdAt: string;
-  userInput: {
-    chatTranscript: string;
-    imageDataUri?: string;
-  };
-  aiAnalysis: {
-    analysisSummary: string;
-    potentialConditions: { condition: string; probability: number; reasoning: string; }[];
-    suggestedTreatmentPlan: { medications: string[]; lifestyleChanges: string[]; furtherTests: string[]; };
-    justification: string;
-    urgency: 'Low' | 'Medium' | 'High' | 'Critical';
-    followUpPlan: string;
+  steps: InvestigationStep[];
+  doctorPlan?: {
+      preliminaryMedications: string[];
+      suggestedLabTests: string[];
   };
 }
+
+interface InvestigationStep {
+    type: 'initial_submission' | 'lab_result_submission';
+    timestamp: string;
+    userInput: any;
+    aiAnalysis: any;
+}
+
 
 const UrgencyConfig: Record<string, { color: string; text: string }> = {
     'Low': { color: 'bg-blue-500', text: 'Low' },
@@ -51,48 +56,182 @@ export function DoctorDashboard() {
   const { toast } = useToast();
   const doctorName = user?.displayName || user?.email?.split('@')[0] || "Doctor";
 
-  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [investigations, setInvestigations] = useState<Investigation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCase, setSelectedCase] = useState<Consultation | null>(null);
+  const [selectedCase, setSelectedCase] = useState<Investigation | null>(null);
   const [isModifying, setIsModifying] = useState(false);
   const [modifiedPlan, setModifiedPlan] = useState('');
   
   useEffect(() => {
-    const fetchConsultations = async () => {
-      setIsLoading(true);
-      const q = query(collection(db, "consultations"), where("status", "==", "pending_review"), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
-      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Consultation));
-      setConsultations(fetched);
-      setIsLoading(false);
-    };
-    fetchConsultations();
-  }, []);
+    setIsLoading(true);
+    const q = query(
+        collection(db, "investigations"), 
+        where("status", "in", ["pending_review", "pending_final_review"]), 
+        orderBy("createdAt", "desc")
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investigation));
+        setInvestigations(fetched);
+        setIsLoading(false);
+    }, (error) => {
+        console.error("Error fetching investigations: ", error);
+        setIsLoading(false);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch investigations.' });
+    });
 
-  const handleUpdateStatus = async (consultationId: string, status: 'approved' | 'rejected', finalPlan?: string) => {
-    const consultationRef = doc(db, "consultations", consultationId);
+    return () => unsubscribe();
+  }, [toast]);
+
+  const handleUpdateStatus = async (investigationId: string, status: InvestigationStatus, plan?: any) => {
+    const investigationRef = doc(db, "investigations", investigationId);
     try {
-      await updateDoc(consultationRef, { 
+      const updateData: any = { 
           status, 
-          finalTreatmentPlan: finalPlan || selectedCase?.aiAnalysis.suggestedTreatmentPlan,
           reviewedAt: new Date().toISOString(),
           reviewedBy: user?.uid,
-      });
-      setConsultations(prev => prev.filter(c => c.id !== consultationId));
+      };
+
+      if (status === 'awaiting_lab_results') {
+          updateData.doctorPlan = plan;
+      } else if (status === 'completed') {
+          updateData.finalTreatmentPlan = plan;
+      }
+
+      await updateDoc(investigationRef, updateData);
+
+      setInvestigations(prev => prev.filter(c => c.id !== investigationId));
       setSelectedCase(null);
       setIsModifying(false);
-      toast({ title: 'Case Updated', description: `The consultation has been ${status}.` });
+      toast({ title: 'Case Updated', description: `The investigation has been updated.` });
     } catch (error) {
       console.error("Error updating status:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update consultation status.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update investigation status.' });
     }
   };
 
-  const openReviewDialog = (consultation: Consultation) => {
-    setSelectedCase(consultation);
-    setModifiedPlan(JSON.stringify(consultation.aiAnalysis.suggestedTreatmentPlan, null, 2));
+  const openReviewDialog = (investigation: Investigation) => {
+    setSelectedCase(investigation);
+    const latestStep = investigation.steps[investigation.steps.length - 1];
+    let planToModify;
+    if (investigation.status === 'pending_review') {
+        planToModify = latestStep.aiAnalysis.suggestedNextSteps;
+    } else { // pending_final_review
+        planToModify = latestStep.aiAnalysis.finalTreatmentPlan;
+    }
+    setModifiedPlan(JSON.stringify(planToModify, null, 2));
     setIsModifying(false);
   };
+
+  const renderCaseCard = (c: Investigation) => {
+    const latestStep = c.steps[c.steps.length-1];
+    const urgency = latestStep.aiAnalysis.urgency || 'Medium';
+    return (
+        <div key={c.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg hover:bg-secondary/50 transition-colors">
+            <div className="mb-4 sm:mb-0">
+            <p className="font-bold text-lg">Case for: {c.userName || 'Anonymous User'}</p>
+            <p className="text-sm text-muted-foreground">
+                Submitted {formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}
+            </p>
+            <Badge className={cn("mt-2 text-white", UrgencyConfig[urgency]?.color || "bg-gray-500")}>
+                Urgency: {urgency}
+            </Badge>
+            </div>
+            <Button onClick={() => openReviewDialog(c)}>Review Case <ArrowRight className="ml-2"/></Button>
+        </div>
+    );
+  };
+
+  const renderReviewDialog = () => {
+    if (!selectedCase) return null;
+    const latestStep = selectedCase.steps[selectedCase.steps.length - 1];
+    const initialStep = selectedCase.steps[0];
+    const isFinalReview = selectedCase.status === 'pending_final_review';
+
+    return (
+        <Dialog open={!!selectedCase} onOpenChange={() => setSelectedCase(null)}>
+            <DialogContent className="max-w-4xl">
+                <DialogHeader>
+                    <DialogTitle>{isFinalReview ? "Final Review" : "Initial Review"}: {selectedCase.userName}</DialogTitle>
+                    <DialogDescription>Submitted {formatDistanceToNow(parseISO(selectedCase.createdAt), { addSuffix: true })}. Urgency: {latestStep.aiAnalysis.urgency}</DialogDescription>
+                </DialogHeader>
+                <div className="grid md:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto p-4">
+                <div className="space-y-4">
+                    <h3 className="font-bold text-lg flex items-center gap-2"><User/>Patient's Submission</h3>
+                    <Card>
+                        <CardHeader><CardTitle className="text-base">Interview Transcript</CardTitle></CardHeader>
+                        <CardContent>
+                            <ScrollArea className="h-40">
+                                <p className="text-sm whitespace-pre-line">{initialStep.userInput.chatTranscript}</p>
+                            </ScrollArea>
+                        </CardContent>
+                    </Card>
+                    {initialStep.userInput.imageDataUri && (
+                        <Card>
+                        <CardHeader><CardTitle className="text-base">Initial Image</CardTitle></CardHeader>
+                        <CardContent>
+                            <Image src={initialStep.userInput.imageDataUri} alt="User submission" width={200} height={200} className="rounded-md border"/>
+                        </CardContent>
+                        </Card>
+                    )}
+                    {isFinalReview && latestStep.userInput.labResults && (
+                        <Card>
+                            <CardHeader><CardTitle className="text-base">Submitted Lab Results</CardTitle></CardHeader>
+                            <CardContent>
+                                <ScrollArea className="h-64 space-y-2">
+                                    {latestStep.userInput.labResults.map((res: any, index: number) => (
+                                        <div key={index}>
+                                            <p className="font-semibold">{res.testName}</p>
+                                            <Image src={res.imageDataUri} alt={res.testName} width={200} height={200} className="rounded-md border mt-1"/>
+                                        </div>
+                                    ))}
+                                </ScrollArea>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+                <div className="space-y-4">
+                    <h3 className="font-bold text-lg flex items-center gap-2"><Bot/>AI's Analysis</h3>
+                    <Alert variant={latestStep.aiAnalysis.urgency === 'Critical' ? 'destructive' : 'default'}>
+                        <AlertTitle>AI Summary & Justification</AlertTitle>
+                        <AlertDescription>{latestStep.aiAnalysis.analysisSummary || latestStep.aiAnalysis.refinedAnalysis} <br/><br/> <strong>Justification:</strong> {latestStep.aiAnalysis.justification}</AlertDescription>
+                    </Alert>
+                    <Card>
+                        <CardHeader><CardTitle className="text-base">{isFinalReview ? 'Final Diagnosis' : 'Potential Conditions'}</CardTitle></CardHeader>
+                        <CardContent>
+                            <ul className="list-disc list-inside space-y-1 text-sm">
+                                {(latestStep.aiAnalysis.potentialConditions || latestStep.aiAnalysis.finalDiagnosis).map((p:any) => (
+                                    <li key={p.condition}><strong>{p.condition}</strong> ({p.probability}%): {p.reasoning}</li>
+                                ))}
+                            </ul>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                    <CardHeader className="flex-row items-center justify-between">
+                        <CardTitle className="text-base m-0">{isFinalReview ? "Final Treatment Plan" : "Suggested Next Steps"}</CardTitle>
+                        {!isModifying && <Button variant="ghost" size="sm" onClick={() => setIsModifying(true)}><Pencil className="mr-2"/>Modify</Button>}
+                    </CardHeader>
+                    <CardContent>
+                        {isModifying ? (
+                        <Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[200px] font-mono text-xs"/>
+                        ) : (
+                        <pre className="text-xs whitespace-pre-wrap font-mono bg-secondary p-2 rounded-md">
+                            {JSON.stringify(isFinalReview ? latestStep.aiAnalysis.finalTreatmentPlan : latestStep.aiAnalysis.suggestedNextSteps, null, 2)}
+                        </pre>
+                        )}
+                    </CardContent>
+                    </Card>
+                </div>
+                </div>
+                <DialogFooter>
+                <Button variant="destructive" onClick={() => handleUpdateStatus(selectedCase.id, 'rejected')}><X className="mr-2"/>Reject & Close</Button>
+                <Button onClick={() => handleUpdateStatus(selectedCase.id, isFinalReview ? 'completed' : 'awaiting_lab_results', isModifying ? JSON.parse(modifiedPlan) : undefined)}>
+                    <Check className="mr-2"/>Approve Plan
+                </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -103,106 +242,45 @@ export function DoctorDashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Pending Reviews ({consultations.length})</CardTitle>
-          <CardDescription>AI-flagged consultations awaiting your professional review and approval.</CardDescription>
+          <CardTitle>Investigation Queue</CardTitle>
+          <CardDescription>AI-assisted investigations awaiting your professional review and action.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
-            <div className="space-y-4">
-              {consultations.length > 0 ? consultations.map(c => (
-                <div key={c.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg hover:bg-secondary/50 transition-colors">
-                  <div className="mb-4 sm:mb-0">
-                    <p className="font-bold text-lg">Case for: {c.userName || 'Anonymous User'}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Submitted {formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}
-                    </p>
-                    <Badge className={cn("mt-2 text-white", UrgencyConfig[c.aiAnalysis.urgency]?.color || "bg-gray-500")}>
-                        Urgency: {c.aiAnalysis.urgency}
-                    </Badge>
-                  </div>
-                  <Button onClick={() => openReviewDialog(c)}>Review Case <ArrowRight className="ml-2"/></Button>
-                </div>
-              )) : (
-                <p className="text-center text-muted-foreground py-12">No pending reviews. Well done, Doctor!</p>
-              )}
-            </div>
-          )}
+            <Tabs defaultValue="pending_review">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="pending_review">
+                        Initial Review ({investigations.filter(c => c.status === 'pending_review').length})
+                    </TabsTrigger>
+                    <TabsTrigger value="pending_final_review">
+                        Final Review ({investigations.filter(c => c.status === 'pending_final_review').length})
+                    </TabsTrigger>
+                </TabsList>
+                <TabsContent value="pending_review" className="pt-4">
+                    {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
+                        <div className="space-y-4">
+                        {investigations.filter(c => c.status === 'pending_review').length > 0 ? 
+                            investigations.filter(c => c.status === 'pending_review').map(renderCaseCard) : 
+                            <p className="text-center text-muted-foreground py-12">No new investigations to review.</p>
+                        }
+                        </div>
+                    )}
+                </TabsContent>
+                <TabsContent value="pending_final_review" className="pt-4">
+                    {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
+                        <div className="space-y-4">
+                        {investigations.filter(c => c.status === 'pending_final_review').length > 0 ? 
+                            investigations.filter(c => c.status === 'pending_final_review').map(renderCaseCard) : 
+                            <p className="text-center text-muted-foreground py-12">No cases awaiting final review.</p>
+                        }
+                        </div>
+                    )}
+                </TabsContent>
+            </Tabs>
         </CardContent>
       </Card>
+      
+      {renderReviewDialog()}
 
-      {selectedCase && (
-        <Dialog open={!!selectedCase} onOpenChange={() => setSelectedCase(null)}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>Review Case: {selectedCase.userName}</DialogTitle>
-              <DialogDescription>Submitted {formatDistanceToNow(parseISO(selectedCase.createdAt), { addSuffix: true })}. Urgency: {selectedCase.aiAnalysis.urgency}</DialogDescription>
-            </DialogHeader>
-            <div className="grid md:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto p-4">
-              <div className="space-y-4">
-                <h3 className="font-bold text-lg flex items-center gap-2"><User/>Patient's Submission</h3>
-                <Card>
-                  <CardHeader><CardTitle className="text-base">Interview Transcript</CardTitle></CardHeader>
-                  <CardContent>
-                    <ScrollArea className="h-64">
-                        <p className="text-sm whitespace-pre-line">{selectedCase.userInput.chatTranscript}</p>
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-                {selectedCase.userInput.imageDataUri && (
-                  <Card>
-                    <CardHeader><CardTitle className="text-base">Submitted Image</CardTitle></CardHeader>
-                    <CardContent>
-                      <Image src={selectedCase.userInput.imageDataUri} alt="User submission" width={300} height={300} className="rounded-md border"/>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-              <div className="space-y-4">
-                <h3 className="font-bold text-lg flex items-center gap-2"><Bot/>AI's Analysis</h3>
-                <Alert variant={selectedCase.aiAnalysis.urgency === 'Critical' ? 'destructive' : 'default'}>
-                  <AlertTitle>AI Summary & Justification</AlertTitle>
-                  <AlertDescription>{selectedCase.aiAnalysis.analysisSummary} <br/><br/> <strong>Justification:</strong> {selectedCase.aiAnalysis.justification}</AlertDescription>
-                </Alert>
-                <Card>
-                    <CardHeader><CardTitle className="text-base">Potential Conditions</CardTitle></CardHeader>
-                    <CardContent>
-                        <ul className="list-disc list-inside space-y-1 text-sm">
-                            {selectedCase.aiAnalysis.potentialConditions.map(p => (
-                                <li key={p.condition}><strong>{p.condition}</strong> ({p.probability}%): {p.reasoning}</li>
-                            ))}
-                        </ul>
-                    </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex-row items-center justify-between">
-                      <CardTitle className="text-base m-0">Suggested Treatment Plan</CardTitle>
-                      {!isModifying && <Button variant="ghost" size="sm" onClick={() => setIsModifying(true)}><Pencil className="mr-2"/>Modify</Button>}
-                  </CardHeader>
-                  <CardContent>
-                    {isModifying ? (
-                      <Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[200px]"/>
-                    ) : (
-                      <div className="text-sm space-y-2">
-                        <div><strong>Medications:</strong><ul className="list-disc list-inside ml-4">{selectedCase.aiAnalysis.suggestedTreatmentPlan.medications.map(m => <li key={m}>{m}</li>)}</ul></div>
-                        <div><strong>Lifestyle:</strong><ul className="list-disc list-inside ml-4">{selectedCase.aiAnalysis.suggestedTreatmentPlan.lifestyleChanges.map(l => <li key={l}>{l}</li>)}</ul></div>
-                        <div><strong>Tests:</strong><ul className="list-disc list-inside ml-4">{selectedCase.aiAnalysis.suggestedTreatmentPlan.furtherTests.map(t => <li key={t}>{t}</li>)}</ul></div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="destructive" onClick={() => handleUpdateStatus(selectedCase.id, 'rejected')}><X className="mr-2"/>Reject Plan</Button>
-              {isModifying ? (
-                 <Button onClick={() => handleUpdateStatus(selectedCase.id, 'approved', modifiedPlan)}><Check className="mr-2"/>Save & Approve</Button>
-              ) : (
-                <Button onClick={() => handleUpdateStatus(selectedCase.id, 'approved')}><Check className="mr-2"/>Approve AI Plan</Button>
-              )}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }

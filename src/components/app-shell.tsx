@@ -29,7 +29,7 @@ import {
   LayoutDashboard,
   LogOut,
   Stethoscope,
-  Bot
+  Search
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -39,7 +39,7 @@ const menuItems: { href: string; label: string; icon: LucideIcon; color: string 
   { href: "/vitals", label: "Vitals Log", icon: HeartPulse, color: "text-red-400" },
   { href: "/test-strips", label: "Test Strips", icon: Beaker, color: "text-cyan-400" },
   { href: "/analysis", label: "AI Analysis", icon: BrainCircuit, color: "text-sky-400" },
-  { href: "/doctors", label: "AI Consultation", icon: Bot, color: "text-purple-400" },
+  { href: "/investigation", label: "Health Investigation", icon: Search, color: "text-purple-400" },
   { href: "/dietician", label: "AI Dietician", icon: Salad, color: "text-green-400" },
   { href: "/report", label: "Health Report", icon: FileText, color: "text-orange-400" },
   { href: "/reminders", label: "Medication", icon: Pill, color: "text-pink-400" },

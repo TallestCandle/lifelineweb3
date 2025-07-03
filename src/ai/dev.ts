@@ -5,6 +5,7 @@ import './flows/comprehensive-analysis-flow';
 import './flows/generate-monthly-report-flow';
 import './flows/generate-diet-plan-flow';
 import './flows/lifeline-ai-flow';
-import './flows/initiate-consultation-flow';
+import './flows/start-investigation-flow';
+import './flows/continue-investigation-flow';
 import './flows/follow-up-flow';
 import './flows/conduct-interview-flow';
