@@ -10,7 +10,6 @@ import { useAuth } from '@/context/auth-provider';
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
@@ -53,7 +52,6 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
-  const { openMobile } = useSidebar();
 
   const handleLogout = async () => {
     try {
@@ -68,12 +66,12 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <Sidebar side="left" collapsible="icon" className="border-primary/20">
+      <Sidebar side="left" collapsible="icon" variant="inset">
         <SidebarContent>
           <SidebarMenu>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
+                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} size="lg">
                   <Link href={item.href}>
                     <item.icon />
                     <span>{item.label}</span>
@@ -86,7 +84,7 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
         <SidebarFooter>
            <SidebarMenu>
                 <SidebarMenuItem>
-                    <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
+                    <SidebarMenuButton onClick={handleLogout} tooltip="Logout" size="lg">
                         <LogOut />
                         <span>Logout</span>
                     </SidebarMenuButton>
@@ -97,10 +95,10 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
       <SidebarInset>
         <header className="flex h-20 items-center justify-between p-4 border-b border-border/10 bg-background/80 backdrop-blur-sm sticky top-0 z-40">
             <div className="flex items-center gap-4">
-                <SidebarTrigger className={cn("md:hidden", openMobile && "invisible")} />
+                <SidebarTrigger />
                 <Link href="/" className="flex items-center gap-2 text-primary">
                     <Stethoscope className="w-8 h-8" />
-                    <span className="text-2d font-bold">Lifeline</span>
+                    <span className="text-2xl font-bold">Lifeline</span>
                 </Link>
             </div>
             <div className="flex items-center gap-4">

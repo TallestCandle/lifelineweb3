@@ -32,6 +32,16 @@
     --chart-3: 39 100% 50%; /* Bright Orange */
     --chart-4: 220 85% 60%; /* Bright Blue */
     --chart-5: 50 100% 50%;  /* Yellow */
+
+    /* Sidebar Variables */
+    --sidebar-background: 240 21% 18%; /* Card color */
+    --sidebar-foreground: 240 8% 90%;
+    --sidebar-primary: 173 71% 42%;
+    --sidebar-primary-foreground: 240 21% 10%;
+    --sidebar-accent: 240 21% 25%;
+    --sidebar-accent-foreground: 240 8% 90%;
+    --sidebar-border: 240 21% 25%;
+    --sidebar-ring: 282 96% 62%;
   }
 
   .theme-lifeline-pro {
@@ -61,6 +71,16 @@
     --chart-3: 39 100% 50%;
     --chart-4: 220 85% 60%;
     --chart-5: 50 100% 50%;
+
+    /* Sidebar Variables */
+    --sidebar-background: 240 21% 18%;
+    --sidebar-foreground: 240 8% 90%;
+    --sidebar-primary: 173 71% 42%;
+    --sidebar-primary-foreground: 240 21% 10%;
+    --sidebar-accent: 240 21% 25%;
+    --sidebar-accent-foreground: 240 8% 90%;
+    --sidebar-border: 240 21% 25%;
+    --sidebar-ring: 282 96% 62%;
   }
 
 }
