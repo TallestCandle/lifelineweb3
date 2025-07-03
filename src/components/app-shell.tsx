@@ -17,7 +17,6 @@ import {
   SidebarTrigger,
   SidebarProvider,
   SidebarInset,
-  useSidebar,
 } from '@/components/ui/sidebar';
 import {
   HeartPulse,
@@ -35,16 +34,16 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/vitals", label: "Vitals Log", icon: HeartPulse },
-  { href: "/test-strips", label: "Test Strips", icon: Beaker },
-  { href: "/analysis", label: "AI Analysis", icon: BrainCircuit },
-  { href: "/doctors", label: "AI Consultation", icon: Bot },
-  { href: "/dietician", label: "AI Dietician", icon: Salad },
-  { href: "/report", label: "Health Report", icon: FileText },
-  { href: "/reminders", label: "Medication", icon: Pill },
-  { href: "/emergency", label: "Emergency", icon: Siren },
+const menuItems: { href: string; label: string; icon: LucideIcon; color: string }[] = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, color: "text-blue-400" },
+  { href: "/vitals", label: "Vitals Log", icon: HeartPulse, color: "text-red-400" },
+  { href: "/test-strips", label: "Test Strips", icon: Beaker, color: "text-cyan-400" },
+  { href: "/analysis", label: "AI Analysis", icon: BrainCircuit, color: "text-sky-400" },
+  { href: "/doctors", label: "AI Consultation", icon: Bot, color: "text-purple-400" },
+  { href: "/dietician", label: "AI Dietician", icon: Salad, color: "text-green-400" },
+  { href: "/report", label: "Health Report", icon: FileText, color: "text-orange-400" },
+  { href: "/reminders", label: "Medication", icon: Pill, color: "text-pink-400" },
+  { href: "/emergency", label: "Emergency", icon: Siren, color: "text-red-500" },
 ];
 
 
@@ -73,7 +72,7 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} size="lg">
                   <Link href={item.href}>
-                    <item.icon />
+                    <item.icon className={cn(item.color)} />
                     <span>{item.label}</span>
                   </Link>
                 </SidebarMenuButton>
