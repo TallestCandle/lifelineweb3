@@ -1,10 +1,10 @@
 // Flows will be imported for their side effects in this file.
-import './flows/analyze-health-flow';
-import './flows/comprehensive-analysis-flow';
-import './flows/generate-monthly-report-flow';
-import './flows/generate-diet-plan-flow';
-import './flows/lifeline-ai-flow';
-import './flows/start-investigation-flow';
-import './flows/continue-investigation-flow';
-import './flows/follow-up-flow';
-import './flows/conduct-interview-flow';
+import '@/ai/flows/analyze-health-flow';
+import '@/ai/flows/comprehensive-analysis-flow';
+import '@/ai/flows/generate-monthly-report-flow';
+import '@/ai/flows/generate-diet-plan-flow';
+import '@/ai/flows/lifeline-ai-flow';
+import '@/ai/flows/start-investigation-flow';
+import '@/ai/flows/continue-investigation-flow';
+import '@/ai/flows/follow-up-flow';
+import '@/ai/flows/conduct-interview-flow';
