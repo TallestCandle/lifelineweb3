@@ -156,9 +156,9 @@ export function Dashboard() {
                 <CardTitle className="flex items-center gap-2"><Search /> Health Investigation</CardTitle>
                 <CardDescription className="mt-1">Feeling unwell? Start a step-by-step investigation with our AI to identify the issue.</CardDescription>
             </div>
-            <Link href="/investigation" passHref>
-                <Button size="lg" className="w-full md:w-auto">Start Investigation <ArrowRight className="ml-2"/></Button>
-            </Link>
+            <Button size="lg" className="w-full md:w-auto" asChild>
+                <Link href="/investigation">Start Investigation <ArrowRight className="ml-2"/></Link>
+            </Button>
         </CardHeader>
       </Card>
       
