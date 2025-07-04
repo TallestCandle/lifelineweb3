@@ -14,7 +14,7 @@ import Link from 'next/link';
 import { conductInterview } from '@/ai/flows/conduct-interview-flow';
 import { startInvestigation } from '@/ai/flows/start-investigation-flow';
 import { continueInvestigation } from '@/ai/flows/continue-investigation-flow';
-import { findNearbyLabs, type FindLabsOutput } from '@/ai/flows/find-labs-flow';
+
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -93,135 +93,6 @@ const ChatInputForm = ({ onSendMessage, isLoading }: { onSendMessage: (input: st
             </Button>
         </form>
     );
-};
-
-const FindLabsPanel = () => {
-    const { toast } = useToast();
-    const [location, setLocation] = useState<{ latitude: number, longitude: number} | null>(null);
-    const [locationError, setLocationError] = useState<string | null>(null);
-    const [isFindingLocation, setIsFindingLocation] = useState(true);
-    const [isSearchingLabs, setIsSearchingLabs] = useState(false);
-    const [labs, setLabs] = useState<FindLabsOutput['labs']>([]);
-    const [distance, setDistance] = useState(5); // Default to 5km
-
-    useEffect(() => {
-        if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    setLocation({
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude,
-                    });
-                    setLocationError(null);
-                    setIsFindingLocation(false);
-                },
-                (error) => {
-                    setLocationError("Could not get your location. Please enable location services in your browser settings.");
-                    setIsFindingLocation(false);
-                }
-            );
-        } else {
-            setLocationError("Geolocation is not supported by your browser.");
-            setIsFindingLocation(false);
-        }
-    }, []);
-
-    const handleFindLabs = async () => {
-        if (!location) {
-            toast({ variant: 'destructive', title: 'Location Unavailable', description: locationError || "Cannot search without your location."});
-            return;
-        }
-
-        setIsSearchingLabs(true);
-        setLabs([]);
-
-        try {
-            const result = await findNearbyLabs({
-                ...location,
-                distanceInKm: distance,
-            });
-            setLabs(result.labs);
-        } catch (error) {
-            console.error("Error finding labs:", error);
-            toast({ variant: 'destructive', title: 'Search Failed', description: "Could not find labs at this time. Please try again."});
-        } finally {
-            setIsSearchingLabs(false);
-        }
-    };
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><MapPin /> Find a Laboratory</CardTitle>
-                <CardDescription>Search for a lab near you to get your tests done.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <div className="space-y-2">
-                    <Label htmlFor="distance">Search Radius (km)</Label>
-                    <Input 
-                        id="distance" 
-                        type="number" 
-                        value={distance}
-                        onChange={(e) => setDistance(Math.max(1, parseInt(e.target.value, 10)) || 1)}
-                        min="1"
-                        max="50"
-                        placeholder="e.g., 5"
-                    />
-                </div>
-
-                {isFindingLocation ? (
-                    <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin"/> Getting your location...</div>
-                ) : locationError ? (
-                     <p className="text-sm text-destructive">{locationError}</p>
-                ) : (
-                    <Button onClick={handleFindLabs} disabled={isSearchingLabs} className="w-full">
-                        {isSearchingLabs ? <Loader2 className="mr-2 animate-spin"/> : <Search className="mr-2"/>}
-                        Find Labs Near Me
-                    </Button>
-                )}
-
-                {isSearchingLabs && !labs.length && (
-                    <div className="flex flex-col items-center justify-center pt-4 gap-2 text-muted-foreground">
-                        <Loader2 className="w-6 h-6 animate-spin"/>
-                        <p>AI is searching for labs...</p>
-                    </div>
-                )}
-                
-                {labs.length > 0 && (
-                     <div className="space-y-4 pt-4">
-                        <Alert variant="destructive">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertTitle>Verify Information</AlertTitle>
-                            <AlertDescription>
-                                These results are provided by AI based on public map data. Information like opening hours can change. Please verify the lab's details and services on Google Maps before visiting.
-                            </AlertDescription>
-                        </Alert>
-                        <h3 className="font-bold">Nearby Laboratories:</h3>
-                        <ul className="space-y-3">
-                            {labs.map((lab, index) => (
-                                <li key={index}>
-                                    <a href={lab.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="block p-3 bg-secondary/50 rounded-md hover:bg-secondary transition-colors">
-                                        <div className="flex items-start gap-3">
-                                            <Building className="w-5 h-5 mt-1 text-primary flex-shrink-0"/>
-                                            <div className="min-w-0">
-                                                <p className="font-bold">{lab.name}</p>
-                                                <p className="text-sm text-muted-foreground">{lab.address}</p>
-                                                {lab.contactNumber && (
-                                                    <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
-                                                        <Phone size={12} /> {lab.contactNumber}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </a>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    )
 };
 
 export function HealthInvestigation() {
@@ -622,7 +493,6 @@ export function HealthInvestigation() {
             </div>
 
             <div className={cn("lg:col-span-1 space-y-8", view === 'history' ? 'block' : 'hidden lg:block')}>
-                <FindLabsPanel />
                 <HistoryPanel />
             </div>
         </div>
