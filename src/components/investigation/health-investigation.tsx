@@ -24,7 +24,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader } from '@/components/ui/loader';
-import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle, Search, Pill, TestTube, Upload, Check, Salad, MapPin, Building, Loader2 } from 'lucide-react';
+import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle, Search, Pill, TestTube, Upload, Check, Salad, MapPin, Building, Loader2, Phone } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Label } from '../ui/label';
@@ -201,16 +201,16 @@ const FindLabsPanel = () => {
                             {labs.map((lab, index) => (
                                 <li key={index}>
                                     <a href={lab.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="block p-3 bg-secondary/50 rounded-md hover:bg-secondary transition-colors">
-                                        {lab.imageUrl && (
-                                            <div className="relative w-full h-32 mb-3 rounded-md overflow-hidden">
-                                                <Image src={lab.imageUrl} alt={`Image of ${lab.name}`} layout="fill" objectFit="cover" />
-                                            </div>
-                                        )}
                                         <div className="flex items-start gap-3">
                                             <Building className="w-5 h-5 mt-1 text-primary flex-shrink-0"/>
                                             <div className="min-w-0">
                                                 <p className="font-bold">{lab.name}</p>
                                                 <p className="text-sm text-muted-foreground">{lab.address}</p>
+                                                {lab.contactNumber && (
+                                                    <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
+                                                        <Phone size={12} /> {lab.contactNumber}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     </a>

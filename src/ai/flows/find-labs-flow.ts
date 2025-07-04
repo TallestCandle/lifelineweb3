@@ -23,7 +23,6 @@ const LaboratorySchema = z.object({
     address: z.string().describe("The full street address of the laboratory."),
     contactNumber: z.string().optional().describe("A plausible contact phone number for the laboratory."),
     googleMapsUrl: z.string().describe("A best-effort, hypothetical link to what the laboratory's location might be on Google Maps."),
-    imageUrl: z.string().optional().describe("A representative stock photo URL for a medical laboratory building."),
 });
 
 const FindLabsOutputSchema = z.object({
@@ -52,7 +51,6 @@ Please identify up to 5 medical diagnostic laboratories within that radius. For 
 2.  A plausible street address.
 3.  A plausible contact phone number.
 4.  A hypothetical Google Maps URL based on the name and plausible location.
-5.  An optional, representative stock photo URL of a generic, modern laboratory or medical building from a placeholder image service like Pexels or Unsplash. The image should be landscape.
 
 It is critical that you provide plausible, realistic-sounding information, but you do not need to use real-time data. Generate a list of fictional but believable labs. Structure your entire response in the required JSON format.`,
 });
