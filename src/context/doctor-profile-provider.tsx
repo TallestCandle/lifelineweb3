@@ -3,8 +3,10 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-provider';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { updateProfile as updateAuthProfile } from 'firebase/auth';
+
 
 export interface DoctorProfile {
   name: string;
@@ -54,6 +56,12 @@ export function DoctorProfileProvider({ children }: { children: React.ReactNode 
 
   const createProfile = useCallback(async (data: DoctorProfile) => {
     if (!user) throw new Error("User not authenticated");
+    
+    // Also update Auth profile displayName to match
+    if (auth.currentUser) {
+        await updateAuthProfile(auth.currentUser, { displayName: data.name });
+    }
+
     const profileDocRef = doc(db, 'doctor_profiles', user.uid);
     await setDoc(profileDocRef, data);
     setProfile(data);
@@ -61,8 +69,15 @@ export function DoctorProfileProvider({ children }: { children: React.ReactNode 
 
   const updateProfile = useCallback(async (data: Partial<DoctorProfile>) => {
     if (!user || !profile) throw new Error("User or profile not available");
+    
     const profileDocRef = doc(db, 'doctor_profiles', user.uid);
     await updateDoc(profileDocRef, data);
+
+    // Also update Auth profile displayName if name is changing
+    if (data.name && auth.currentUser) {
+        await updateAuthProfile(auth.currentUser, { displayName: data.name });
+    }
+    
     setProfile(prev => ({ ...prev!, ...data }));
   }, [user, profile]);
 
