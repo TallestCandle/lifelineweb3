@@ -8,6 +8,7 @@ import { collection, query, where, getDocs, orderBy, onSnapshot, doc } from 'fir
 import { useToast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import Image from 'next/image';
+import Link from 'next/link';
 
 // AI Flows
 import { conductInterview } from '@/ai/flows/conduct-interview-flow';
@@ -363,7 +364,11 @@ export function HealthInvestigation() {
                                     <Card className="bg-secondary/50">
                                         <CardHeader>
                                             <CardTitle className="text-lg">Next Steps from Your Doctor</CardTitle>
-                                            {c.reviewedByName && <CardDescription>Prescribed by {c.reviewedByName}</CardDescription>}
+                                            {c.reviewedByName && c.reviewedByUid && (
+                                                <CardDescription>
+                                                    Prescribed by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link>
+                                                </CardDescription>
+                                            )}
                                         </CardHeader>
                                         <CardContent className="space-y-6">
                                             {c.doctorPlan?.preliminaryMedications?.length > 0 && (
@@ -403,7 +408,11 @@ export function HealthInvestigation() {
                                     <Alert>
                                         <ShieldCheck className="h-4 w-4" />
                                         <AlertTitle>Diagnosis &amp; Treatment Plan</AlertTitle>
-                                        {c.reviewedByName && <p className="text-xs text-muted-foreground -mt-1 mb-2">Finalized by {c.reviewedByName}</p>}
+                                        {c.reviewedByName && c.reviewedByUid && (
+                                            <p className="text-xs text-muted-foreground -mt-1 mb-2">
+                                                Finalized by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link>
+                                            </p>
+                                        )}
                                         <AlertDescription asChild>
                                             <div className="space-y-4 mt-2">
                                                 {c.finalDiagnosis?.map((diag: any, i: number) => (
@@ -436,7 +445,13 @@ export function HealthInvestigation() {
                                     <Alert variant="destructive">
                                         <XCircle className="h-4 w-4"/>
                                         <AlertTitle>Investigation Closed by Doctor</AlertTitle>
-                                        {c.doctorNote && <AlertDescription>{c.doctorNote}{c.reviewedByName && ` - ${c.reviewedByName}`}</AlertDescription>}
+                                        {c.doctorNote && <AlertDescription>
+                                                {c.doctorNote}
+                                                {c.reviewedByName && c.reviewedByUid && (
+                                                    <span className="italic">{' - '}<Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold hover:underline">{c.reviewedByName}</Link></span>
+                                                )}
+                                            </AlertDescription>
+                                        }
                                     </Alert>
                                 )}
                                 {(c.status === 'pending_review' || c.status === 'pending_final_review') && (
