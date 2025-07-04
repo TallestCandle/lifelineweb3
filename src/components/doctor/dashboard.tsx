@@ -75,7 +75,7 @@ const singleMetricChartConfig = (label: string, color: string) => ({
     value: { label, color },
 }) satisfies ChartConfig;
 
-function PatientAnalyticsView({ userId, userName }: { userId: string, userName: string }) {
+function PatientAnalyticsView({ userId }: { userId: string }) {
     const [loading, setLoading] = useState(true);
     const [vitals, setVitals] = useState<any[]>([]);
     const [strips, setStrips] = useState<any[]>([]);
@@ -120,12 +120,8 @@ function PatientAnalyticsView({ userId, userName }: { userId: string, userName: 
     if(loading) return <div className="flex h-full items-center justify-center"><Loader2 className="w-8 h-8 animate-spin" /></div>;
     
     return (
-        <ScrollArea className="h-full pr-6">
-            <DialogHeader className="mb-4">
-                <DialogTitle className="text-2xl">Health Analytics: {userName}</DialogTitle>
-                <DialogDescription>A comprehensive overview of the patient's recorded health history.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-6 pb-6">
+        <ScrollArea className="flex-1 p-6">
+            <div className="space-y-6">
                 <Card>
                     <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><LineChart/> Vitals History</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
@@ -612,10 +608,20 @@ export function DoctorDashboard() {
       {renderReviewDialog()}
       
       <Dialog open={!!selectedPatient} onOpenChange={() => setSelectedPatient(null)}>
-        <DialogContent className="max-w-6xl h-[90vh] p-0">
-          {selectedPatient && <PatientAnalyticsView userId={selectedPatient.userId} userName={selectedPatient.userName} />}
+        <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0">
+          {selectedPatient && (
+            <>
+                <DialogHeader className="p-6 pb-4 border-b shrink-0">
+                    <DialogTitle className="text-2xl">Health Analytics: {selectedPatient.userName}</DialogTitle>
+                    <DialogDescription>A comprehensive overview of the patient's recorded health history.</DialogDescription>
+                </DialogHeader>
+                <PatientAnalyticsView userId={selectedPatient.userId} />
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
+    
