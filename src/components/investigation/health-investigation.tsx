@@ -45,6 +45,7 @@ interface Investigation {
   };
   finalTreatmentPlan?: any;
   finalDiagnosis?: any;
+  doctorNote?: string;
 }
 
 interface InvestigationStep {
@@ -403,8 +404,8 @@ export function HealthInvestigation() {
                                 {c.status === 'rejected' && (
                                     <Alert variant="destructive">
                                         <XCircle className="h-4 w-4"/>
-                                        <AlertTitle>Investigation Closed</AlertTitle>
-                                        <AlertDescription>The doctor has reviewed your case and determined no further steps are needed at this time. Please start a new investigation if symptoms persist or worsen.</AlertDescription>
+                                        <AlertTitle>Investigation Closed by Doctor</AlertTitle>
+                                        {c.doctorNote && <AlertDescription>{c.doctorNote}</AlertDescription>}
                                     </Alert>
                                 )}
                                 {(c.status === 'pending_review' || c.status === 'pending_final_review') && (

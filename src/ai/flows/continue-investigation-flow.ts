@@ -34,16 +34,18 @@ export type ContinueInvestigationInput = z.infer<typeof ContinueInvestigationInp
 // Internal Zod schema for the AI's structured output.
 const ContinueInvestigationOutputSchema = z.object({
     refinedAnalysis: z.string().describe("A new, deeper analysis summary for the doctor, incorporating the new lab results. Explain how the results confirm or change the initial assessment."),
-    finalDiagnosis: z.array(z.object({
-        condition: z.string().describe("The name of the most likely diagnosis based on all available data."),
+    potentialConditions: z.array(z.object({
+        condition: z.string().describe("The name of the potential health condition, updated with new data."),
         probability: z.number().int().min(0).max(100).describe("The estimated probability of this diagnosis (0-100)."),
         reasoning: z.string().describe("A final, conclusive reasoning for the diagnosis, citing evidence from the chat, history, and new lab results."),
-    })).describe("A list of final diagnoses with their likelihood and reasoning."),
-    finalTreatmentPlan: z.object({
-        medications: z.array(z.string()).describe("A list of specific, prescribed medications with dosage and frequency."),
-        lifestyleChanges: z.array(z.string()).describe("A list of recommended lifestyle modifications."),
-    }).describe("A definitive, comprehensive treatment plan for the human doctor's final review and approval."),
-    justification: z.string().describe("A clear rationale for why this final treatment plan was chosen."),
+    })).describe("An updated list of potential diagnoses based on all available data."),
+    suggestedNextSteps: z.object({
+        suggestedLabTests: z.array(z.string()).describe("A list of any *additional* lab tests required to confirm a diagnosis. Return an empty array if no more tests are needed."),
+        preliminaryMedications: z.array(z.string()).describe("An updated list of suggested medications for symptom relief while investigation is ongoing."),
+    }).describe("A plan for the next steps in the investigation. This could be a final treatment plan if no more tests are needed."),
+    isFinalDiagnosisPossible: z.boolean().describe("Set to true if you believe enough data exists to make a final diagnosis and treatment plan."),
+    justification: z.string().describe("A clear rationale for why these next steps (or no further tests) were chosen."),
+    urgency: z.enum(['Low', 'Medium', 'High', 'Critical']).describe("An updated urgency level for the doctor's review."),
 });
 export type ContinueInvestigationOutput = z.infer<typeof ContinueInvestigationOutputSchema>;
 
@@ -93,7 +95,7 @@ const continueInvestigationPrompt = ai.definePrompt({
   name: 'continueInvestigationPrompt',
   input: { schema: ContinueInvestigationInputSchema },
   output: { schema: ContinueInvestigationOutputSchema },
-  prompt: `You are a world-class AI diagnostician. You have previously conducted an initial analysis and requested lab tests. Now, the patient has returned with the results. Your task is to perform a DEEP and definitive analysis.
+  prompt: `You are a world-class AI diagnostician. An investigation is ongoing. The patient has returned with lab results that were previously requested. Your task is to perform a DEEP analysis and suggest the next logical step.
 
 **Full Investigation Context (Initial chat, analysis, doctor's plan, etc.):**
 {{{investigationContext}}}
@@ -105,13 +107,16 @@ const continueInvestigationPrompt = ai.definePrompt({
 {{/each}}
 
 **Your Task:**
-1.  **Analyze Lab Results:** Meticulously analyze the images of the lab results. Correlate the findings with the initial chat transcript and patient history provided in the context.
-2.  **Refine Analysis:** Write a 'refinedAnalysis' that explains how these lab results confirm, deny, or modify your initial hypotheses. This is for the human doctor.
-3.  **Final Diagnosis:** Based on ALL evidence, provide a 'finalDiagnosis' with a high degree of confidence. State the condition, probability, and a conclusive 'reasoning'.
-4.  **Final Treatment Plan:** Now that you have lab data, propose a definitive 'finalTreatmentPlan' including specific 'medications' and 'lifestyleChanges'.
-5.  **Justification:** Provide a 'justification' for your final plan.
+1.  **Analyze Lab Results:** Meticulously analyze the images of the lab results. Correlate the findings with the full investigation history.
+2.  **Refine Analysis:** Write a 'refinedAnalysis' that explains how these lab results confirm, deny, or modify your previous hypotheses.
+3.  **Update Potential Conditions:** Re-evaluate the 'potentialConditions' based on this new evidence. Update probabilities and reasoning.
+4.  **Determine Next Step:** Based on ALL information, decide the next logical step.
+    - If a diagnosis is now clear and certain, set 'isFinalDiagnosisPossible' to 'true'. The 'suggestedNextSteps.suggestedLabTests' should be an empty array. The 'preliminaryMedications' could now contain a full treatment plan.
+    - If uncertainty remains, set 'isFinalDiagnosisPossible' to 'false' and populate 'suggestedNextSteps.suggestedLabTests' with any *additional* tests required.
+5.  **Justify:** Provide a clear 'justification' for your decision.
+6.  **Urgency:** Re-assess the 'urgency' of the case.
 
-Your entire output must be in the specified JSON format. This is the final analytical step before the doctor's sign-off. Be precise and confident.`,
+Your entire output must be in the specified JSON format. Your role is to guide the investigation, one step at a time, until a confident conclusion is reached.`,
 });
 
 // Internal Genkit flow.

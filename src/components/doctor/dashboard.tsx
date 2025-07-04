@@ -13,12 +13,12 @@ import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import { Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill, Salad } from 'lucide-react';
+import { Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill, Salad, ClipboardCheck, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from '../ui/input';
 
 
 type InvestigationStatus = 'pending_review' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected';
@@ -36,6 +36,7 @@ interface Investigation {
   };
   finalTreatmentPlan?: any;
   finalDiagnosis?: any;
+  doctorNote?: string;
 }
 
 interface InvestigationStep {
@@ -63,6 +64,8 @@ export function DoctorDashboard() {
   const [selectedCase, setSelectedCase] = useState<Investigation | null>(null);
   const [isModifying, setIsModifying] = useState(false);
   const [modifiedPlan, setModifiedPlan] = useState('');
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [doctorNote, setDoctorNote] = useState('');
   
   useEffect(() => {
     setIsLoading(true);
@@ -84,78 +87,89 @@ export function DoctorDashboard() {
     return () => unsubscribe();
   }, [toast]);
 
-  const handleApprovePlan = () => {
-    if (!selectedCase) return;
-
-    const isFinalReview = selectedCase.status === 'pending_final_review';
-    const newStatus = isFinalReview ? 'completed' : 'awaiting_lab_results';
-    const latestStep = selectedCase.steps[selectedCase.steps.length - 1];
-    
-    let planToSubmit;
-
-    if (isModifying) {
-        try {
-            planToSubmit = JSON.parse(modifiedPlan);
-        } catch (e) {
-            console.error("JSON parsing error:", e);
-            toast({
-                variant: 'destructive',
-                title: 'Invalid Plan Format',
-                description: 'The modified plan has a syntax error. Please correct it or approve the original plan without modification.',
-            });
-            return;
-        }
-    } else {
-        planToSubmit = isFinalReview 
-            ? latestStep.aiAnalysis.finalTreatmentPlan 
-            : latestStep.aiAnalysis.suggestedNextSteps;
-    }
-    
-    const finalDiagnosisToSubmit = isFinalReview ? latestStep.aiAnalysis.finalDiagnosis : undefined;
-    handleUpdateStatus(selectedCase.id, newStatus, planToSubmit, finalDiagnosisToSubmit);
+  const handleUpdateInvestigation = async (investigationId: string, status: InvestigationStatus, payload: object) => {
+      const investigationRef = doc(db, "investigations", investigationId);
+      try {
+          const updateData = {
+              status,
+              reviewedAt: new Date().toISOString(),
+              reviewedBy: user?.uid,
+              ...payload,
+          };
+          await updateDoc(investigationRef, updateData);
+          setInvestigations(prev => prev.filter(c => c.id !== investigationId));
+          setSelectedCase(null);
+          toast({ title: 'Case Updated', description: `The investigation has been updated to: ${status}.` });
+      } catch (error) {
+        console.error("Error updating status:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to update investigation status.' });
+      }
+  };
+  
+  const handleRequestMoreTests = () => {
+      if (!selectedCase) return;
+      try {
+          const planToSubmit = JSON.parse(modifiedPlan);
+          handleUpdateInvestigation(selectedCase.id, 'awaiting_lab_results', { doctorPlan: planToSubmit });
+      } catch (e) {
+          toast({
+              variant: 'destructive',
+              title: 'Invalid Plan Format',
+              description: 'The modified plan has a syntax error. Please correct it.',
+          });
+      }
   };
 
-  const handleUpdateStatus = async (investigationId: string, status: InvestigationStatus, plan?: any, finalDiagnosis?: any) => {
-    const investigationRef = doc(db, "investigations", investigationId);
-    try {
-      const updateData: any = { 
-          status, 
-          reviewedAt: new Date().toISOString(),
-          reviewedBy: user?.uid,
-      };
-
-      if (status === 'awaiting_lab_results' && plan) {
-          updateData.doctorPlan = plan;
-      } else if (status === 'completed' && plan) {
-          updateData.finalTreatmentPlan = plan;
-          if (finalDiagnosis) {
-            updateData.finalDiagnosis = finalDiagnosis;
-          }
+  const handleCompleteCase = () => {
+      if (!selectedCase || !doctorNote) {
+          toast({ variant: 'destructive', title: 'Missing Information', description: 'Please provide a final diagnosis and treatment plan.' });
+          return;
       }
+      try {
+          const finalPlan = JSON.parse(modifiedPlan);
+          const payload = {
+              finalDiagnosis: finalPlan.finalDiagnosis,
+              finalTreatmentPlan: finalPlan.finalTreatmentPlan,
+              doctorNote: `Final Diagnosis Summary: ${doctorNote}`,
+          };
+          handleUpdateInvestigation(selectedCase.id, 'completed', payload);
+      } catch (e) {
+          toast({
+              variant: 'destructive', title: 'Invalid Plan Format', description: 'The plan has a syntax error.',
+          });
+      }
+  };
 
-      await updateDoc(investigationRef, updateData);
-
-      setInvestigations(prev => prev.filter(c => c.id !== investigationId));
-      setSelectedCase(null);
-      setIsModifying(false);
-      toast({ title: 'Case Updated', description: `The investigation has been updated.` });
-    } catch (error) {
-      console.error("Error updating status:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update investigation status.' });
+  const handleCloseCase = () => {
+    if (!selectedCase || !doctorNote) {
+        toast({ variant: 'destructive', title: 'Missing Note', description: 'Please provide a closing note for the patient.' });
+        return;
     }
+    handleUpdateInvestigation(selectedCase.id, 'rejected', { doctorNote });
   };
 
   const openReviewDialog = (investigation: Investigation) => {
     setSelectedCase(investigation);
     const latestStep = investigation.steps[investigation.steps.length - 1];
-    let planToModify;
-    if (investigation.status === 'pending_review') {
-        planToModify = latestStep.aiAnalysis.suggestedNextSteps;
-    } else { // pending_final_review
-        planToModify = latestStep.aiAnalysis.finalTreatmentPlan;
+    let planToModify = latestStep.aiAnalysis.suggestedNextSteps;
+    
+    // If AI suggests final diagnosis is possible, format the JSON for the doctor to edit.
+    if (latestStep.aiAnalysis.isFinalDiagnosisPossible) {
+        const finalPlanSuggestion = {
+            finalDiagnosis: latestStep.aiAnalysis.potentialConditions,
+            finalTreatmentPlan: {
+                medications: latestStep.aiAnalysis.suggestedNextSteps.preliminaryMedications,
+                lifestyleChanges: [],
+            }
+        };
+        setModifiedPlan(JSON.stringify(finalPlanSuggestion, null, 2));
+    } else {
+        setModifiedPlan(JSON.stringify(planToModify, null, 2));
     }
-    setModifiedPlan(JSON.stringify(planToModify, null, 2));
+
     setIsModifying(false);
+    setIsCompleting(false);
+    setDoctorNote('');
   };
 
   const renderCaseCard = (c: Investigation) => {
@@ -224,18 +238,35 @@ export function DoctorDashboard() {
     );
   };
 
-
   const renderReviewDialog = () => {
     if (!selectedCase) return null;
     const latestStep = selectedCase.steps[selectedCase.steps.length - 1];
     const initialStep = selectedCase.steps[0];
-    const isFinalReview = selectedCase.status === 'pending_final_review';
+    const isFinalStepSuggested = latestStep.aiAnalysis.isFinalDiagnosisPossible;
+
+    const ActionButtons = () => {
+        if (isCompleting) {
+            return (
+                <>
+                    <Button variant="ghost" onClick={() => setIsCompleting(false)}>Cancel</Button>
+                    <Button variant="secondary" onClick={handleCloseCase}>Close Case with Note</Button>
+                    <Button onClick={handleCompleteCase}>Complete Investigation</Button>
+                </>
+            );
+        }
+        return (
+            <>
+                <Button variant="destructive" onClick={() => { setIsCompleting(true); setDoctorNote('Investigation closed.'); }}><X className="mr-2"/>Close/Complete</Button>
+                <Button onClick={handleRequestMoreTests}><Check className="mr-2"/>Request/Modify Tests</Button>
+            </>
+        )
+    };
 
     return (
         <Dialog open={!!selectedCase} onOpenChange={() => setSelectedCase(null)}>
             <DialogContent className="max-w-4xl">
                 <DialogHeader>
-                    <DialogTitle>{isFinalReview ? "Final Review" : "Initial Review"}: {selectedCase.userName}</DialogTitle>
+                    <DialogTitle>Reviewing Case: {selectedCase.userName}</DialogTitle>
                     <DialogDescription>Submitted {formatDistanceToNow(parseISO(selectedCase.createdAt), { addSuffix: true })}. Urgency: {latestStep.aiAnalysis.urgency}</DialogDescription>
                 </DialogHeader>
                 <div className="grid md:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto p-4">
@@ -257,7 +288,7 @@ export function DoctorDashboard() {
                         </CardContent>
                         </Card>
                     )}
-                    {isFinalReview && latestStep.userInput.labResults && (
+                    {latestStep.type === 'lab_result_submission' && latestStep.userInput.labResults && (
                         <Card>
                             <CardHeader><CardTitle className="text-base">Submitted Lab Results</CardTitle></CardHeader>
                             <CardContent>
@@ -279,36 +310,54 @@ export function DoctorDashboard() {
                         <AlertTitle>AI Summary & Justification</AlertTitle>
                         <AlertDescription>{latestStep.aiAnalysis.analysisSummary || latestStep.aiAnalysis.refinedAnalysis} <br/><br/> <strong>Justification:</strong> {latestStep.aiAnalysis.justification}</AlertDescription>
                     </Alert>
+                    {isFinalStepSuggested && !isCompleting && (
+                         <Alert variant="default" className="border-primary">
+                            <ClipboardCheck className="h-4 w-4" />
+                            <AlertTitle>Ready for Final Diagnosis</AlertTitle>
+                            <AlertDescription>The AI believes enough data exists to complete this investigation. You can modify the suggested final plan below and click "Close/Complete".</AlertDescription>
+                        </Alert>
+                    )}
                     <Card>
-                        <CardHeader><CardTitle className="text-base">{isFinalReview ? 'Final Diagnosis' : 'Potential Conditions'}</CardTitle></CardHeader>
+                        <CardHeader><CardTitle className="text-base">Potential Conditions</CardTitle></CardHeader>
                         <CardContent>
                             <ul className="list-disc list-inside space-y-1 text-sm">
-                                {(latestStep.aiAnalysis.potentialConditions || latestStep.aiAnalysis.finalDiagnosis).map((p:any) => (
+                                {(latestStep.aiAnalysis.potentialConditions).map((p:any) => (
                                     <li key={p.condition}><strong>{p.condition}</strong> ({p.probability}%): {p.reasoning}</li>
                                 ))}
                             </ul>
                         </CardContent>
                     </Card>
                     <Card>
-                    <CardHeader className="flex-row items-center justify-between">
-                        <CardTitle className="text-base m-0">{isFinalReview ? "Final Treatment Plan" : "Suggested Next Steps"}</CardTitle>
-                        {!isModifying && <Button variant="ghost" size="sm" onClick={() => setIsModifying(true)}><Pencil className="mr-2"/>Modify</Button>}
-                    </CardHeader>
-                    <CardContent>
-                        {isModifying ? (
-                        <Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[200px] font-mono text-xs"/>
-                        ) : (
-                            renderPlan(isFinalReview ? latestStep.aiAnalysis.finalTreatmentPlan : latestStep.aiAnalysis.suggestedNextSteps, isFinalReview)
-                        )}
-                    </CardContent>
+                        <CardHeader className="flex-row items-center justify-between">
+                            <CardTitle className="text-base m-0">{isCompleting ? 'Final Plan / Note' : 'Suggested Next Steps'}</CardTitle>
+                            {!isModifying && !isCompleting && <Button variant="ghost" size="sm" onClick={() => setIsModifying(true)}><Pencil className="mr-2"/>Modify Plan</Button>}
+                        </CardHeader>
+                        <CardContent>
+                            {isModifying && !isCompleting ? (
+                                <div>
+                                    <Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[200px] font-mono text-xs"/>
+                                    <Button size="sm" className="mt-2" onClick={() => setIsModifying(false)}>Done Editing</Button>
+                                </div>
+                            ) : isCompleting ? (
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="font-bold text-sm">Final Plan (JSON format)</label>
+                                        <Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[150px] font-mono text-xs"/>
+                                    </div>
+                                    <div>
+                                        <label className="font-bold text-sm">Note for Patient</label>
+                                        <Textarea value={doctorNote} onChange={(e) => setDoctorNote(e.target.value)} placeholder="e.g., Your results are normal. Please continue monitoring your symptoms."/>
+                                    </div>
+                                </div>
+                            ) : (
+                                renderPlan(latestStep.aiAnalysis.suggestedNextSteps, false)
+                            )}
+                        </CardContent>
                     </Card>
                 </div>
                 </div>
                 <DialogFooter>
-                <Button variant="destructive" onClick={() => handleUpdateStatus(selectedCase.id, 'rejected')}><X className="mr-2"/>Reject & Close</Button>
-                <Button onClick={handleApprovePlan}>
-                    <Check className="mr-2"/>Approve Plan
-                </Button>
+                    <ActionButtons />
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -324,40 +373,22 @@ export function DoctorDashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Investigation Queue</CardTitle>
+          <CardTitle>Investigation Queue ({investigations.length})</CardTitle>
           <CardDescription>AI-assisted investigations awaiting your professional review and action.</CardDescription>
         </CardHeader>
         <CardContent>
-            <Tabs defaultValue="pending_review">
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="pending_review">
-                        Initial Review ({investigations.filter(c => c.status === 'pending_review').length})
-                    </TabsTrigger>
-                    <TabsTrigger value="pending_final_review">
-                        Final Review ({investigations.filter(c => c.status === 'pending_final_review').length})
-                    </TabsTrigger>
-                </TabsList>
-                <TabsContent value="pending_review" className="pt-4">
-                    {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
-                        <div className="space-y-4">
-                        {investigations.filter(c => c.status === 'pending_review').length > 0 ? 
-                            investigations.filter(c => c.status === 'pending_review').map(renderCaseCard) : 
-                            <p className="text-center text-muted-foreground py-12">No new investigations to review.</p>
-                        }
-                        </div>
-                    )}
-                </TabsContent>
-                <TabsContent value="pending_final_review" className="pt-4">
-                    {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
-                        <div className="space-y-4">
-                        {investigations.filter(c => c.status === 'pending_final_review').length > 0 ? 
-                            investigations.filter(c => c.status === 'pending_final_review').map(renderCaseCard) : 
-                            <p className="text-center text-muted-foreground py-12">No cases awaiting final review.</p>
-                        }
-                        </div>
-                    )}
-                </TabsContent>
-            </Tabs>
+            {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
+                <div className="space-y-4">
+                {investigations.length > 0 ? 
+                    investigations.map(renderCaseCard) : 
+                    <div className="text-center text-muted-foreground py-12">
+                        <MessageSquare className="mx-auto w-12 h-12 text-gray-400" />
+                        <h3 className="mt-2 text-lg font-semibold">All Clear!</h3>
+                        <p>There are no investigations waiting for your review.</p>
+                    </div>
+                }
+                </div>
+            )}
         </CardContent>
       </Card>
       
