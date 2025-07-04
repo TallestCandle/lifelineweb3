@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI agent for finding nearby medical laboratories.
@@ -19,6 +20,7 @@ export type FindLabsInput = z.infer<typeof FindLabsInputSchema>;
 const LaboratorySchema = z.object({
     name: z.string().describe("The full name of the medical laboratory."),
     address: z.string().describe("The full street address of the laboratory."),
+    contactNumber: z.string().describe("A fictional but realistic-looking phone number for the laboratory."),
 });
 
 const FindLabsOutputSchema = z.object({
@@ -41,7 +43,7 @@ A user has provided their location and needs to find a medical laboratory nearby
 User's Latitude: {{latitude}}
 User's Longitude: {{longitude}}
 
-Based on these coordinates, generate a list of 5 fictional, but realistic-sounding, medical laboratories. For each laboratory, provide a 'name' and a plausible 'address' that seems appropriate for a location within a major Nigerian city near the given coordinates.`,
+Based on these coordinates, generate a list of 5 fictional, but realistic-sounding, medical laboratories. For each laboratory, provide a 'name', a plausible 'address' that seems appropriate for a location within a major Nigerian city near the given coordinates, and a fictional but realistic 'contactNumber'.`,
 });
 
 

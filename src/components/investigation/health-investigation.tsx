@@ -24,7 +24,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader } from '@/components/ui/loader';
-import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle, Search, Pill, TestTube, Upload, Check, Salad, MapPin, Building, Loader2 } from 'lucide-react';
+import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle, Search, Pill, TestTube, Upload, Check, Salad, MapPin, Building, Loader2, Phone } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 
@@ -179,6 +179,12 @@ const FindLabsPanel = () => {
                                     <div>
                                         <p className="font-bold">{lab.name}</p>
                                         <p className="text-sm text-muted-foreground">{lab.address}</p>
+                                        {(lab as any).contactNumber && (
+                                            <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
+                                                <Phone className="w-3 h-3"/>
+                                                {(lab as any).contactNumber}
+                                            </p>
+                                        )}
                                     </div>
                                 </li>
                             ))}
