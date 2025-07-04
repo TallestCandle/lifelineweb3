@@ -174,18 +174,22 @@ const FindLabsPanel = () => {
                         <h3 className="font-bold">Nearby Laboratories:</h3>
                         <ul className="space-y-3">
                             {labs.map((lab, index) => (
-                                <li key={index} className="flex items-start gap-3 p-3 bg-secondary/50 rounded-md">
-                                    <Building className="w-5 h-5 mt-1 text-primary"/>
-                                    <div>
-                                        <p className="font-bold">{lab.name}</p>
-                                        <p className="text-sm text-muted-foreground">{lab.address}</p>
-                                        {(lab as any).contactNumber && (
-                                            <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
-                                                <Phone className="w-3 h-3"/>
-                                                {(lab as any).contactNumber}
-                                            </p>
-                                        )}
-                                    </div>
+                                <li key={index}>
+                                    <a href={lab.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="block p-3 bg-secondary/50 rounded-md hover:bg-secondary transition-colors">
+                                        <div className="flex items-start gap-3">
+                                            <Building className="w-5 h-5 mt-1 text-primary flex-shrink-0"/>
+                                            <div className="min-w-0">
+                                                <p className="font-bold">{lab.name}</p>
+                                                <p className="text-sm text-muted-foreground">{lab.address}</p>
+                                                {lab.contactNumber && (
+                                                    <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
+                                                        <Phone className="w-3 h-3"/>
+                                                        {lab.contactNumber}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </a>
                                 </li>
                             ))}
                         </ul>
