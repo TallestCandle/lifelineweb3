@@ -82,6 +82,39 @@ export function DoctorDashboard() {
     return () => unsubscribe();
   }, [toast]);
 
+  const handleApprovePlan = () => {
+    if (!selectedCase) return;
+
+    const isFinalReview = selectedCase.status === 'pending_final_review';
+    const newStatus = isFinalReview ? 'completed' : 'awaiting_lab_results';
+    
+    let planToSubmit;
+
+    if (isModifying) {
+        try {
+            // If the plan is being modified, parse the text from the textarea.
+            planToSubmit = JSON.parse(modifiedPlan);
+        } catch (e) {
+            console.error("JSON parsing error:", e);
+            toast({
+                variant: 'destructive',
+                title: 'Invalid Plan Format',
+                description: 'The modified plan has a syntax error. Please correct it or approve the original plan without modification.',
+            });
+            return; // Stop execution if JSON is invalid
+        }
+    } else {
+        // If not modifying, use the original AI-suggested plan.
+        const latestStep = selectedCase.steps[selectedCase.steps.length - 1];
+        planToSubmit = isFinalReview 
+            ? latestStep.aiAnalysis.finalTreatmentPlan 
+            : latestStep.aiAnalysis.suggestedNextSteps;
+    }
+    
+    // Proceed with the update
+    handleUpdateStatus(selectedCase.id, newStatus, planToSubmit);
+  };
+
   const handleUpdateStatus = async (investigationId: string, status: InvestigationStatus, plan?: any) => {
     const investigationRef = doc(db, "investigations", investigationId);
     try {
@@ -91,9 +124,9 @@ export function DoctorDashboard() {
           reviewedBy: user?.uid,
       };
 
-      if (status === 'awaiting_lab_results') {
+      if (status === 'awaiting_lab_results' && plan) {
           updateData.doctorPlan = plan;
-      } else if (status === 'completed') {
+      } else if (status === 'completed' && plan) {
           updateData.finalTreatmentPlan = plan;
       }
 
@@ -224,7 +257,7 @@ export function DoctorDashboard() {
                 </div>
                 <DialogFooter>
                 <Button variant="destructive" onClick={() => handleUpdateStatus(selectedCase.id, 'rejected')}><X className="mr-2"/>Reject & Close</Button>
-                <Button onClick={() => handleUpdateStatus(selectedCase.id, isFinalReview ? 'completed' : 'awaiting_lab_results', isModifying ? JSON.parse(modifiedPlan) : undefined)}>
+                <Button onClick={handleApprovePlan}>
                     <Check className="mr-2"/>Approve Plan
                 </Button>
                 </DialogFooter>
