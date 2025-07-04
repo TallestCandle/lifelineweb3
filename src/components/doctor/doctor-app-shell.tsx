@@ -53,9 +53,6 @@ function DoctorAppShellInternal({ children }: { children: React.ReactNode }) {
             <Button asChild variant={pathname === '/doctor/dashboard' ? 'default' : 'ghost'} className="w-full justify-start">
                 <Link href="/doctor/dashboard"><BarChart className="mr-2"/>Dashboard</Link>
             </Button>
-            <Button asChild variant={pathname.startsWith('/doctor/patients') ? 'default' : 'ghost'} className="w-full justify-start">
-                <Link href="#"><Users className="mr-2"/>Patients</Link>
-            </Button>
              <Button asChild variant={pathname.startsWith('/doctor/messages') ? 'default' : 'ghost'} className="w-full justify-start">
                 <Link href="#"><MessageSquare className="mr-2"/>Messages</Link>
             </Button>
