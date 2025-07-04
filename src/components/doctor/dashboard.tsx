@@ -18,7 +18,6 @@ import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -549,15 +548,11 @@ export function DoctorDashboard() {
         <p className="text-lg text-muted-foreground">Welcome, {doctorName}.</p>
       </div>
 
-       <Tabs defaultValue="queue">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="queue">Investigation Queue ({investigations.length})</TabsTrigger>
-          <TabsTrigger value="patients">My Patients ({myPatients.length})</TabsTrigger>
-        </TabsList>
-        <TabsContent value="queue">
+       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
+        <div className="lg:col-span-3">
           <Card>
             <CardHeader>
-              <CardTitle>Investigation Queue</CardTitle>
+              <CardTitle>Investigation Queue ({investigations.length})</CardTitle>
               <CardDescription>AI-assisted investigations awaiting your professional review and action.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -575,11 +570,11 @@ export function DoctorDashboard() {
                 )}
             </CardContent>
           </Card>
-        </TabsContent>
-        <TabsContent value="patients">
+        </div>
+        <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>My Patients</CardTitle>
+              <CardTitle>My Patients ({myPatients.length})</CardTitle>
               <CardDescription>Select a patient to view their detailed health analytics.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -602,8 +597,8 @@ export function DoctorDashboard() {
                </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
       
       {renderReviewDialog()}
       
@@ -623,5 +618,3 @@ export function DoctorDashboard() {
     </div>
   );
 }
-
-    
