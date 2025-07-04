@@ -257,8 +257,14 @@ export function HealthInvestigation() {
             <CardHeader>
                 <Search className="w-16 h-16 mx-auto text-primary/50" />
                 <CardTitle className="mt-4">Start a New Health Investigation</CardTitle>
-                <CardDescription>Click the "New Investigation" button in the history panel to begin chatting with our AI.</CardDescription>
+                <CardDescription>Ready to investigate your health concerns? Start a new chat with our AI.</CardDescription>
             </CardHeader>
+            <CardContent>
+                <Button onClick={startNewInvestigation}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Start New Investigation
+                </Button>
+            </CardContent>
         </Card>
     ) : (
         <Card>
@@ -323,9 +329,9 @@ export function HealthInvestigation() {
 
   const HistoryPanel = () => (
     <Card>
-        <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>History</CardTitle>
-            <Button onClick={startNewInvestigation} size="sm"><PlusCircle className="mr-2"/> New</Button>
+        <CardHeader>
+            <CardTitle>Investigation History</CardTitle>
+            <CardDescription>Review your past and ongoing cases.</CardDescription>
         </CardHeader>
         <CardContent>
             {isLoading ? <Loader /> : investigations.length > 0 ? (
@@ -472,3 +478,5 @@ export function HealthInvestigation() {
     </div>
   );
 }
+
+    
