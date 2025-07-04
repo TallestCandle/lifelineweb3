@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { User, Edit } from "lucide-react";
 import { useAuth } from '@/context/auth-provider';
+import { useRouter } from 'next/navigation';
 
 const profileSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -25,6 +26,7 @@ export function DoctorProfileManager() {
   const { user } = useAuth();
   const { profile, createProfile, updateProfile } = useDoctorProfile();
   const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -46,11 +48,12 @@ export function DoctorProfileManager() {
     try {
       if (profile) {
         await updateProfile(values);
-        toast({ title: "Profile Updated", description: "Your profile has been successfully updated. Redirecting..." });
+        toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
       } else {
         await createProfile(values);
-        toast({ title: "Profile Created", description: "Welcome! Your profile is now set up. Redirecting..." });
+        toast({ title: "Profile Created", description: "Welcome! Your profile is now set up." });
       }
+      router.push('/doctor/dashboard');
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     }
