@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { conductInterview } from '@/ai/flows/conduct-interview-flow';
 import { startInvestigation } from '@/ai/flows/start-investigation-flow';
 import { continueInvestigation } from '@/ai/flows/continue-investigation-flow';
+import { findNearbyLabs, type FindLabsOutput } from '@/ai/flows/find-labs-flow';
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader } from '@/components/ui/loader';
-import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle, Search, Pill, TestTube, Upload, Check, Salad } from 'lucide-react';
+import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle, Search, Pill, TestTube, Upload, Check, Salad, MapPin, Building, Loader2 } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 
@@ -93,6 +94,101 @@ const ChatInputForm = ({ onSendMessage, isLoading }: { onSendMessage: (input: st
     );
 };
 
+const FindLabsPanel = () => {
+    const { toast } = useToast();
+    const [location, setLocation] = useState<{ latitude: number, longitude: number} | null>(null);
+    const [locationError, setLocationError] = useState<string | null>(null);
+    const [isFindingLocation, setIsFindingLocation] = useState(true);
+    const [isSearchingLabs, setIsSearchingLabs] = useState(false);
+    const [labs, setLabs] = useState<FindLabsOutput['labs']>([]);
+
+    useEffect(() => {
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setLocation({
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                    });
+                    setLocationError(null);
+                    setIsFindingLocation(false);
+                },
+                (error) => {
+                    setLocationError("Could not get your location. Please enable location services in your browser settings.");
+                    setIsFindingLocation(false);
+                }
+            );
+        } else {
+            setLocationError("Geolocation is not supported by your browser.");
+            setIsFindingLocation(false);
+        }
+    }, []);
+
+    const handleFindLabs = async () => {
+        if (!location) {
+            toast({ variant: 'destructive', title: 'Location Unavailable', description: locationError || "Cannot search without your location."});
+            return;
+        }
+
+        setIsSearchingLabs(true);
+        setLabs([]);
+
+        try {
+            const result = await findNearbyLabs(location);
+            setLabs(result.labs);
+        } catch (error) {
+            console.error("Error finding labs:", error);
+            toast({ variant: 'destructive', title: 'Search Failed', description: "Could not find labs at this time. Please try again."});
+        } finally {
+            setIsSearchingLabs(false);
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><MapPin /> Find a Laboratory</CardTitle>
+                <CardDescription>Search for a lab near you to get your tests done.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {isFindingLocation ? (
+                    <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin"/> Getting your location...</div>
+                ) : locationError ? (
+                     <p className="text-sm text-destructive">{locationError}</p>
+                ) : (
+                    <Button onClick={handleFindLabs} disabled={isSearchingLabs} className="w-full">
+                        {isSearchingLabs ? <Loader2 className="mr-2 animate-spin"/> : <Search className="mr-2"/>}
+                        Find Labs Near Me
+                    </Button>
+                )}
+
+                {isSearchingLabs && !labs.length && (
+                    <div className="flex flex-col items-center justify-center pt-4 gap-2 text-muted-foreground">
+                        <Loader2 className="w-6 h-6 animate-spin"/>
+                        <p>Searching for labs...</p>
+                    </div>
+                )}
+
+                {labs.length > 0 && (
+                    <div className="space-y-3 pt-4">
+                        <h3 className="font-bold">Nearby Laboratories:</h3>
+                        <ul className="space-y-3">
+                            {labs.map((lab, index) => (
+                                <li key={index} className="flex items-start gap-3 p-3 bg-secondary/50 rounded-md">
+                                    <Building className="w-5 h-5 mt-1 text-primary"/>
+                                    <div>
+                                        <p className="font-bold">{lab.name}</p>
+                                        <p className="text-sm text-muted-foreground">{lab.address}</p>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
+};
 
 export function HealthInvestigation() {
   const { user } = useAuth();
@@ -476,13 +572,13 @@ export function HealthInvestigation() {
     <div className="space-y-8">
         <Card>
             <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-                <CardTitle className="flex items-center gap-2"><Search /> Health Investigation</CardTitle>
-                <CardDescription>Chat with our AI to analyze your symptoms, follow doctor-prescribed steps, and uncover the root cause.</CardDescription>
-            </div>
-            <Button onClick={() => setView(v => v === 'chat' ? 'history' : 'chat')} className="w-full sm:w-auto lg:hidden">
-                {view === 'chat' ? <><FileClock className="mr-2"/> View History</> : <><Search className="mr-2"/> View Chat</>}
-            </Button>
+                <div>
+                    <CardTitle className="flex items-center gap-2"><Search /> Health Investigation</CardTitle>
+                    <CardDescription>Chat with our AI to analyze your symptoms, follow doctor-prescribed steps, and uncover the root cause.</CardDescription>
+                </div>
+                <Button onClick={() => setView(v => v === 'chat' ? 'history' : 'chat')} className="w-full sm:w-auto lg:hidden">
+                    {view === 'chat' ? <><FileClock className="mr-2"/> View History & Labs</> : <><Search className="mr-2"/> View Chat</>}
+                </Button>
             </CardHeader>
         </Card>
         
@@ -490,7 +586,9 @@ export function HealthInvestigation() {
             <div className={cn("lg:col-span-2", view === 'chat' ? 'block' : 'hidden lg:block')}>
                 <ChatInterface />
             </div>
-            <div className={cn("lg:col-span-1", view === 'history' ? 'block' : 'hidden lg:block')}>
+
+            <div className={cn("lg:col-span-1 space-y-8", view === 'history' ? 'block' : 'hidden lg:block')}>
+                <FindLabsPanel />
                 <HistoryPanel />
             </div>
         </div>

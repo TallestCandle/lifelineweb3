@@ -9,3 +9,4 @@ import './flows/start-investigation-flow';
 import './flows/continue-investigation-flow';
 import './flows/follow-up-flow';
 import './flows/conduct-interview-flow';
+import './flows/find-labs-flow';
