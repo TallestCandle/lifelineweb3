@@ -37,6 +37,8 @@ interface Investigation {
   finalTreatmentPlan?: any;
   finalDiagnosis?: any;
   doctorNote?: string;
+  reviewedByUid?: string;
+  reviewedByName?: string;
 }
 
 interface InvestigationStep {
@@ -57,7 +59,7 @@ const UrgencyConfig: Record<string, { color: string; text: string }> = {
 export function DoctorDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const doctorName = user?.displayName || user?.email?.split('@')[0] || "Doctor";
+  const doctorName = user?.displayName || "Doctor";
 
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,7 +95,8 @@ export function DoctorDashboard() {
           const updateData = {
               status,
               reviewedAt: new Date().toISOString(),
-              reviewedBy: user?.uid,
+              reviewedByUid: user?.uid,
+              reviewedByName: user?.displayName,
               ...payload,
           };
           await updateDoc(investigationRef, updateData);
@@ -153,7 +156,6 @@ export function DoctorDashboard() {
     const latestStep = investigation.steps[investigation.steps.length - 1];
     let planToModify = latestStep.aiAnalysis.suggestedNextSteps;
     
-    // If AI suggests final diagnosis is possible, format the JSON for the doctor to edit.
     if (latestStep.aiAnalysis.isFinalDiagnosisPossible) {
         const finalPlanSuggestion = {
             finalDiagnosis: latestStep.aiAnalysis.potentialConditions,

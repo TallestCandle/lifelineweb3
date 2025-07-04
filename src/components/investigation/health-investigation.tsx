@@ -46,6 +46,8 @@ interface Investigation {
   finalTreatmentPlan?: any;
   finalDiagnosis?: any;
   doctorNote?: string;
+  reviewedByUid?: string;
+  reviewedByName?: string;
 }
 
 interface InvestigationStep {
@@ -361,6 +363,7 @@ export function HealthInvestigation() {
                                     <Card className="bg-secondary/50">
                                         <CardHeader>
                                             <CardTitle className="text-lg">Next Steps from Your Doctor</CardTitle>
+                                            {c.reviewedByName && <CardDescription>Prescribed by {c.reviewedByName}</CardDescription>}
                                         </CardHeader>
                                         <CardContent className="space-y-6">
                                             {c.doctorPlan?.preliminaryMedications?.length > 0 && (
@@ -400,6 +403,7 @@ export function HealthInvestigation() {
                                     <Alert>
                                         <ShieldCheck className="h-4 w-4" />
                                         <AlertTitle>Diagnosis &amp; Treatment Plan</AlertTitle>
+                                        {c.reviewedByName && <p className="text-xs text-muted-foreground -mt-1 mb-2">Finalized by {c.reviewedByName}</p>}
                                         <AlertDescription asChild>
                                             <div className="space-y-4 mt-2">
                                                 {c.finalDiagnosis?.map((diag: any, i: number) => (
@@ -432,7 +436,7 @@ export function HealthInvestigation() {
                                     <Alert variant="destructive">
                                         <XCircle className="h-4 w-4"/>
                                         <AlertTitle>Investigation Closed by Doctor</AlertTitle>
-                                        {c.doctorNote && <AlertDescription>{c.doctorNote}</AlertDescription>}
+                                        {c.doctorNote && <AlertDescription>{c.doctorNote}{c.reviewedByName && ` - ${c.reviewedByName}`}</AlertDescription>}
                                     </Alert>
                                 )}
                                 {(c.status === 'pending_review' || c.status === 'pending_final_review') && (
@@ -478,5 +482,3 @@ export function HealthInvestigation() {
     </div>
   );
 }
-
-    

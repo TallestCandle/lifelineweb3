@@ -57,10 +57,9 @@ export function DoctorAuthForm() {
         const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
         const user = userCredential.user;
         
-        const doctorName = `Dr. ${data.name}`;
-        await updateProfile(user, { displayName: doctorName });
+        await updateProfile(user, { displayName: data.name });
         
-        toast({ title: "Doctor Sign Up Successful", description: "Your account has been created." });
+        toast({ title: "Doctor Sign Up Successful", description: "Your account has been created. Please complete your profile." });
         router.push('/doctor/dashboard');
       }
     } catch (error: any) {
@@ -108,7 +107,7 @@ export function DoctorAuthForm() {
                     <FormItem>
                       <FormLabel>Full Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Jane Doe" {...field} />
+                        <Input placeholder="Dr. Jane Doe" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
