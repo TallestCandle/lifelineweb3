@@ -22,10 +22,6 @@ if (isConfigured) {
   app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
-} else {
-  if (typeof window !== 'undefined') {
-    console.error("Firebase configuration is missing or incomplete. Check your .env file and ensure all NEXT_PUBLIC_FIREBASE_* variables are set.");
-  }
 }
 
 export { app, auth, db };

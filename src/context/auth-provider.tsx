@@ -18,7 +18,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // It's possible auth is null if Firebase config is missing.
     if (!auth) {
-        console.error("Firebase auth is not initialized. Check your environment variables.");
         setLoading(false);
         return;
     }
