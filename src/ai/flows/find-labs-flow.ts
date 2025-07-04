@@ -19,10 +19,10 @@ const FindLabsInputSchema = z.object({
 export type FindLabsInput = z.infer<typeof FindLabsInputSchema>;
 
 const LaboratorySchema = z.object({
-    name: z.string().describe("The full name of the medical laboratory."),
-    address: z.string().describe("The full street address of the laboratory."),
-    contactNumber: z.string().optional().describe("A plausible contact phone number for the laboratory."),
-    googleMapsUrl: z.string().describe("A best-effort, hypothetical link to what the laboratory's location might be on Google Maps."),
+    name: z.string().describe("The real, official name of the medical laboratory."),
+    address: z.string().describe("The full, verifiable street address of the laboratory."),
+    contactNumber: z.string().optional().describe("The lab's actual contact phone number."),
+    googleMapsUrl: z.string().describe("A direct link to the lab's official business profile on Google Maps. This must not be a search query link."),
 });
 
 const FindLabsOutputSchema = z.object({
@@ -38,7 +38,7 @@ const findLabsPrompt = ai.definePrompt({
     name: 'findLabsPrompt',
     input: { schema: FindLabsInputSchema },
     output: { schema: FindLabsOutputSchema },
-    prompt: `You are an expert local search assistant. Your task is to identify medical laboratories near a given geographic coordinate.
+    prompt: `You are an expert local search assistant with access to real-time, real-world map data. Your task is to find *actual* and *verifiable* medical diagnostic laboratories near a given geographic coordinate.
 
 User's Location:
 - Latitude: {{latitude}}
@@ -46,13 +46,13 @@ User's Location:
 
 Search Radius: {{distanceInKm}} kilometers
 
-Please identify up to 5 medical diagnostic laboratories within that radius. For each lab, provide:
-1.  A realistic, common name for a lab in that region.
-2.  A plausible street address.
-3.  A plausible contact phone number.
-4.  A hypothetical Google Maps URL based on the name and plausible location.
+Please identify up to 5 *real* medical diagnostic laboratories within that radius. For each lab, you MUST provide:
+1.  'name': The real, official name of the laboratory.
+2.  'address': The full, verifiable street address.
+3.  'contactNumber': The lab's actual contact phone number.
+4.  'googleMapsUrl': A direct link to the lab's official business profile on Google Maps. This must not be a search query link.
 
-It is critical that you provide plausible, realistic-sounding information, but you do not need to use real-time data. Generate a list of fictional but believable labs. Structure your entire response in the required JSON format.`,
+Do not invent or create fictional information. The data must be accurate and reflect real-world places. Structure your entire response in the required JSON format.`,
 });
 
 

@@ -193,7 +193,7 @@ const FindLabsPanel = () => {
                             <AlertCircle className="h-4 w-4" />
                             <AlertTitle>Verify Information</AlertTitle>
                             <AlertDescription>
-                                These results are AI-generated and may be inaccurate. Please verify the lab's existence and address independently before visiting.
+                                These results are provided by AI based on public map data. Information like opening hours can change. Please verify the lab's details and services on Google Maps before visiting.
                             </AlertDescription>
                         </Alert>
                         <h3 className="font-bold">Nearby Laboratories:</h3>
