@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import { Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill } from 'lucide-react';
+import { Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill, Salad } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
@@ -34,6 +34,8 @@ interface Investigation {
       preliminaryMedications: string[];
       suggestedLabTests: string[];
   };
+  finalTreatmentPlan?: any;
+  finalDiagnosis?: any;
 }
 
 interface InvestigationStep {
@@ -87,12 +89,12 @@ export function DoctorDashboard() {
 
     const isFinalReview = selectedCase.status === 'pending_final_review';
     const newStatus = isFinalReview ? 'completed' : 'awaiting_lab_results';
+    const latestStep = selectedCase.steps[selectedCase.steps.length - 1];
     
     let planToSubmit;
 
     if (isModifying) {
         try {
-            // If the plan is being modified, parse the text from the textarea.
             planToSubmit = JSON.parse(modifiedPlan);
         } catch (e) {
             console.error("JSON parsing error:", e);
@@ -101,21 +103,19 @@ export function DoctorDashboard() {
                 title: 'Invalid Plan Format',
                 description: 'The modified plan has a syntax error. Please correct it or approve the original plan without modification.',
             });
-            return; // Stop execution if JSON is invalid
+            return;
         }
     } else {
-        // If not modifying, use the original AI-suggested plan.
-        const latestStep = selectedCase.steps[selectedCase.steps.length - 1];
         planToSubmit = isFinalReview 
             ? latestStep.aiAnalysis.finalTreatmentPlan 
             : latestStep.aiAnalysis.suggestedNextSteps;
     }
     
-    // Proceed with the update
-    handleUpdateStatus(selectedCase.id, newStatus, planToSubmit);
+    const finalDiagnosisToSubmit = isFinalReview ? latestStep.aiAnalysis.finalDiagnosis : undefined;
+    handleUpdateStatus(selectedCase.id, newStatus, planToSubmit, finalDiagnosisToSubmit);
   };
 
-  const handleUpdateStatus = async (investigationId: string, status: InvestigationStatus, plan?: any) => {
+  const handleUpdateStatus = async (investigationId: string, status: InvestigationStatus, plan?: any, finalDiagnosis?: any) => {
     const investigationRef = doc(db, "investigations", investigationId);
     try {
       const updateData: any = { 
@@ -128,6 +128,9 @@ export function DoctorDashboard() {
           updateData.doctorPlan = plan;
       } else if (status === 'completed' && plan) {
           updateData.finalTreatmentPlan = plan;
+          if (finalDiagnosis) {
+            updateData.finalDiagnosis = finalDiagnosis;
+          }
       }
 
       await updateDoc(investigationRef, updateData);
@@ -173,6 +176,54 @@ export function DoctorDashboard() {
         </div>
     );
   };
+
+  const renderPlan = (plan: any, isFinal: boolean) => {
+    if (!plan) return <p className="text-sm text-muted-foreground">No plan details available.</p>;
+
+    const fields = isFinal 
+        ? { meds: 'medications', lifestyle: 'lifestyleChanges' }
+        : { meds: 'preliminaryMedications', tests: 'suggestedLabTests' };
+
+    const medications = plan[fields.meds] || [];
+    const labTests = plan[fields.tests] || [];
+    const lifestyleChanges = plan[fields.lifestyle] || [];
+    
+    const hasContent = medications.length > 0 || labTests.length > 0 || lifestyleChanges.length > 0;
+
+    if (!hasContent) {
+        return <p className="text-sm text-muted-foreground">AI did not suggest specific items for this plan.</p>;
+    }
+
+    return (
+        <div className="space-y-4 text-sm">
+            {medications.length > 0 && (
+                <div>
+                    <h4 className="font-bold flex items-center gap-2"><Pill size={16}/> {isFinal ? 'Medications' : 'Preliminary Medications'}</h4>
+                    <ul className="list-disc list-inside pl-4 text-muted-foreground">
+                        {medications.map((med: string, i: number) => <li key={i}>{med}</li>)}
+                    </ul>
+                </div>
+            )}
+            {labTests.length > 0 && (
+                 <div>
+                    <h4 className="font-bold flex items-center gap-2"><TestTube size={16}/> Suggested Lab Tests</h4>
+                    <ul className="list-disc list-inside pl-4 text-muted-foreground">
+                        {labTests.map((test: string, i: number) => <li key={i}>{test}</li>)}
+                    </ul>
+                </div>
+            )}
+            {lifestyleChanges.length > 0 && (
+                 <div>
+                    <h4 className="font-bold flex items-center gap-2"><Salad size={16}/> Lifestyle Changes</h4>
+                    <ul className="list-disc list-inside pl-4 text-muted-foreground">
+                        {lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
+  };
+
 
   const renderReviewDialog = () => {
     if (!selectedCase) return null;
@@ -247,9 +298,7 @@ export function DoctorDashboard() {
                         {isModifying ? (
                         <Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[200px] font-mono text-xs"/>
                         ) : (
-                        <pre className="text-xs whitespace-pre-wrap font-mono bg-secondary p-2 rounded-md">
-                            {JSON.stringify(isFinalReview ? latestStep.aiAnalysis.finalTreatmentPlan : latestStep.aiAnalysis.suggestedNextSteps, null, 2)}
-                        </pre>
+                            renderPlan(isFinalReview ? latestStep.aiAnalysis.finalTreatmentPlan : latestStep.aiAnalysis.suggestedNextSteps, isFinalReview)
                         )}
                     </CardContent>
                     </Card>

@@ -22,7 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader } from '@/components/ui/loader';
-import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle, Search, Pill, TestTube, Upload, Check } from 'lucide-react';
+import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle, Search, Pill, TestTube, Upload, Check, Salad } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 
 // Types
@@ -43,6 +43,7 @@ interface Investigation {
       suggestedLabTests: string[];
   };
   finalTreatmentPlan?: any;
+  finalDiagnosis?: any;
 }
 
 interface InvestigationStep {
@@ -364,14 +365,35 @@ export function HealthInvestigation() {
                                             </CardFooter>
                                         </Card>
                                     )}
-                                    {c.status === 'completed' && c.finalTreatmentPlan && (
+                                    {c.status === 'completed' && (
                                         <Alert>
                                             <ShieldCheck className="h-4 w-4" />
-                                            <AlertTitle>Diagnosis & Treatment Plan</AlertTitle>
-                                            <AlertDescription>
-                                                 <pre className="text-xs whitespace-pre-wrap font-mono bg-secondary p-2 rounded-md mt-2">
-                                                    {typeof c.finalTreatmentPlan === 'string' ? c.finalTreatmentPlan : JSON.stringify(c.finalTreatmentPlan, null, 2)}
-                                                </pre>
+                                            <AlertTitle>Diagnosis &amp; Treatment Plan</AlertTitle>
+                                            <AlertDescription asChild>
+                                                <div className="space-y-4 mt-2">
+                                                    {c.finalDiagnosis?.map((diag: any, i: number) => (
+                                                        <div key={i} className="pb-2 border-b last:border-b-0">
+                                                            <h4 className="font-bold text-foreground">Diagnosis: {diag.condition} ({diag.probability}%)</h4>
+                                                            <p className="text-xs text-muted-foreground">{diag.reasoning}</p>
+                                                        </div>
+                                                    ))}
+                                                    {c.finalTreatmentPlan?.medications?.length > 0 && (
+                                                        <div>
+                                                            <h4 className="font-bold flex items-center gap-2 text-foreground"><Pill size={16}/> Medications</h4>
+                                                            <ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">
+                                                                {c.finalTreatmentPlan.medications.map((med: string, i: number) => <li key={i}>{med}</li>)}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                    {c.finalTreatmentPlan?.lifestyleChanges?.length > 0 && (
+                                                        <div>
+                                                            <h4 className="font-bold flex items-center gap-2 text-foreground"><Salad size={16}/> Lifestyle Changes</h4>
+                                                            <ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">
+                                                                {c.finalTreatmentPlan.lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </AlertDescription>
                                         </Alert>
                                     )}
