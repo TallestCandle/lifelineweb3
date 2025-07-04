@@ -22,7 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader } from '@/components/ui/loader';
-import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle, Search, Pill, TestTube, Upload } from 'lucide-react';
+import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle, Search, Pill, TestTube, Upload, Check } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 
 // Types
@@ -331,7 +331,7 @@ export function HealthInvestigation() {
                                                 <CardDescription>Please complete the following steps to continue your investigation.</CardDescription>
                                             </CardHeader>
                                             <CardContent className="space-y-6">
-                                                {c.doctorPlan.preliminaryMedications.length > 0 && (
+                                                {c.doctorPlan?.preliminaryMedications?.length > 0 && (
                                                     <div>
                                                         <h3 className="font-bold flex items-center gap-2"><Pill/> Preliminary Medications</h3>
                                                         <ul className="list-disc list-inside pl-4 mt-2 text-muted-foreground">
@@ -339,7 +339,7 @@ export function HealthInvestigation() {
                                                         </ul>
                                                     </div>
                                                 )}
-                                                {c.doctorPlan.suggestedLabTests.length > 0 && (
+                                                {c.doctorPlan?.suggestedLabTests?.length > 0 && (
                                                     <div>
                                                         <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
                                                         <p className="text-sm text-muted-foreground mb-4">Please get these tests done and upload the results below.</p>
