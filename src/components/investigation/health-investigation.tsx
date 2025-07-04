@@ -24,9 +24,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader } from '@/components/ui/loader';
-import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle, Search, Pill, TestTube, Upload, Check, Salad, MapPin, Building, Loader2, Phone } from 'lucide-react';
+import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle, Search, Pill, TestTube, Upload, Check, Salad, MapPin, Building, Loader2 } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { Label } from '../ui/label';
 
 // Types
 interface Message {
@@ -101,6 +102,7 @@ const FindLabsPanel = () => {
     const [isFindingLocation, setIsFindingLocation] = useState(true);
     const [isSearchingLabs, setIsSearchingLabs] = useState(false);
     const [labs, setLabs] = useState<FindLabsOutput['labs']>([]);
+    const [distance, setDistance] = useState(5); // Default to 5km
 
     useEffect(() => {
         if ('geolocation' in navigator) {
@@ -134,7 +136,10 @@ const FindLabsPanel = () => {
         setLabs([]);
 
         try {
-            const result = await findNearbyLabs(location);
+            const result = await findNearbyLabs({
+                ...location,
+                distanceInKm: distance,
+            });
             setLabs(result.labs);
         } catch (error) {
             console.error("Error finding labs:", error);
@@ -151,6 +156,19 @@ const FindLabsPanel = () => {
                 <CardDescription>Search for a lab near you to get your tests done.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+                 <div className="space-y-2">
+                    <Label htmlFor="distance">Search Radius (km)</Label>
+                    <Input 
+                        id="distance" 
+                        type="number" 
+                        value={distance}
+                        onChange={(e) => setDistance(Math.max(1, parseInt(e.target.value, 10)) || 1)}
+                        min="1"
+                        max="50"
+                        placeholder="e.g., 5"
+                    />
+                </div>
+
                 {isFindingLocation ? (
                     <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin"/> Getting your location...</div>
                 ) : locationError ? (
@@ -165,28 +183,34 @@ const FindLabsPanel = () => {
                 {isSearchingLabs && !labs.length && (
                     <div className="flex flex-col items-center justify-center pt-4 gap-2 text-muted-foreground">
                         <Loader2 className="w-6 h-6 animate-spin"/>
-                        <p>Searching for labs...</p>
+                        <p>AI is searching for labs...</p>
                     </div>
                 )}
-
+                
                 {labs.length > 0 && (
-                    <div className="space-y-3 pt-4">
+                     <div className="space-y-4 pt-4">
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Verify Information</AlertTitle>
+                            <AlertDescription>
+                                These results are AI-generated and may be inaccurate. Please verify the lab's existence and address independently before visiting.
+                            </AlertDescription>
+                        </Alert>
                         <h3 className="font-bold">Nearby Laboratories:</h3>
                         <ul className="space-y-3">
                             {labs.map((lab, index) => (
                                 <li key={index}>
                                     <a href={lab.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="block p-3 bg-secondary/50 rounded-md hover:bg-secondary transition-colors">
+                                        {lab.imageUrl && (
+                                            <div className="relative w-full h-32 mb-3 rounded-md overflow-hidden">
+                                                <Image src={lab.imageUrl} alt={`Image of ${lab.name}`} layout="fill" objectFit="cover" />
+                                            </div>
+                                        )}
                                         <div className="flex items-start gap-3">
                                             <Building className="w-5 h-5 mt-1 text-primary flex-shrink-0"/>
                                             <div className="min-w-0">
                                                 <p className="font-bold">{lab.name}</p>
                                                 <p className="text-sm text-muted-foreground">{lab.address}</p>
-                                                {lab.contactNumber && (
-                                                    <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
-                                                        <Phone className="w-3 h-3"/>
-                                                        {lab.contactNumber}
-                                                    </p>
-                                                )}
                                             </div>
                                         </div>
                                     </a>
