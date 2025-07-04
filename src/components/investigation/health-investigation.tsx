@@ -50,7 +50,6 @@ interface Investigation {
 
 interface InvestigationStep {
     type: 'initial_submission' | 'lab_result_submission';
-    timestamp: string;
     userInput: any;
     aiAnalysis: any;
 }
@@ -64,6 +63,34 @@ const statusConfig: Record<InvestigationStatus, { text: string; color: string }>
   rejected: { text: 'Investigation Closed', color: 'bg-red-500' },
 };
 
+// Sub-component for the chat input form to isolate its state
+const ChatInputForm = ({ onSendMessage, isLoading }: { onSendMessage: (input: string) => void, isLoading: boolean }) => {
+    const [input, setInput] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!input.trim() || isLoading) return;
+        onSendMessage(input);
+        setInput('');
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="w-full flex items-center gap-2">
+            <Input 
+                value={input} 
+                onChange={(e) => setInput(e.target.value)} 
+                placeholder="Type your message..." 
+                disabled={isLoading}
+                autoComplete="off"
+            />
+            <Button type="submit" disabled={isLoading || !input.trim()}>
+                <Send />
+            </Button>
+        </form>
+    );
+};
+
+
 export function HealthInvestigation() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -76,7 +103,6 @@ export function HealthInvestigation() {
   
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
-  const [userInput, setUserInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [interviewState, setInterviewState] = useState<'not_started' | 'in_progress' | 'awaiting_upload' | 'submitting'>('not_started');
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
@@ -117,13 +143,11 @@ export function HealthInvestigation() {
       setImageDataUri(null);
   };
   
-  const handleSendMessage = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!userInput.trim() || isChatLoading) return;
+  const handleSendMessage = async (currentInput: string) => {
+    if (!currentInput.trim() || isChatLoading) return;
 
-    const newMessages: Message[] = [...messages, { role: 'user', content: userInput }];
+    const newMessages: Message[] = [...messages, { role: 'user', content: currentInput }];
     setMessages(newMessages);
-    setUserInput('');
     setIsChatLoading(true);
 
     try {
@@ -264,10 +288,7 @@ export function HealthInvestigation() {
                 </ScrollArea>
                 <CardFooter className="p-4 border-t">
                     {interviewState === 'in_progress' ? (
-                        <form onSubmit={handleSendMessage} className="w-full flex items-center gap-2">
-                            <Input value={userInput} onChange={(e) => setUserInput(e.target.value)} placeholder="Type your message..." disabled={isChatLoading} />
-                            <Button type="submit" disabled={isChatLoading || !userInput.trim()}><Send /></Button>
-                        </form>
+                        <ChatInputForm onSendMessage={handleSendMessage} isLoading={isChatLoading} />
                     ) : interviewState === 'awaiting_upload' ? (
                         <div className="w-full space-y-4">
                             <Alert>
@@ -441,8 +462,6 @@ export function HealthInvestigation() {
         </Card>
         
         <div className="grid lg:grid-cols-3 gap-8 items-start">
-            {/* Desktop: Chat is col-span-2, History is col-span-1 */}
-            {/* Mobile: Toggles between Chat and History full-width */}
             <div className={cn("lg:col-span-2", view === 'chat' ? 'block' : 'hidden lg:block')}>
                 <ChatInterface />
             </div>
