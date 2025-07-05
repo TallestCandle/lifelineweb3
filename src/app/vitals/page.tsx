@@ -1,5 +1,13 @@
-import { VitalsLog } from "@/components/vitals/vitals-log";
+"use client";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader } from '@/components/ui/loader';
 
-export default function VitalsPage() {
-  return <VitalsLog />;
+export default function DeprecatedVitalsPage() {
+    const router = useRouter();
+    useEffect(() => {
+        router.replace('/log');
+    }, [router]);
+
+    return <Loader />;
 }
