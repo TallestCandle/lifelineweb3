@@ -19,11 +19,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Loader } from '@/components/ui/loader';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Camera, Sparkles, Save, RotateCcw, AlertCircle, HeartPulse, Beaker, Loader2, FileClock } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
+// --- Form Schema and Types ---
 const loggerSchema = z.object({
   userPrompt: z.string().optional(),
 });
@@ -32,7 +31,7 @@ type LoggerFormValues = z.infer<typeof loggerSchema>;
 interface Vital {
     type: 'vitals';
     id: string;
-    date: string;
+    date: string; // ISO String
     systolic?: string;
     diastolic?: string;
     bloodSugar?: string;
@@ -44,7 +43,7 @@ interface Vital {
 interface Strip {
     type: 'strips';
     id: string;
-    date: string;
+    date: string; // ISO String
     protein?: string;
     glucose?: string;
     ketones?: string;
@@ -55,6 +54,51 @@ interface Strip {
 
 type HistoryItem = Vital | Strip;
 
+// --- Helper Component for Rendering History Items ---
+const HistoryItemContent = ({ item }: { item: HistoryItem }) => {
+    // Define a mapping for display labels
+    const displayLabels: Record<string, string> = {
+        systolic: 'Systolic',
+        diastolic: 'Diastolic',
+        bloodSugar: 'Blood Sugar',
+        oxygenSaturation: 'Oxygen Saturation',
+        temperature: 'Temperature',
+        weight: 'Weight',
+        protein: 'Protein',
+        glucose: 'Glucose',
+        ketones: 'Ketones',
+        blood: 'Blood',
+        nitrite: 'Nitrite',
+        ph: 'pH',
+    };
+
+    // Make a copy and remove properties we don't want to display dynamically
+    const data = { ...item };
+    delete (data as any).id;
+    delete (data as any).type;
+    delete (data as any).date;
+
+    // Get a list of key-value pairs that have a valid value
+    const entries = Object.entries(data).filter(([_, value]) => value != null && value !== '');
+
+    if (entries.length === 0) {
+        return <p className="text-muted-foreground text-sm">No specific data points were recorded for this entry.</p>;
+    }
+
+    return (
+        <div className="text-sm space-y-1">
+            {entries.map(([key, value]) => (
+                <div key={key} className="flex justify-between">
+                    <span className="text-muted-foreground">{displayLabels[key] || key}</span>
+                    <span className="font-bold">{String(value)}</span>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+
+// --- Main Component ---
 export function UnifiedLogger() {
     const { user } = useAuth();
     const { toast } = useToast();
@@ -75,24 +119,29 @@ export function UnifiedLogger() {
         if (!user) {
             setIsHistoryLoading(false);
             return;
-        };
+        }
 
         const fetchHistory = async () => {
             setIsHistoryLoading(true);
             try {
                 const basePath = `users/${user.uid}`;
-                const vitalsCol = collection(db, `${basePath}/vitals`);
-                const stripsCol = collection(db, `${basePath}/test_strips`);
                 
-                const [vitalsSnap, stripsSnap] = await Promise.all([
-                    getDocs(query(vitalsCol, orderBy('date', 'desc'))),
-                    getDocs(query(stripsCol, orderBy('date', 'desc'))),
-                ]);
-
+                // Fetch vitals
+                const vitalsCol = collection(db, `${basePath}/vitals`);
+                const vitalsQuery = query(vitalsCol, orderBy('date', 'desc'));
+                const vitalsSnap = await getDocs(vitalsQuery);
                 const vitalsData = vitalsSnap.docs.map(doc => ({ type: 'vitals' as const, id: doc.id, ...doc.data() } as Vital));
+
+                // Fetch test strips
+                const stripsCol = collection(db, `${basePath}/test_strips`);
+                const stripsQuery = query(stripsCol, orderBy('date', 'desc'));
+                const stripsSnap = await getDocs(stripsQuery);
                 const stripsData = stripsSnap.docs.map(doc => ({ type: 'strips' as const, id: doc.id, ...doc.data() } as Strip));
 
-                const combinedHistory = [...vitalsData, ...stripsData].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                // Combine and sort history
+                const combinedHistory = [...vitalsData, ...stripsData].sort((a, b) => 
+                    parseISO(b.date).getTime() - parseISO(a.date).getTime()
+                );
                 setHistory(combinedHistory);
 
             } catch (error) {
@@ -112,7 +161,7 @@ export function UnifiedLogger() {
             const reader = new FileReader();
             reader.onloadend = () => {
                 setImageDataUri(reader.result as string);
-                setAiResult(null); // Reset AI result when new image is uploaded
+                setAiResult(null);
             };
             reader.readAsDataURL(file);
         }
@@ -123,10 +172,8 @@ export function UnifiedLogger() {
             toast({ variant: 'destructive', title: 'No Image', description: 'Please upload an image to analyze.' });
             return;
         }
-
         setIsLoading(true);
         setAiResult(null);
-
         try {
             const result = await extractDataFromImage({
                 imageDataUri,
@@ -146,27 +193,32 @@ export function UnifiedLogger() {
         
         setIsLoading(true);
         let saved = false;
-        let savedItem: HistoryItem | null = null;
-
+        
         try {
-            if (aiResult.extractedVitals && Object.keys(aiResult.extractedVitals).length > 0) {
-                const vitalsCollectionRef = collection(db, `users/${user.uid}/vitals`);
-                const dataToSave = { ...aiResult.extractedVitals, date: new Date().toISOString() };
-                const docRef = await addDoc(vitalsCollectionRef, dataToSave);
-                savedItem = { type: 'vitals', id: docRef.id, ...dataToSave };
-                saved = true;
-            }
-            if (aiResult.extractedTestStrip && Object.keys(aiResult.extractedTestStrip).length > 0) {
-                const stripsCollectionRef = collection(db, `users/${user.uid}/test_strips`);
-                const dataToSave = { ...aiResult.extractedTestStrip, date: new Date().toISOString() };
-                const docRef = await addDoc(stripsCollectionRef, dataToSave);
-                savedItem = { type: 'strips', id: docRef.id, ...dataToSave };
-                saved = true;
+            const dateToSave = { date: new Date().toISOString() };
+            let logType: 'vitals' | 'strips' | null = null;
+            let collectionRef;
+            let dataPayload: any;
+
+            if (aiResult.extractedVitals && Object.keys(aiResult.extractedVitals).some(key => (aiResult.extractedVitals as any)[key])) {
+                logType = 'vitals';
+                dataPayload = aiResult.extractedVitals;
+                collectionRef = collection(db, `users/${user.uid}/vitals`);
+            } else if (aiResult.extractedTestStrip && Object.keys(aiResult.extractedTestStrip).some(key => (aiResult.extractedTestStrip as any)[key])) {
+                logType = 'strips';
+                dataPayload = aiResult.extractedTestStrip;
+                collectionRef = collection(db, `users/${user.uid}/test_strips`);
             }
 
-            if (saved && savedItem) {
+            if (logType && collectionRef && dataPayload) {
+                 const docRef = await addDoc(collectionRef, { ...dataPayload, ...dateToSave });
+                 const newItem: HistoryItem = { type: logType, id: docRef.id, ...dataPayload, ...dateToSave };
+                 setHistory(prev => [newItem, ...prev].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()));
+                 saved = true;
+            }
+
+            if (saved) {
                 toast({ title: 'Data Saved', description: 'Your health data has been logged to your history.' });
-                setHistory(prev => [savedItem!, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
                 resetState();
             } else {
                 toast({ variant: 'destructive', title: 'Nothing to Save', description: 'The AI did not extract any data to save.' });
@@ -213,28 +265,6 @@ export function UnifiedLogger() {
                         <span className="font-bold">{value}</span>
                     </div>
                 ))}
-            </div>
-        )
-    };
-
-     const renderHistoryItemContent = (item: HistoryItem) => {
-        const data = { ...item };
-        delete (data as any).id;
-        delete (data as any).type;
-        delete (data as any).date;
-
-        return (
-            <div className="text-sm space-y-1">
-                {Object.entries(data).map(([key, value]) => {
-                    if (!value) return null;
-                    const formattedKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                    return (
-                        <div key={key} className="flex justify-between">
-                            <span className="text-muted-foreground">{formattedKey}:</span>
-                            <span className="font-bold">{value}</span>
-                        </div>
-                    );
-                })}
             </div>
         )
     };
@@ -341,7 +371,7 @@ export function UnifiedLogger() {
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="pl-10">
-                                        {renderHistoryItemContent(item)}
+                                       <HistoryItemContent item={item} />
                                     </AccordionContent>
                                 </AccordionItem>
                             ))}
