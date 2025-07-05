@@ -50,22 +50,20 @@ const extractDataPrompt = ai.definePrompt({
     name: 'extractDataFromImagePrompt',
     input: { schema: ExtractDataFromImageInputSchema },
     output: { schema: ExtractDataFromImageOutputSchema },
-    prompt: `You are an expert AI at reading and interpreting images of medical device screens and test strips. Your task is to analyze the provided image and extract any relevant health data into a structured format.
+    prompt: `You are an expert AI at reading and interpreting images of medical device screens and test strips. Your task is to analyze the provided image and extract any relevant health data into a structured format. The user will upload an image of a single device or test strip at a time.
 
 User context: "{{userPrompt}}"
 Image to analyze: {{media url=imageDataUri}}
 
 **Instructions:**
-1.  **Analyze the image:** Look for numbers and words on digital displays (like blood pressure monitors, glucometers, thermometers) or color patterns on test strips.
-2.  **Extract Data:**
-    *   If you see blood pressure data, populate the 'systolic' and 'diastolic' fields.
-    *   If you see blood sugar, populate the 'bloodSugar' field.
-    *   If you see oxygen saturation, populate 'oxygenSaturation'.
-    *   For urine test strips, match the color pads to the legend (if visible) or use your knowledge to infer the levels for 'protein', 'glucose', 'ketones', etc. Match to one of the following levels where applicable: 'Negative', 'Trace', '+', '++', '+++'. For pH, extract the numeric value.
-3.  **Be Precise:** Extract only the data you can see. Do not invent or guess values. If a value is not present, leave its field empty.
+1.  **Identify the Image Content:** First, determine if the image shows a medical device (like a blood pressure monitor, glucometer, thermometer) or a urine test strip.
+2.  **Extract Relevant Data Only:** Based on your identification, extract the corresponding data.
+    *   If it is a **medical device**, populate the relevant fields in the 'extractedVitals' object ONLY. Leave 'extractedTestStrip' completely empty.
+    *   If it is a **urine test strip**, populate the relevant fields in the 'extractedTestStrip' object ONLY. Leave 'extractedVitals' completely empty.
+3.  **Be Precise:** Extract only the data you can clearly see. Do not invent or guess values. If a specific value isn't present, leave its field empty.
 4.  **Create Summary:** Write a very short 'analysisSummary' confirming what you found, e.g., "Extracted blood pressure: 120/80 mmHg." or "Detected trace ketones."
 5.  **Assess Confidence:** If the image is blurry, cut off, or you cannot reliably read the values, set 'isConfident' to 'false'. Otherwise, set it to 'true'.
-6.  **Return Data:** Populate EITHER 'extractedVitals' OR 'extractedTestStrip', not both. Decide which is more appropriate based on the image and prompt. If it contains both, prioritize the one mentioned in the user's prompt.`,
+6.  **CRITICAL RULE:** You MUST populate EITHER the 'extractedVitals' object OR the 'extractedTestStrip' object, never both. Your response should only contain data for the single type of item you identified in the image.`,
 });
 
 const extractDataFromImageFlow = ai.defineFlow(
