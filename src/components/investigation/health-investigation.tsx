@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -38,7 +39,7 @@ interface Message {
   content: string;
 }
 
-type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected';
+type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
 
 interface Investigation {
   id: string;
@@ -71,6 +72,7 @@ const statusConfig: Record<InvestigationStatus, { text: string; color: string }>
   pending_final_review: { text: 'Doctor Reviewing Results', color: 'bg-yellow-500' },
   completed: { text: 'Case Complete', color: 'bg-green-500' },
   rejected: { text: 'Case Closed', color: 'bg-red-500' },
+  awaiting_follow_up_visit: { text: 'Follow-up Visit Pending', color: 'bg-cyan-500' },
 };
 
 
@@ -359,7 +361,6 @@ export function Admission() {
                              <AccordionContent className="space-y-6 pt-4">
                                 
                                 {c.steps.map((step, index) => {
-                                    const isLastStep = index === c.steps.length - 1;
                                     return (
                                         <div key={index} className="relative pl-8">
                                             <div className="absolute left-3 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
@@ -398,20 +399,57 @@ export function Admission() {
                                                 
                                                 {step.type === 'lab_result_submission' && (
                                                     <div>
-                                                        <h4 className="font-semibold text-sm mb-2">Lab Results Submitted by Nurse</h4>
                                                         {step.userInput.nurseReport?.text && (
-                                                            <Alert className="mb-2"><FileText className="h-4 w-4"/><AlertTitle>Nurse's Report</AlertTitle><AlertDescription>{step.userInput.nurseReport.text}</AlertDescription></Alert>
+                                                            <Alert className="mb-4"><FileText className="h-4 w-4"/><AlertTitle>Nurse's Report</AlertTitle><AlertDescription>{step.userInput.nurseReport.text}</AlertDescription></Alert>
                                                         )}
-                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                                            {step.userInput.labResults?.map((res: any, i: number) => (
-                                                                <div key={i}>
-                                                                    <p className="font-semibold text-xs truncate">{res.testName}</p>
-                                                                    <button onClick={() => setSelectedImage(res.imageDataUri)} className="transition-transform hover:scale-105 mt-1">
-                                                                        <Image src={res.imageDataUri} alt={res.testName} width={150} height={150} className="rounded-md border"/>
-                                                                    </button>
-                                                                </div>
-                                                            ))}
-                                                        </div>
+
+                                                        {(step.userInput.labResults?.length > 0 || step.userInput.nurseReport?.pictures?.length > 0 || step.userInput.nurseReport?.videos?.length > 0) && (
+                                                            <div className="space-y-4">
+                                                                {step.userInput.labResults?.length > 0 && (
+                                                                    <div>
+                                                                        <h4 className="font-semibold text-sm mb-2">Lab Test Results</h4>
+                                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                                                            {step.userInput.labResults.map((res: any, i: number) => (
+                                                                                <div key={`lab-${i}`}>
+                                                                                    <p className="font-semibold text-xs truncate">{res.testName}</p>
+                                                                                    <button onClick={() => setSelectedImage(res.imageDataUri)} className="transition-transform hover:scale-105 mt-1">
+                                                                                        <Image src={res.imageDataUri} alt={res.testName} width={150} height={150} className="rounded-md border"/>
+                                                                                    </button>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                {step.userInput.nurseReport?.pictures?.length > 0 && (
+                                                                    <div>
+                                                                        <h4 className="font-semibold text-sm mb-2">Pictures from Nurse</h4>
+                                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                                                            {step.userInput.nurseReport.pictures.map((pic: string, i: number) => (
+                                                                                <div key={`pic-${i}`}>
+                                                                                    <button onClick={() => setSelectedImage(pic)} className="transition-transform hover:scale-105 mt-1">
+                                                                                        <Image src={pic} alt={`Nurse picture ${i+1}`} width={150} height={150} className="rounded-md border"/>
+                                                                                    </button>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {step.userInput.nurseReport?.videos?.length > 0 && (
+                                                                    <div>
+                                                                        <h4 className="font-semibold text-sm mb-2">Videos from Nurse</h4>
+                                                                        <div className="flex flex-wrap gap-2">
+                                                                            {step.userInput.nurseReport.videos.map((vid: string, i: number) => (
+                                                                                <Badge key={`vid-${i}`} variant="secondary" className="flex items-center gap-1">
+                                                                                    <Video className="w-3 h-3"/> Video {i+1}
+                                                                                </Badge>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>

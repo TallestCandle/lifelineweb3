@@ -4,14 +4,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from "@/context/auth-provider";
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, orderBy, onSnapshot, getDoc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../ui/card";
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { Loader2, User, Check, X, Pencil, ArrowRight, TestTube, Pill, ClipboardCheck, MessageSquare, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown, RefreshCw } from 'lucide-react';
+import { Loader2, User, Check, X, Pencil, ArrowRight, TestTube, Pill, ClipboardCheck, MessageSquare, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown, RefreshCw, Home, Phone } from 'lucide-react';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
@@ -27,6 +27,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { Bar, BarChart, XAxis, YAxis } from 'recharts';
+import { ChartConfig } from 'recharts';
 
 
 type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
@@ -76,6 +79,11 @@ const UrgencyConfig: Record<string, { color: string; text: string }> = {
     'Critical': { color: 'bg-red-600', text: 'Critical' },
 };
 
+const vitalsChartConfig = {
+  systolic: { label: "Systolic", color: "hsl(var(--chart-1))" },
+  diastolic: { label: "Diastolic", color: "hsl(var(--chart-2))" },
+} satisfies ChartConfig;
+
 export function DoctorDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -99,6 +107,11 @@ export function DoctorDashboard() {
   const [followUpPatient, setFollowUpPatient] = useState<Patient | null>(null);
   const [followUpNote, setFollowUpNote] = useState('');
   const [followUpFeedback, setFollowUpFeedback] = useState<RequiredFeedback[]>([]);
+
+  const [analyticsPatient, setAnalyticsPatient] = useState<Patient | null>(null);
+  const [vitals, setVitals] = useState<any[]>([]);
+  const [strips, setStrips] = useState<any[]>([]);
+  const [analyses, setAnalyses] = useState<any[]>([]);
   
   // Fetch investigations
   useEffect(() => {
@@ -346,6 +359,23 @@ export function DoctorDashboard() {
     );
   };
 
+    const handleOpenAnalytics = (patient: Patient) => {
+        setAnalyticsPatient(patient);
+        const fetchData = async () => {
+            const basePath = `users/${patient.id}`;
+            const [vitalsSnap, stripsSnap, analysesSnap] = await Promise.all([
+                getDocs(query(collection(db, `${basePath}/vitals`), orderBy('date', 'desc'), where('date', '!=', null))),
+                getDocs(query(collection(db, `${basePath}/test_strips`), orderBy('date', 'desc'))),
+                getDocs(query(collection(db, `${basePath}/health_analyses`), orderBy('timestamp', 'desc')))
+            ]);
+            setVitals(vitalsSnap.docs.map(d => ({...d.data(), date: format(parseISO(d.data().date), 'MMM d')})));
+            setStrips(stripsSnap.docs.map(d => d.data()));
+            setAnalyses(analysesSnap.docs.map(d => ({id: d.id, ...d.data()})));
+        };
+        fetchData();
+    };
+
+
   const renderReviewDialog = () => {
     if (!selectedCase) return null;
     const latestStep = selectedCase.steps[selectedCase.steps.length - 1];
@@ -411,20 +441,53 @@ export function DoctorDashboard() {
                                                 </>
                                             )}
                                             {step.type === 'lab_result_submission' && (
-                                                <>
+                                                <div className="space-y-4">
                                                     {step.userInput.nurseReport?.text && <p className="text-sm"><span className="font-semibold">Nurse Report:</span> {step.userInput.nurseReport.text}</p>}
-                                                    <p className="text-sm font-semibold pt-2">Submitted Lab Results</p>
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        {step.userInput.labResults.map((res: any, i: number) => (
-                                                            <div key={i}>
-                                                                <p className="font-semibold text-xs truncate">{res.testName}</p>
-                                                                <button onClick={() => setSelectedImage(res.imageDataUri)} className="transition-transform hover:scale-105 mt-1">
-                                                                    <Image src={res.imageDataUri} alt={res.testName} width={150} height={150} className="rounded-md border"/>
-                                                                </button>
+                                                    
+                                                    {step.userInput.labResults?.length > 0 && (
+                                                        <div>
+                                                            <p className="text-sm font-semibold">Submitted Lab Results</p>
+                                                            <div className="grid grid-cols-2 gap-2 mt-1">
+                                                                {step.userInput.labResults.map((res: any, i: number) => (
+                                                                    <div key={`lab-${i}`}>
+                                                                        <p className="font-semibold text-xs truncate">{res.testName}</p>
+                                                                        <button onClick={() => setSelectedImage(res.imageDataUri)} className="transition-transform hover:scale-105 mt-1">
+                                                                            <Image src={res.imageDataUri} alt={res.testName} width={150} height={150} className="rounded-md border"/>
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                </>
+                                                        </div>
+                                                    )}
+
+                                                    {step.userInput.nurseReport?.pictures?.length > 0 && (
+                                                        <div>
+                                                            <p className="text-sm font-semibold">Pictures from Nurse</p>
+                                                            <div className="grid grid-cols-2 gap-2 mt-1">
+                                                                {step.userInput.nurseReport.pictures.map((pic: string, i: number) => (
+                                                                    <div key={`pic-${i}`}>
+                                                                        <button onClick={() => setSelectedImage(pic)} className="transition-transform hover:scale-105 mt-1">
+                                                                            <Image src={pic} alt={`Nurse picture ${i+1}`} width={150} height={150} className="rounded-md border"/>
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {step.userInput.nurseReport?.videos?.length > 0 && (
+                                                        <div>
+                                                            <p className="text-sm font-semibold">Videos from Nurse</p>
+                                                            <div className="flex flex-wrap gap-2 mt-1">
+                                                                {step.userInput.nurseReport.videos.map((vid: string, i: number) => (
+                                                                    <Badge key={`vid-${i}`} variant="secondary" className="flex items-center gap-1">
+                                                                        <Video className="w-3 h-3"/> Video {i+1}
+                                                                    </Badge>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
                                         </CardContent>
                                     </Card>
@@ -624,18 +687,21 @@ export function DoctorDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>My Patients ({myPatients.length})</CardTitle>
-              <CardDescription>Select a patient to request a follow-up visit.</CardDescription>
+              <CardDescription>Select a patient to view analytics or request a follow-up visit.</CardDescription>
             </CardHeader>
             <CardContent>
                <div className="space-y-4">
                 {myPatients.length > 0 ? myPatients.map(patient => (
-                    <button key={patient.id} onClick={() => setFollowUpPatient(patient)} className="w-full text-left flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/50 transition-colors">
+                    <div key={patient.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/50 transition-colors">
                         <div>
                             <p className="font-bold">{patient.name}</p>
                             <p className="text-sm text-muted-foreground">Last interaction: {formatDistanceToNow(parseISO(patient.lastInteraction), { addSuffix: true })}</p>
                         </div>
-                        <ArrowRight/>
-                    </button>
+                        <div className="flex gap-2">
+                             <Button size="sm" variant="outline" onClick={() => handleOpenAnalytics(patient)}>Analytics</Button>
+                             <Button size="sm" onClick={() => setFollowUpPatient(patient)}>Follow-up</Button>
+                        </div>
+                    </div>
                 )) : (
                     <div className="text-center text-muted-foreground py-12">
                         <User className="mx-auto w-12 h-12 text-gray-400" />
@@ -650,6 +716,53 @@ export function DoctorDashboard() {
       </div>
       
       {renderReviewDialog()}
+      
+      <Dialog open={!!analyticsPatient} onOpenChange={() => setAnalyticsPatient(null)}>
+        <DialogContent className="max-w-4xl">
+            <DialogHeader>
+                <DialogTitle>Patient Analytics: {analyticsPatient?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="grid md:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto p-4">
+                <Card>
+                    <CardHeader><CardTitle>Vitals History</CardTitle></CardHeader>
+                    <CardContent>
+                        <ChartContainer config={vitalsChartConfig} className="w-full h-[250px]">
+                            <BarChart data={vitals.slice().reverse()}>
+                                <XAxis dataKey="date"/>
+                                <YAxis />
+                                <ChartTooltip content={<ChartTooltipContent />} />
+                                <Bar dataKey="systolic" fill="var(--color-systolic)" radius={4} />
+                                <Bar dataKey="diastolic" fill="var(--color-diastolic)" radius={4} />
+                            </BarChart>
+                        </ChartContainer>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader><CardTitle>Test Strip History</CardTitle></CardHeader>
+                    <CardContent>
+                        <pre className="text-xs bg-muted p-2 rounded-md h-[250px] overflow-auto">{JSON.stringify(strips, null, 2)}</pre>
+                    </CardContent>
+                </Card>
+                 <Card className="md:col-span-2">
+                    <CardHeader><CardTitle>AI Analysis History</CardTitle></CardHeader>
+                    <CardContent>
+                         <Accordion type="single" collapsible className="w-full">
+                            {analyses.map(item => (
+                                <AccordionItem value={item.id} key={item.id}>
+                                    <AccordionTrigger>{format(parseISO(item.timestamp), 'MMM d, yyyy, h:mm a')}</AccordionTrigger>
+                                    <AccordionContent>
+                                        <pre className="text-xs bg-muted p-2 rounded-md h-[250px] overflow-auto">
+                                            {JSON.stringify(item.analysisResult, null, 2)}
+                                        </pre>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
+                    </CardContent>
+                </Card>
+            </div>
+        </DialogContent>
+      </Dialog>
       
       <Dialog open={!!followUpPatient} onOpenChange={() => setFollowUpPatient(null)}>
         <DialogContent>
