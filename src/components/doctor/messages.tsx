@@ -4,18 +4,19 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from "@/context/auth-provider";
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, addDoc, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, User, Send, Bot, ArrowLeft } from 'lucide-react';
+import { Loader2, User, Send, Bot, ArrowLeft, Pencil } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Textarea } from '@/components/ui/textarea';
 
 
 interface Investigation {
@@ -31,7 +32,9 @@ interface ChatMessage {
   role: 'user' | 'doctor';
   content: string;
   timestamp: string;
+  authorId: string;
   authorName: string;
+  edited?: boolean;
 }
 
 interface ChatPanelProps {
@@ -47,6 +50,7 @@ function ChatPanel({ investigationId, patientName, onBack }: ChatPanelProps) {
   const [isChatLoading, setIsChatLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const [editingMessage, setEditingMessage] = useState<{id: string, content: string} | null>(null);
 
   useEffect(() => {
     if (!investigationId) {
@@ -90,6 +94,27 @@ function ChatPanel({ investigationId, patientName, onBack }: ChatPanelProps) {
     setNewMessage("");
   };
   
+  const handleStartEdit = (message: ChatMessage) => {
+    setEditingMessage({ id: message.id, content: message.content });
+  };
+  
+  const handleCancelEdit = () => {
+    setEditingMessage(null);
+  };
+
+  const handleSaveEdit = async () => {
+      if (!editingMessage || !user || !investigationId) return;
+  
+      const messageRef = doc(db, `investigations/${investigationId}/messages`, editingMessage.id);
+      await updateDoc(messageRef, {
+          content: editingMessage.content,
+          edited: true,
+          editedAt: new Date().toISOString(),
+      });
+  
+      setEditingMessage(null);
+  };
+
   if (!investigationId && !isMobile) {
     return (
         <div className="flex flex-col items-center justify-center h-full text-center">
@@ -118,23 +143,54 @@ function ChatPanel({ investigationId, patientName, onBack }: ChatPanelProps) {
                     {!isChatLoading && messages.length === 0 && (
                         <p className="text-center text-sm text-muted-foreground pt-4">No messages yet. Send a welcome message!</p>
                     )}
-                    {messages.map((message) => (
-                    <div key={message.id} className={`flex items-end gap-2 ${message.role === 'doctor' ? 'justify-end' : 'justify-start'}`}>
-                        {message.role === 'user' && <Avatar className="w-8 h-8"><AvatarFallback>{message.authorName.charAt(0)}</AvatarFallback></Avatar>}
-                        <div className={`max-w-[80%] rounded-lg p-3 ${message.role === 'doctor' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
-                        <p className="whitespace-pre-wrap">{message.content}</p>
+                    {messages.map((message) => {
+                      const isMyMessage = message.authorId === user?.uid;
+
+                      if (editingMessage?.id === message.id && isMyMessage) {
+                        return (
+                          <div key={message.id} className="flex items-end gap-2 justify-end w-full">
+                            <div className="w-full max-w-[80%] space-y-2">
+                                <Textarea 
+                                    value={editingMessage.content} 
+                                    onChange={(e) => setEditingMessage(prev => prev ? {...prev, content: e.target.value} : null)}
+                                    className="bg-background"
+                                    rows={3}
+                                />
+                                <div className="flex justify-end gap-2">
+                                    <Button variant="ghost" size="sm" onClick={handleCancelEdit}>Cancel</Button>
+                                    <Button size="sm" onClick={handleSaveEdit}>Save changes</Button>
+                                </div>
+                            </div>
+                            <Avatar className="w-8 h-8"><AvatarFallback><Bot size={20}/></AvatarFallback></Avatar>
+                          </div>
+                        )
+                      }
+                      
+                      return (
+                        <div key={message.id} className={`group flex items-end gap-2 ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
+                            {isMyMessage && 
+                                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleStartEdit(message)}>
+                                    <Pencil size={14} />
+                                    <span className="sr-only">Edit</span>
+                                </Button>
+                            }
+                            {message.role === 'user' && <Avatar className="w-8 h-8"><AvatarFallback>{message.authorName.charAt(0)}</AvatarFallback></Avatar>}
+                            <div className={`max-w-[80%] rounded-lg p-3 ${message.role === 'doctor' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+                                <p className="whitespace-pre-wrap">{message.content}</p>
+                                {message.edited && <span className="text-xs opacity-70 mt-1 block">(edited)</span>}
+                            </div>
+                            {message.role === 'doctor' && <Avatar className="w-8 h-8"><AvatarFallback><Bot size={20}/></AvatarFallback></Avatar>}
                         </div>
-                        {message.role === 'doctor' && <Avatar className="w-8 h-8"><AvatarFallback><Bot size={20}/></AvatarFallback></Avatar>}
-                    </div>
-                    ))}
+                      )
+                    })}
                     <div ref={messagesEndRef} />
                 </div>
             </ScrollArea>
         </CardContent>
         <CardFooter className="p-4 border-t">
             <form onSubmit={handleSendMessage} className="w-full flex items-center gap-2">
-            <Input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..." />
-            <Button type="submit" size="icon"><Send /></Button>
+            <Input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..." disabled={!!editingMessage}/>
+            <Button type="submit" size="icon" disabled={!!editingMessage}><Send /></Button>
             </form>
       </CardFooter>
     </div>
