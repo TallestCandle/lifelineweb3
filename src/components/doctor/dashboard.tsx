@@ -65,6 +65,10 @@ interface InvestigationStep {
     timestamp: string;
     userInput: any;
     aiAnalysis: any;
+    doctorRequest?: {
+      note: string;
+      requiredFeedback: RequiredFeedback[];
+    };
 }
 
 interface Patient {
@@ -463,7 +467,25 @@ export function DoctorDashboard() {
                                             <CardTitle className="text-base">{step.type === 'initial_submission' ? 'Initial Submission' : 'Follow-up Submission'}</CardTitle>
                                             <CardDescription>{format(parseISO(step.timestamp), 'MMM d, yyyy, h:mm a')}</CardDescription>
                                         </CardHeader>
-                                        <CardContent className="space-y-2">
+                                        <CardContent className="space-y-4">
+                                            {step.doctorRequest && (
+                                                <Alert variant="default" className="border-primary/50 mb-4">
+                                                    <ClipboardList className="h-4 w-4" />
+                                                    <AlertTitle>Your Request for this Visit</AlertTitle>
+                                                    <AlertDescription className="mt-2 space-y-2">
+                                                       {step.doctorRequest.note && <p className="text-sm">{step.doctorRequest.note}</p>}
+                                                        {step.doctorRequest.requiredFeedback?.length > 0 && (
+                                                            <div>
+                                                                <p className="font-semibold text-sm">Requested Feedback:</p>
+                                                                <div className="flex flex-wrap gap-2 mt-1">
+                                                                    {step.doctorRequest.requiredFeedback.map((fb: string, i: number) => <Badge key={i} variant="secondary" className="capitalize">{fb}</Badge>)}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </AlertDescription>
+                                                </Alert>
+                                            )}
+
                                             {step.type === 'initial_submission' && (
                                                 <>
                                                     <Collapsible>

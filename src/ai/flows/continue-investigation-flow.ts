@@ -70,7 +70,8 @@ export async function continueInvestigation(input: ContinueInvestigationClientIn
     if (!investigationSnap.exists() || investigationSnap.data().userId !== userId) {
         throw new Error("Investigation not found or access denied.");
     }
-    const investigationContext = JSON.stringify(investigationSnap.data());
+    const investigationData = investigationSnap.data();
+    const investigationContext = JSON.stringify(investigationData);
 
     // Step 2: Prepare the full input for the internal AI analysis flow.
     const aiFlowInput: ContinueInvestigationInput = {
@@ -83,20 +84,27 @@ export async function continueInvestigation(input: ContinueInvestigationClientIn
     const aiResponse = await continueInvestigationFlow(aiFlowInput);
 
     // Step 4: Append this new step to the investigation and update the status.
-    const currentSteps = investigationSnap.data().steps || [];
+    const currentSteps = investigationData.steps || [];
     const userInputPayload: any = { labResults };
     if (nurseReport) {
         userInputPayload.nurseReport = nurseReport;
     }
     
+    const newStep: any = {
+        type: 'lab_result_submission' as const,
+        timestamp: new Date().toISOString(),
+        userInput: userInputPayload,
+        aiAnalysis: aiResponse,
+    };
+
+    // If this submission is for a follow-up, embed the doctor's request into the step for a complete record.
+    if (investigationData.status === 'awaiting_follow_up_visit' && investigationData.followUpRequest) {
+        newStep.doctorRequest = investigationData.followUpRequest;
+    }
+
     const updatedInvestigation = {
         status: 'pending_final_review' as const,
-        steps: [...currentSteps, {
-            type: 'lab_result_submission' as const,
-            timestamp: new Date().toISOString(),
-            userInput: userInputPayload,
-            aiAnalysis: aiResponse,
-        }],
+        steps: [...currentSteps, newStep],
     };
     
     await updateDoc(investigationDocRef, updatedInvestigation);

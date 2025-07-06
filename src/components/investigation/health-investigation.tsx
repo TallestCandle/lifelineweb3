@@ -40,6 +40,7 @@ interface Message {
 }
 
 type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
+type RequiredFeedback = 'pictures' | 'videos' | 'text';
 
 interface Investigation {
   id: string;
@@ -63,6 +64,10 @@ interface InvestigationStep {
     timestamp: string;
     userInput: any;
     aiAnalysis: any;
+    doctorRequest?: {
+        note: string;
+        requiredFeedback: RequiredFeedback[];
+    };
 }
 
 const statusConfig: Record<InvestigationStatus, { text: string; color: string }> = {
@@ -374,6 +379,24 @@ export function Admission() {
                                             </p>
 
                                             <div className="p-4 bg-secondary/50 rounded-lg space-y-4">
+                                                {step.doctorRequest && (
+                                                    <Alert variant="default" className="border-primary/50">
+                                                        <ClipboardList className="h-4 w-4" />
+                                                        <AlertTitle>Doctor's Request for This Visit</AlertTitle>
+                                                        <AlertDescription className="mt-2 space-y-2">
+                                                            {step.doctorRequest.note && <p>{step.doctorRequest.note}</p>}
+                                                            {step.doctorRequest.requiredFeedback?.length > 0 && (
+                                                                <div>
+                                                                    <p className="font-semibold">Requested Feedback:</p>
+                                                                    <div className="flex flex-wrap gap-2 mt-1">
+                                                                        {step.doctorRequest.requiredFeedback.map((fb: string, i: number) => <Badge key={i} variant="secondary" className="capitalize">{fb}</Badge>)}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </AlertDescription>
+                                                    </Alert>
+                                                )}
+
                                                 {step.type === 'initial_submission' && (
                                                     <div>
                                                         <Collapsible>
