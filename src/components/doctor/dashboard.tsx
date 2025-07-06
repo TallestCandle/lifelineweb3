@@ -115,7 +115,7 @@ function PatientAnalyticsView({ userId }: { userId: string }) {
             date: format(entry.dateObj, 'MMM d'),
             systolic: entry.systolic ? Number(entry.systolic) : null,
             diastolic: entry.diastolic ? Number(entry.diastolic) : null,
-            oxygenLevel: entry.oxygenLevel ? Number(entry.oxygenLevel) : null,
+            oxygenSaturation: entry.oxygenSaturation ? Number(entry.oxygenSaturation) : null,
             temperature: entry.temperature ? Number(entry.temperature) : null,
             bloodSugar: entry.bloodSugar ? Number(entry.bloodSugar) : null,
             weight: entry.weight ? Number(entry.weight) : null,
@@ -143,12 +143,12 @@ function PatientAnalyticsView({ userId }: { userId: string }) {
                                     </RechartsLineChart>
                                 </ChartContainer>
                                 <ChartContainer config={singleMetricChartConfig("O2%", "hsl(var(--chart-3))")} className="min-h-[200px] w-full">
-                                    <RechartsLineChart data={chartData.filter(d => d.oxygenLevel)} margin={{ left: 0, right: 10 }}>
+                                    <RechartsLineChart data={chartData.filter(d => d.oxygenSaturation)} margin={{ left: 0, right: 10 }}>
                                          <CartesianGrid vertical={false} />
                                          <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
                                          <YAxis domain={['dataMin - 2', 'dataMax + 2']} tickLine={false} axisLine={false}/>
                                          <Tooltip content={<ChartTooltipContent />} />
-                                         <Line dataKey="oxygenLevel" name="value" type="monotone" stroke="var(--color-value)" strokeWidth={2} dot={false} />
+                                         <Line dataKey="oxygenSaturation" name="value" type="monotone" stroke="var(--color-value)" strokeWidth={2} dot={false} />
                                     </RechartsLineChart>
                                 </ChartContainer>
                             </div>
