@@ -41,7 +41,6 @@ const menuItems: { href: string; label: string; icon: LucideIcon; color: string 
   { href: "/log", label: "AI Logger", icon: Camera, color: "text-yellow-400" },
   { href: "/analysis", label: "AI Analysis", icon: BrainCircuit, color: "text-sky-400" },
   { href: "/investigation", label: "Health Investigation", icon: Search, color: "text-purple-400" },
-  { href: "/tasks", label: "Daily Tasks", icon: ClipboardCheck, color: "text-teal-400" },
   { href: "/dietician", label: "AI Dietician", icon: Salad, color: "text-green-400" },
   { href: "/report", label: "Health Report", icon: FileText, color: "text-orange-400" },
   { href: "/reminders", label: "Medication", icon: Pill, color: "text-pink-400" },
