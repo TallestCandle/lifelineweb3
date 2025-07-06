@@ -10,7 +10,7 @@ import type { ThemeId } from './theme-provider';
 export interface Profile {
   name: string;
   age: string;
-  gender: 'Male' | 'Female' | 'Other';
+  gender: 'Male' | 'Female';
   address: string;
   theme: ThemeId;
 }

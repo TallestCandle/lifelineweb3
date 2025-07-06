@@ -19,7 +19,7 @@ import { Textarea } from '../ui/textarea';
 const profileSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   age: z.string().refine((val) => !isNaN(parseInt(val, 10)) && parseInt(val, 10) > 0, { message: "Please enter a valid age." }),
-  gender: z.enum(['Male', 'Female', 'Other'], { required_error: "Please select a gender." }),
+  gender: z.enum(['Male', 'Female'], { required_error: "Please select a gender." }),
   address: z.string().min(10, { message: "Please enter a valid address for home visits." }),
 });
 
@@ -89,7 +89,6 @@ export function ProfileManager() {
                     <SelectContent>
                       <SelectItem value="Male">Male</SelectItem>
                       <SelectItem value="Female">Female</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
