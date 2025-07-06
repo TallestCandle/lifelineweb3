@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -11,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { Loader2, LineChart, TableIcon, BrainCircuit, Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill, Salad, ClipboardCheck, MessageSquare, Send, Camera, Video, FileText, Trash2, Share2 } from 'lucide-react';
+import { Loader2, LineChart, TableIcon, BrainCircuit, Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill, Salad, ClipboardCheck, MessageSquare, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown } from 'lucide-react';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
@@ -22,6 +21,11 @@ import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Line, LineChart as RechartsLineChart, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
@@ -483,8 +487,16 @@ export function DoctorDashboard() {
                                         <CardContent className="space-y-2">
                                             {step.type === 'initial_submission' && (
                                                 <>
-                                                    <p className="text-sm font-semibold">Interview Transcript</p>
-                                                    <p className="text-sm whitespace-pre-line text-muted-foreground">{step.userInput.chatTranscript}</p>
+                                                    <Collapsible>
+                                                        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md p-2 text-left text-sm font-semibold hover:bg-secondary/50">
+                                                            <span>Interview Transcript</span>
+                                                            <ChevronsUpDown className="h-4 w-4" />
+                                                        </CollapsibleTrigger>
+                                                        <CollapsibleContent className="pt-2">
+                                                            <p className="text-sm whitespace-pre-line rounded-md bg-background/50 p-2 text-muted-foreground">{step.userInput.chatTranscript}</p>
+                                                        </CollapsibleContent>
+                                                    </Collapsible>
+                                                    
                                                     {step.userInput.imageDataUri && (
                                                         <div className="pt-2">
                                                           <p className="text-sm font-semibold">Submitted Image</p>

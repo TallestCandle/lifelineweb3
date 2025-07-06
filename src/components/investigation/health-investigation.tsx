@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -22,7 +21,12 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video, Share2 } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video, Share2, ChevronsUpDown } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
@@ -371,10 +375,18 @@ export function Admission() {
                                             <div className="p-4 bg-secondary/50 rounded-lg space-y-4">
                                                 {step.type === 'initial_submission' && (
                                                     <div>
-                                                        <h4 className="font-semibold text-sm mb-2">Your Symptoms</h4>
-                                                        <p className="text-sm text-muted-foreground whitespace-pre-line">{step.userInput.chatTranscript}</p>
+                                                        <Collapsible>
+                                                            <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md p-2 text-left text-sm font-semibold hover:bg-secondary">
+                                                                <span>Your Symptoms & Interview</span>
+                                                                <ChevronsUpDown className="h-4 w-4" />
+                                                            </CollapsibleTrigger>
+                                                            <CollapsibleContent className="pt-2">
+                                                                <p className="text-sm whitespace-pre-line rounded-md bg-background/50 p-2 text-muted-foreground">{step.userInput.chatTranscript}</p>
+                                                            </CollapsibleContent>
+                                                        </Collapsible>
+                                                        
                                                         {step.userInput.imageDataUri && (
-                                                            <div className="mt-2">
+                                                            <div className="mt-4">
                                                                 <h4 className="font-semibold text-sm mb-1">Image Submitted</h4>
                                                                 <button onClick={() => setSelectedImage(step.userInput.imageDataUri)} className="transition-transform hover:scale-105">
                                                                     <Image src={step.userInput.imageDataUri} alt="Initial submission" width={100} height={100} className="rounded-md border"/>
