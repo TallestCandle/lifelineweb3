@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { Loader2, User, Check, X, Pencil, ArrowRight, TestTube, Pill, ClipboardCheck, MessageSquare, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown, RefreshCw, Home, Phone } from 'lucide-react';
+import { Loader2, User, Check, X, Pencil, ArrowRight, TestTube, Pill, ClipboardCheck, MessageSquare, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown, RefreshCw, Home, Phone, Sparkles } from 'lucide-react';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
@@ -30,6 +30,7 @@ import { Input } from '../ui/input';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, XAxis, YAxis } from 'recharts';
 import { ChartConfig } from 'recharts';
+import { performComprehensiveCaseReview, type ComprehensiveCaseReviewOutput } from '@/ai/flows/comprehensive-case-review-flow';
 
 
 type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
@@ -102,6 +103,8 @@ export function DoctorDashboard() {
   const [doctorNote, setDoctorNote] = useState('');
   const [nurseNote, setNurseNote] = useState('');
   const [requiredFeedback, setRequiredFeedback] = useState<RequiredFeedback[]>([]);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evaluationResult, setEvaluationResult] = useState<ComprehensiveCaseReviewOutput | null>(null);
 
   // State for follow-up dialog
   const [followUpPatient, setFollowUpPatient] = useState<Patient | null>(null);
@@ -259,6 +262,8 @@ export function DoctorDashboard() {
             }
         };
         setModifiedPlan(JSON.stringify(finalPlanSuggestion, null, 2));
+    } else {
+        setModifiedPlan('');
     }
     
     setEditablePlan({
@@ -266,6 +271,7 @@ export function DoctorDashboard() {
         suggestedLabTests: planToModify?.suggestedLabTests || [],
     });
 
+    setEvaluationResult(null);
     setIsCompleting(false);
     setDoctorNote('');
     setNurseNote('');
@@ -305,6 +311,35 @@ export function DoctorDashboard() {
           newPlan[type].splice(index, 1);
           return newPlan;
       });
+  };
+
+  const handleEvaluateAll = async () => {
+    if (!selectedCase) return;
+
+    setIsEvaluating(true);
+    setEvaluationResult(null);
+
+    try {
+      const result = await performComprehensiveCaseReview({ investigationId: selectedCase.id });
+      setEvaluationResult(result);
+      toast({ title: "Evaluation Complete", description: "AI has provided a final analysis." });
+      
+      if (result.isCaseResolvable) {
+          const finalPlanSuggestion = {
+            finalDiagnosis: result.finalDiagnosis,
+            finalTreatmentPlan: result.suggestedTreatmentPlan,
+          };
+          setModifiedPlan(JSON.stringify(finalPlanSuggestion, null, 2));
+          setDoctorNote(result.holisticSummary);
+          setIsCompleting(true);
+      }
+
+    } catch (error) {
+      console.error("Error during comprehensive evaluation:", error);
+      toast({ variant: 'destructive', title: 'Evaluation Failed', description: 'Could not perform the final analysis.' });
+    } finally {
+      setIsEvaluating(false);
+    }
   };
 
   const handleShareImage = async () => {
@@ -391,11 +426,22 @@ export function DoctorDashboard() {
                 </>
             );
         }
+        
+        const hasMultipleSteps = selectedCase.steps.length > 1;
+
         return (
-            <>
-                <Button variant="destructive" onClick={() => { setIsCompleting(true); setDoctorNote('Investigation closed.'); }}><X className="mr-2"/>Close/Complete</Button>
-                <Button onClick={handleDispatchNurse}><Send className="mr-2"/>Dispatch Nurse</Button>
-            </>
+            <div className="flex w-full justify-between items-center">
+                 {hasMultipleSteps ? (
+                    <Button variant="outline" onClick={handleEvaluateAll} disabled={isEvaluating}>
+                        {isEvaluating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Sparkles className="mr-2 h-4 w-4" />}
+                        Evaluate All
+                    </Button>
+                ) : <div />}
+                <div className="flex gap-2">
+                    <Button variant="destructive" onClick={() => { setIsCompleting(true); setDoctorNote('Investigation closed.'); }}><X className="mr-2"/>Close/Complete</Button>
+                    <Button onClick={handleDispatchNurse}><Send className="mr-2"/>Dispatch Nurse</Button>
+                </div>
+            </div>
         )
     };
 
@@ -497,6 +543,53 @@ export function DoctorDashboard() {
                     </div>
                     <div className="space-y-4">
                         <h3 className="font-bold text-lg flex items-center gap-2"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.5 1.5L13.5 3.5L4.5 12.5L2.5 12.5L2.5 10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M9.5 3.5L11.5 5.5" stroke="currentColor" strokeWidth="1.3"/><path d="M6.5 6.5L8.5 8.5" stroke="currentColor" strokeWidth="1.3"/><path d="M2.5 10.5L4.5 8.5" stroke="currentColor" strokeWidth="1.3"/><path d="M11.5 1.5L13.5 3.5" stroke="currentColor" strokeWidth="1.3"/></svg> AI's Analysis</h3>
+                        
+                        {isEvaluating && <div className="flex justify-center p-4"><Loader2 className="animate-spin" /> <p className="ml-2">Performing holistic analysis...</p></div>}
+                        
+                        {evaluationResult && (
+                            <Card className="border-primary bg-primary/5">
+                                <CardHeader>
+                                    <CardTitle className="text-base flex items-center gap-2"><Sparkles className="text-primary"/> Comprehensive Evaluation</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-3 text-sm">
+                                    <div>
+                                        <h4 className="font-bold">Holistic Summary</h4>
+                                        <p className="text-muted-foreground">{evaluationResult.holisticSummary}</p>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold">Suggested Final Diagnosis</h4>
+                                        <ul className="list-disc list-inside space-y-1">
+                                            {evaluationResult.finalDiagnosis.map((d: any, i:number) => (
+                                                <li key={i}><strong>{d.condition}</strong> ({d.probability}%): {d.reasoning}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                     <div>
+                                        <h4 className="font-bold">Suggested Treatment Plan</h4>
+                                        <div className="text-muted-foreground space-y-2 mt-1">
+                                            {evaluationResult.suggestedTreatmentPlan.medications.length > 0 && (
+                                                <div>
+                                                    <p className="font-semibold text-foreground/80">Medications:</p>
+                                                    <ul className="list-disc list-inside pl-4">
+                                                        {evaluationResult.suggestedTreatmentPlan.medications.map((m: string, i: number) => <li key={i}>{m}</li>)}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                            {evaluationResult.suggestedTreatmentPlan.lifestyleChanges.length > 0 && (
+                                                 <div>
+                                                    <p className="font-semibold text-foreground/80">Lifestyle Changes:</p>
+                                                    <ul className="list-disc list-inside pl-4">
+                                                        {evaluationResult.suggestedTreatmentPlan.lifestyleChanges.map((c: string, i: number) => <li key={i}>{c}</li>)}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                            <p><span className="font-semibold text-foreground/80">Follow-up:</span> {evaluationResult.suggestedTreatmentPlan.followUp}</p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
                         <Alert variant={latestStep.aiAnalysis.urgency === 'Critical' ? 'destructive' : 'default'}>
                             <AlertTitle>AI Summary & Justification</AlertTitle>
                             <AlertDescription>{latestStep.aiAnalysis.analysisSummary || latestStep.aiAnalysis.refinedAnalysis} <br/><br/> <strong>Justification:</strong> {latestStep.aiAnalysis.justification}</AlertDescription>
