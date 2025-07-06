@@ -75,33 +75,44 @@ const HistoryItemContent = ({ item }: { item: HistoryItem }) => {
 
     const data = { ...item };
     const otherData = (data as any).otherData as OtherData[] | undefined;
+    
+    // Clean up properties that shouldn't be displayed as data rows
     delete (data as any).id;
     delete (data as any).type;
     delete (data as any).date;
     delete (data as any).otherData;
 
-    const entries = Object.entries(data).filter(([_, value]) => value != null && value !== '');
+    const mainEntries = Object.entries(data).filter(([_, value]) => value != null && value !== '');
     const otherEntries = otherData || [];
 
-    if (entries.length === 0 && otherEntries.length === 0) {
+    if (mainEntries.length === 0 && otherEntries.length === 0) {
         return <p className="text-muted-foreground text-sm">No specific data points were recorded for this entry.</p>;
     }
 
     return (
-        <div className="text-sm space-y-1">
-            {entries.map(([key, value]) => (
+        <div className="text-sm space-y-2">
+            {mainEntries.map(([key, value]) => (
                 <div key={key} className="flex justify-between">
                     <span className="text-muted-foreground">{displayLabels[key] || key}</span>
                     <span className="font-bold">{String(value)}</span>
                 </div>
             ))}
-            {otherEntries.length > 0 && entries.length > 0 && <Separator className="my-2" />}
-            {otherEntries.map((metric, index) => (
-                 <div key={index} className="flex justify-between">
-                    <span className="text-muted-foreground capitalize">{metric.metricName.replace(/([A-Z])/g, ' $1')}</span>
-                    <span className="font-bold">{String(metric.metricValue)}</span>
+            
+            {otherEntries.length > 0 && mainEntries.length > 0 && <Separator className="my-2" />}
+            
+            {otherEntries.length > 0 && (
+                <div>
+                    <h5 className="font-bold text-xs text-muted-foreground uppercase tracking-wider mb-2">Other Metrics</h5>
+                    <div className="space-y-2">
+                        {otherEntries.map((metric, index) => (
+                             <div key={index} className="flex justify-between">
+                                <span className="text-muted-foreground capitalize">{metric.metricName.replace(/([A-Z])/g, ' $1')}</span>
+                                <span className="font-bold">{String(metric.metricValue)}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            ))}
+            )}
         </div>
     );
 };
