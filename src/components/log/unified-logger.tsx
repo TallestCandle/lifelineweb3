@@ -23,6 +23,8 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Camera, Sparkles, Save, RotateCcw, AlertCircle, HeartPulse, Beaker, Loader2, FileClock, Edit } from 'lucide-react';
 import { Separator } from '../ui/separator';
+import { Badge } from '../ui/badge';
+import { cn } from '@/lib/utils';
 
 // --- Form Schema and Types ---
 const loggerSchema = z.object({
@@ -102,6 +104,13 @@ const HistoryItemContent = ({ item }: { item: HistoryItem }) => {
             ))}
         </div>
     );
+};
+
+// Define confidence level configuration
+const confidenceConfig = (score: number) => {
+    if (score > 90) return { text: 'High', color: 'bg-green-500 text-white' };
+    if (score > 75) return { text: 'Medium', color: 'bg-yellow-400 text-black' };
+    return { text: 'Low', color: 'bg-red-600 text-white' };
 };
 
 
@@ -318,15 +327,22 @@ export function UnifiedLogger() {
                 {editableResult && (
                     <Card className="bg-secondary">
                         <CardHeader>
-                            <CardTitle>Analysis Result</CardTitle>
-                            <CardDescription>Please review and edit the data our AI extracted before saving.</CardDescription>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <CardTitle>Analysis Result</CardTitle>
+                                    <CardDescription>Please review and edit the data our AI extracted before saving.</CardDescription>
+                                </div>
+                                <Badge className={cn("ml-4 whitespace-nowrap", confidenceConfig(editableResult.confidenceScore).color)}>
+                                    {editableResult.confidenceScore}% {confidenceConfig(editableResult.confidenceScore).text}
+                                </Badge>
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {!editableResult.isConfident && (
+                            {editableResult.confidenceScore < 80 && (
                                 <Alert variant="destructive">
                                     <AlertCircle className="h-4 w-4" />
-                                    <AlertTitle>Low Confidence</AlertTitle>
-                                    <AlertDescription>The AI is not confident about these results, possibly due to image quality. Please double-check the values.</AlertDescription>
+                                    <AlertTitle>Low Confidence Reading</AlertTitle>
+                                    <AlertDescription>The AI is not highly confident about these results, possibly due to image quality. Please carefully verify the values below.</AlertDescription>
                                 </Alert>
                             )}
                             <Alert>

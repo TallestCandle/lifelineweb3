@@ -44,7 +44,7 @@ const ExtractDataFromImageOutputSchema = z.object({
         metricValue: z.string().describe("The value of the unexpected metric."),
     })).optional().describe("A list for any other metrics found on the device that do not fit into the standard vitals or test strip fields. Only include this field if you find such data."),
     analysisSummary: z.string().describe("A brief, human-readable summary of what was found in the image, for user confirmation. e.g., 'Found a blood pressure reading of 125/85 mmHg.' or 'Detected Glucose at ++ and Ketones as Trace.'"),
-    isConfident: z.boolean().describe("Set to true if you are highly confident in the extracted values. If the image is blurry, ambiguous, or doesn't seem to contain medical data, set this to false."),
+    confidenceScore: z.number().int().min(1).max(100).describe("An estimated confidence level from 1 to 100 on the accuracy of the extracted data. 1 is not confident at all, 100 is highly confident. Base this on image clarity, lighting, and angle."),
 });
 export type ExtractDataFromImageOutput = z.infer<typeof ExtractDataFromImageOutputSchema>;
 
@@ -64,7 +64,7 @@ Image to analyze: {{media url=imageDataUri}}
 **Instructions:**
 1.  **Identify Device:** First, determine the single type of device in the image. Is it a Blood Pressure Monitor, Glucometer, Pulse Oximeter, Thermometer, Scale, or a Urine Test Strip?
 2.  **Prioritize Structured Fields:** Your primary goal is to accurately populate the \`extractedVitals\` or \`extractedTestStrip\` objects using their predefined fields. Extract ONLY the data relevant to the identified device.
-    *   **Blood Pressure Monitor:** Extract 'systolic' and 'diastolic'.
+    *   **Blood Pressure Monitor:** Extract 'systolic', 'diastolic', and 'pulseRate' if available.
     *   **Pulse Oximeter:** Extract 'oxygenSaturation' and 'pulseRate'.
     *   **Glucometer:** Extract 'bloodSugar'.
     *   **Thermometer:** Extract 'temperature'.
@@ -73,7 +73,7 @@ Image to analyze: {{media url=imageDataUri}}
 3.  **CRITICAL - Handle Unknown Metrics:** If you identify a metric on the device that does NOT have a corresponding field in the structured objects (e.g., an 'Irregular Heartbeat' indicator, 'Body Fat %'), you MUST place this information in the \`otherData\` array. Each item in the array should be an object with a 'metricName' key (e.g., 'Irregular Heartbeat') and a 'metricValue' key (e.g., 'Detected').
 4.  **Data Precision:** NEVER force a value into an incorrect field. If a value doesn't match a predefined field, use \`otherData\`. If a value is unreadable or not present, OMIT the field entirely from the output. Do not include fields with empty strings or "N/A".
 5.  **Create Summary:** Write a short 'analysisSummary' confirming what you found.
-6.  **Assess Confidence:** Set 'isConfident' to 'false' if the image is blurry, poorly lit, or you cannot reliably read the values.
+6.  **Assess Confidence:** Provide a 'confidenceScore' from 1 to 100 based on the image quality. A score of 95+ is for a perfect, clear image. A score below 80 suggests blurriness, poor lighting, or ambiguity, and the user should carefully verify the extracted data.
 7.  **Mutually Exclusive Output:** For devices measuring vitals, populate ONLY the 'extractedVitals' object (and 'otherData' if needed). For a urine test strip, populate ONLY the 'extractedTestStrip' object (and 'otherData' if needed). NEVER populate both 'extractedVitals' and 'extractedTestStrip' from the same image.`,
     config: {
         temperature: 0,
