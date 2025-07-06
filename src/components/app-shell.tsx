@@ -35,6 +35,9 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ProfileProvider } from '@/context/profile-provider';
+import { ProfileGuard } from './auth/profile-guard';
+
 
 const menuItems: { href: string; label: string; icon: LucideIcon; color: string }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, color: "text-blue-400" },
@@ -106,7 +109,9 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
             </div>
         </header>
         <main className="flex-1 p-4 md:p-6 lg:p-8 animated-gradient-bg">
-            {children}
+            <ProfileGuard>
+                {children}
+            </ProfileGuard>
         </main>
       </SidebarInset>
     </>
@@ -115,8 +120,10 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
     return (
-        <SidebarProvider>
-            <AppShellLayout>{children}</AppShellLayout>
-        </SidebarProvider>
+        <ProfileProvider>
+            <SidebarProvider>
+                <AppShellLayout>{children}</AppShellLayout>
+            </SidebarProvider>
+        </ProfileProvider>
     )
 }
