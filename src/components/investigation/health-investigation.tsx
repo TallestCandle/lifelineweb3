@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import Image from 'next/image';
@@ -70,6 +70,15 @@ interface InvestigationStep {
     };
 }
 
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'doctor';
+  content: string;
+  timestamp: string;
+  authorName: string;
+}
+
+
 const statusConfig: Record<InvestigationStatus, { text: string; color: string }> = {
   pending_review: { text: 'Awaiting Doctor Review', color: 'bg-yellow-500' },
   awaiting_nurse_visit: { text: 'Nurse Visit Pending', color: 'bg-cyan-500' },
@@ -79,6 +88,81 @@ const statusConfig: Record<InvestigationStatus, { text: string; color: string }>
   rejected: { text: 'Case Closed', color: 'bg-red-500' },
   awaiting_follow_up_visit: { text: 'Follow-up Visit Pending', color: 'bg-cyan-500' },
 };
+
+function CaseChat({ investigationId, doctorName }: { investigationId: string, doctorName: string }) {
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [isChatLoading, setIsChatLoading] = useState(true);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const messagesCol = collection(db, `investigations/${investigationId}/messages`);
+    const q = query(messagesCol, orderBy("timestamp", "asc"));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage)));
+      setIsChatLoading(false);
+    }, (error) => {
+      console.error("Chat Error: ", error);
+      setIsChatLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [investigationId]);
+
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.parentElement?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !user) return;
+
+    const messagesCol = collection(db, `investigations/${investigationId}/messages`);
+    await addDoc(messagesCol, {
+      role: 'user',
+      content: newMessage,
+      timestamp: new Date().toISOString(),
+      authorId: user.uid,
+      authorName: user.displayName || 'Patient',
+    });
+    setNewMessage("");
+  };
+
+  return (
+    <div className="mt-4">
+      <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
+        <MessageSquare size={16} /> Chat with Dr. {doctorName}
+      </h4>
+      <div className="border rounded-lg p-2 bg-background/50">
+        <ScrollArea className="h-48 pr-4" ref={scrollAreaRef}>
+          <div className="space-y-4">
+            {isChatLoading && <Loader2 className="animate-spin mx-auto"/>}
+            {!isChatLoading && messages.length === 0 && (
+              <p className="text-center text-sm text-muted-foreground pt-4">No messages yet. Say hello!</p>
+            )}
+            {messages.map((message) => (
+              <div key={message.id} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {message.role === 'doctor' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center"><Bot size={20}/></div>}
+                <div className={`max-w-[80%] rounded-lg p-3 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                </div>
+                {message.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center"><User size={20}/></div>}
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-2 border-t mt-2">
+          <Input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..." />
+          <Button type="submit" size="icon"><Send /></Button>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 
 export function Admission() {
@@ -560,6 +644,12 @@ export function Admission() {
                                             <AlertTitle>Under Review</AlertTitle>
                                             <AlertDescription>Your case is currently being reviewed by a doctor. You will be notified of the next steps.</AlertDescription>
                                         </Alert>
+                                    )}
+
+                                    {c.reviewedByUid && (c.status !== 'rejected' && c.status !== 'completed') && (
+                                        <div className="pt-4 mt-4 border-t">
+                                            <CaseChat investigationId={c.id} doctorName={c.reviewedByName || 'the Doctor'} />
+                                        </div>
                                     )}
                                 </div>
                             </AccordionContent>
