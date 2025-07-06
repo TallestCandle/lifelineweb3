@@ -39,6 +39,7 @@ const ExtractedTestStripSchema = z.object({
 const ExtractDataFromImageOutputSchema = z.object({
     extractedVitals: ExtractedVitalsSchema.optional().describe("Structured data extracted for vital signs. Only populate if vitals are found."),
     extractedTestStrip: ExtractedTestStripSchema.optional().describe("Structured data extracted from a urine test strip. Only populate if test strip results are found."),
+    otherData: z.record(z.string()).optional().describe("A dictionary for any other metrics found on the device that do not fit into the standard vitals or test strip fields. Use the metric's name as the key and its value as the value. For example, {'Irregular Heartbeat': 'Detected'}. Only include this field if you find such data."),
     analysisSummary: z.string().describe("A brief, human-readable summary of what was found in the image, for user confirmation. e.g., 'Found a blood pressure reading of 125/85 mmHg.' or 'Detected Glucose at ++ and Ketones as Trace.'"),
     isConfident: z.boolean().describe("Set to true if you are highly confident in the extracted values. If the image is blurry, ambiguous, or doesn't seem to contain medical data, set this to false."),
 });
@@ -59,21 +60,20 @@ Image to analyze: {{media url=imageDataUri}}
 
 **Instructions:**
 1.  **Identify Device:** First, determine the single type of device in the image. Is it a Blood Pressure Monitor, Glucometer, Pulse Oximeter, Thermometer, Scale, or a Urine Test Strip?
-2.  **Extract Only Relevant Data:** Based on the identified device, extract ONLY the data relevant to it.
-    *   If it's a **Blood Pressure Monitor**, extract ONLY the 'systolic' and 'diastolic' values.
-    *   If it's a **Pulse Oximeter**, extract ONLY the 'oxygenSaturation' and 'pulseRate' values. A Pulse Oximeter shows SpO2 (oxygen saturation) and PR (pulse rate).
-    *   If it's a **Glucometer**, extract ONLY the 'bloodSugar' value.
-    *   If it's a **Thermometer**, extract ONLY the 'temperature' value.
-    *   If it's a **Scale**, extract ONLY the 'weight' value.
-    *   If it's a **Urine Test Strip**, populate ONLY the relevant fields in the 'extractedTestStrip' object.
-3.  **Data Precision:** Your primary goal is absolute accuracy. Do not guess values.
-    *   **CRITICAL:** If a specific value is not clearly visible or a test strip color is ambiguous, you **MUST OMIT THE FIELD** from the output.
-    *   **DO NOT** include fields with empty strings, null values, or placeholder text like "N/A". The output JSON should only contain keys for the data you actually found.
-4.  **Create Summary:** Write a very short 'analysisSummary' confirming only what you found, e.g., "Extracted blood pressure: 120/80 mmHg." or "Detected trace ketones."
-5.  **Assess Confidence:** If the image is blurry, poorly lit, cut off, or you cannot reliably read the values, set 'isConfident' to 'false'. Otherwise, set it to 'true'.
-6.  **Mutually Exclusive Output:** For devices that measure vitals, populate ONLY the 'extractedVitals' object. For a urine test strip, populate ONLY the 'extractedTestStrip' object. NEVER populate both objects. If the image is not a recognized medical device or test strip, return empty objects for both.`,
+2.  **Prioritize Structured Fields:** Your primary goal is to accurately populate the \`extractedVitals\` or \`extractedTestStrip\` objects using their predefined fields. Extract ONLY the data relevant to the identified device.
+    *   **Blood Pressure Monitor:** Extract 'systolic' and 'diastolic'.
+    *   **Pulse Oximeter:** Extract 'oxygenSaturation' and 'pulseRate'.
+    *   **Glucometer:** Extract 'bloodSugar'.
+    *   **Thermometer:** Extract 'temperature'.
+    *   **Scale:** Extract 'weight'.
+    *   **Urine Test Strip:** Populate the fields in 'extractedTestStrip'.
+3.  **CRITICAL - Handle Unknown Metrics:** If you identify a metric on the device that does NOT have a corresponding field in the structured objects (e.g., an 'Irregular Heartbeat' indicator, 'Body Fat %'), you MUST place this information in the \`otherData\` object. Use the metric's name as the key (e.g., "Irregular Heartbeat") and its reading as the value (e.g., "Detected").
+4.  **Data Precision:** NEVER force a value into an incorrect field. If a value doesn't match a predefined field, use \`otherData\`. If a value is unreadable, OMIT it entirely. Do not include fields with empty strings or "N/A".
+5.  **Create Summary:** Write a short 'analysisSummary' confirming what you found.
+6.  **Assess Confidence:** Set 'isConfident' to 'false' if the image is blurry, poorly lit, or you cannot reliably read the values.
+7.  **Mutually Exclusive Output:** For devices measuring vitals, populate ONLY the 'extractedVitals' object (and 'otherData' if needed). For a urine test strip, populate ONLY the 'extractedTestStrip' object (and 'otherData' if needed). NEVER populate both 'extractedVitals' and 'extractedTestStrip' from the same image.`,
     config: {
-        temperature: 0, // Force more deterministic, consistent output.
+        temperature: 0,
     },
 });
 

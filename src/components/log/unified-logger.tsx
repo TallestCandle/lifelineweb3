@@ -21,6 +21,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Camera, Sparkles, Save, RotateCcw, AlertCircle, HeartPulse, Beaker, Loader2, FileClock } from 'lucide-react';
+import { Separator } from '../ui/separator';
 
 // --- Form Schema and Types ---
 const loggerSchema = z.object({
@@ -39,6 +40,7 @@ interface Vital {
     oxygenSaturation?: string;
     temperature?: string;
     weight?: string;
+    otherData?: Record<string, string>;
 }
 
 interface Strip {
@@ -51,39 +53,32 @@ interface Strip {
     blood?: string;
     nitrite?: string;
     ph?: string;
+    otherData?: Record<string, string>;
 }
 
 type HistoryItem = Vital | Strip;
 
 // --- Helper Component for Rendering History Items ---
 const HistoryItemContent = ({ item }: { item: HistoryItem }) => {
-    // Define a mapping for display labels
     const displayLabels: Record<string, string> = {
-        systolic: 'Systolic',
-        diastolic: 'Diastolic',
-        pulseRate: 'Pulse Rate',
-        bloodSugar: 'Blood Sugar',
-        oxygenSaturation: 'Oxygen Saturation',
-        temperature: 'Temperature',
-        weight: 'Weight',
-        protein: 'Protein',
-        glucose: 'Glucose',
-        ketones: 'Ketones',
-        blood: 'Blood',
-        nitrite: 'Nitrite',
-        ph: 'pH',
+        systolic: 'Systolic', diastolic: 'Diastolic', pulseRate: 'Pulse Rate',
+        bloodSugar: 'Blood Sugar', oxygenSaturation: 'Oxygen Saturation',
+        temperature: 'Temperature', weight: 'Weight', protein: 'Protein',
+        glucose: 'Glucose', ketones: 'Ketones', blood: 'Blood',
+        nitrite: 'Nitrite', ph: 'pH',
     };
 
-    // Make a copy and remove properties we don't want to display dynamically
     const data = { ...item };
+    const otherData = (data as any).otherData;
     delete (data as any).id;
     delete (data as any).type;
     delete (data as any).date;
+    delete (data as any).otherData;
 
-    // Get a list of key-value pairs that have a valid value
     const entries = Object.entries(data).filter(([_, value]) => value != null && value !== '');
+    const otherEntries = otherData ? Object.entries(otherData).filter(([_, value]) => value != null && value !== '') : [];
 
-    if (entries.length === 0) {
+    if (entries.length === 0 && otherEntries.length === 0) {
         return <p className="text-muted-foreground text-sm">No specific data points were recorded for this entry.</p>;
     }
 
@@ -92,6 +87,13 @@ const HistoryItemContent = ({ item }: { item: HistoryItem }) => {
             {entries.map(([key, value]) => (
                 <div key={key} className="flex justify-between">
                     <span className="text-muted-foreground">{displayLabels[key] || key}</span>
+                    <span className="font-bold">{String(value)}</span>
+                </div>
+            ))}
+            {otherEntries.length > 0 && entries.length > 0 && <Separator className="my-2" />}
+            {otherEntries.map(([key, value]) => (
+                 <div key={key} className="flex justify-between">
+                    <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
                     <span className="font-bold">{String(value)}</span>
                 </div>
             ))}
@@ -127,20 +129,16 @@ export function UnifiedLogger() {
             setIsHistoryLoading(true);
             try {
                 const basePath = `users/${user.uid}`;
-                
-                // Fetch vitals
                 const vitalsCol = collection(db, `${basePath}/vitals`);
                 const vitalsQuery = query(vitalsCol, orderBy('date', 'desc'));
                 const vitalsSnap = await getDocs(vitalsQuery);
                 const vitalsData = vitalsSnap.docs.map(doc => ({ type: 'vitals' as const, id: doc.id, ...doc.data() } as Vital));
 
-                // Fetch test strips
                 const stripsCol = collection(db, `${basePath}/test_strips`);
                 const stripsQuery = query(stripsCol, orderBy('date', 'desc'));
                 const stripsSnap = await getDocs(stripsQuery);
                 const stripsData = stripsSnap.docs.map(doc => ({ type: 'strips' as const, id: doc.id, ...doc.data() } as Strip));
 
-                // Combine and sort history
                 const combinedHistory = [...vitalsData, ...stripsData].sort((a, b) => 
                     parseISO(b.date).getTime() - parseISO(a.date).getTime()
                 );
@@ -198,23 +196,33 @@ export function UnifiedLogger() {
         
         try {
             const dateToSave = { date: new Date().toISOString() };
+            const otherDataToSave = aiResult.otherData && Object.keys(aiResult.otherData).length > 0 ? { otherData: aiResult.otherData } : {};
+
             let logType: 'vitals' | 'strips' | null = null;
             let collectionRef;
             let dataPayload: any;
 
-            if (aiResult.extractedVitals && Object.keys(aiResult.extractedVitals).some(key => (aiResult.extractedVitals as any)[key])) {
+            const hasVitals = aiResult.extractedVitals && Object.values(aiResult.extractedVitals).some(v => v);
+            const hasStrips = aiResult.extractedTestStrip && Object.values(aiResult.extractedTestStrip).some(v => v);
+
+            if (hasVitals) {
                 logType = 'vitals';
                 dataPayload = aiResult.extractedVitals;
                 collectionRef = collection(db, `users/${user.uid}/vitals`);
-            } else if (aiResult.extractedTestStrip && Object.keys(aiResult.extractedTestStrip).some(key => (aiResult.extractedTestStrip as any)[key])) {
+            } else if (hasStrips) {
                 logType = 'strips';
                 dataPayload = aiResult.extractedTestStrip;
                 collectionRef = collection(db, `users/${user.uid}/test_strips`);
+            } else if (Object.keys(otherDataToSave).length > 0) {
+                 logType = 'vitals';
+                 dataPayload = {};
+                 collectionRef = collection(db, `users/${user.uid}/vitals`);
             }
 
-            if (logType && collectionRef && dataPayload) {
-                 const docRef = await addDoc(collectionRef, { ...dataPayload, ...dateToSave });
-                 const newItem: HistoryItem = { type: logType, id: docRef.id, ...dataPayload, ...dateToSave };
+            if (logType && collectionRef) {
+                 const finalPayload = { ...dataPayload, ...otherDataToSave, ...dateToSave };
+                 const docRef = await addDoc(collectionRef, finalPayload);
+                 const newItem: HistoryItem = { type: logType, id: docRef.id, ...finalPayload };
                  setHistory(prev => [newItem, ...prev].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()));
                  saved = true;
             }
@@ -244,14 +252,13 @@ export function UnifiedLogger() {
 
     const renderExtractedData = () => {
         if (!aiResult) return null;
-        const vitals = aiResult.extractedVitals;
-        const strips = aiResult.extractedTestStrip;
+        const { extractedVitals, extractedTestStrip, otherData } = aiResult;
         
-        // Filter out empty/null/undefined values from the objects
-        const validVitals = vitals ? Object.entries(vitals).filter(([_, value]) => value && String(value).trim()) : [];
-        const validStrips = strips ? Object.entries(strips).filter(([_, value]) => value && String(value).trim()) : [];
+        const validVitals = extractedVitals ? Object.entries(extractedVitals).filter(([_, value]) => value && String(value).trim()) : [];
+        const validStrips = extractedTestStrip ? Object.entries(extractedTestStrip).filter(([_, value]) => value && String(value).trim()) : [];
+        const validOther = otherData ? Object.entries(otherData).filter(([_, value]) => value && String(value).trim()) : [];
 
-        if (validVitals.length === 0 && validStrips.length === 0) {
+        if (validVitals.length === 0 && validStrips.length === 0 && validOther.length === 0) {
             return <p className="text-muted-foreground text-sm">The AI could not find any specific data to extract.</p>;
         }
 
@@ -266,6 +273,13 @@ export function UnifiedLogger() {
                 {validStrips.map(([key, value]) => (
                     <div key={key} className="flex justify-between">
                         <span className="text-muted-foreground capitalize">{key}</span>
+                        <span className="font-bold">{String(value)}</span>
+                    </div>
+                ))}
+                {validOther.length > 0 && (validVitals.length > 0 || validStrips.length > 0) && <Separator className="my-2"/>}
+                {validOther.map(([key, value]) => (
+                    <div key={key} className="flex justify-between">
+                        <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
                         <span className="font-bold">{String(value)}</span>
                     </div>
                 ))}
