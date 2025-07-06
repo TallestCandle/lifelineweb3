@@ -14,12 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { User, Edit } from "lucide-react";
 import { useAuth } from '@/context/auth-provider';
+import { Textarea } from '../ui/textarea';
 
-// Omitting 'theme' from the form schema
 const profileSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   age: z.string().refine((val) => !isNaN(parseInt(val, 10)) && parseInt(val, 10) > 0, { message: "Please enter a valid age." }),
   gender: z.enum(['Male', 'Female', 'Other'], { required_error: "Please select a gender." }),
+  address: z.string().min(10, { message: "Please enter a valid address for home visits." }),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -31,7 +32,7 @@ export function ProfileManager() {
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: { name: "", age: "", gender: undefined },
+    defaultValues: { name: "", age: "", gender: undefined, address: "" },
   });
 
   useEffect(() => {
@@ -40,10 +41,10 @@ export function ProfileManager() {
         name: profile.name,
         age: profile.age,
         gender: profile.gender,
+        address: profile.address,
       });
     } else if (user?.displayName) {
-      // Pre-fill from auth profile if no db profile exists
-      form.reset({ name: user.displayName, age: "", gender: undefined });
+      form.reset({ name: user.displayName, age: "", gender: undefined, address: "" });
     }
   }, [profile, user, form]);
 
@@ -56,7 +57,6 @@ export function ProfileManager() {
         await createProfile(values);
         toast({ title: "Profile Created", description: "Welcome! Your profile is now set up. Redirecting..." });
       }
-      // The ProfileGuard will handle the redirect automatically after the profile state updates.
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     }
@@ -93,6 +93,15 @@ export function ProfileManager() {
                     </SelectContent>
                   </Select>
                   <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="address" render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Home Address</FormLabel>
+                    <FormControl>
+                        <Textarea placeholder="123 Main Street, Lagos, Nigeria" {...field} />
+                    </FormControl>
+                    <FormMessage />
                 </FormItem>
               )} />
               <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>

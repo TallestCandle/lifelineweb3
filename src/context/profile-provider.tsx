@@ -11,6 +11,7 @@ export interface Profile {
   name: string;
   age: string;
   gender: 'Male' | 'Female' | 'Other';
+  address: string;
   theme: ThemeId;
 }
 
@@ -41,7 +42,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
     
     setLoading(true);
-    // SIMPLIFIED PATH: Use a top-level 'profiles' collection with the user's UID as the document ID.
     const profileDocRef = doc(db, 'profiles', user.uid);
     getDoc(profileDocRef).then(docSnap => {
       if (docSnap.exists()) {
@@ -63,7 +63,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       ...data,
       theme: 'theme-cool-flash', // Default theme
     };
-    // SIMPLIFIED PATH
     const profileDocRef = doc(db, 'profiles', user.uid);
     await setDoc(profileDocRef, newProfile);
     setProfile(newProfile);
@@ -71,7 +70,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = useCallback(async (data: Partial<Omit<Profile, 'theme'>>) => {
     if (!user || !profile) throw new Error("User or profile not available");
-    // SIMPLIFIED PATH
     const profileDocRef = doc(db, 'profiles', user.uid);
     await updateDoc(profileDocRef, data);
     setProfile(prev => ({ ...prev!, ...data }));
@@ -79,7 +77,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfileTheme = useCallback(async (theme: ThemeId) => {
     if (!user || !profile) throw new Error("User or profile not available");
-    // SIMPLIFIED PATH
     const profileDocRef = doc(db, 'profiles', user.uid);
     await updateDoc(profileDocRef, { theme });
     setProfile(prev => ({ ...prev!, theme }));

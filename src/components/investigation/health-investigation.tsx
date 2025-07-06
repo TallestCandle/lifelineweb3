@@ -35,7 +35,7 @@ interface Message {
   content: string;
 }
 
-type InvestigationStatus = 'pending_review' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected';
+type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected';
 
 interface Investigation {
   id: string;
@@ -62,6 +62,7 @@ interface InvestigationStep {
 
 const statusConfig: Record<InvestigationStatus, { text: string; color: string }> = {
   pending_review: { text: 'Awaiting Doctor Review', color: 'bg-yellow-500' },
+  awaiting_nurse_visit: { text: 'Nurse Visit Pending', color: 'bg-cyan-500' },
   awaiting_lab_results: { text: 'Awaiting Lab Results', color: 'bg-blue-500' },
   pending_final_review: { text: 'Doctor Reviewing Results', color: 'bg-yellow-500' },
   completed: { text: 'Investigation Complete', color: 'bg-green-500' },
@@ -362,7 +363,7 @@ export function HealthInvestigation() {
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent className="space-y-4 pt-2">
-                                 {c.status === 'awaiting_lab_results' && c.doctorPlan && (
+                                 {(c.status === 'awaiting_lab_results' || c.status === 'awaiting_nurse_visit') && c.doctorPlan && (
                                     <Card className="bg-secondary/50">
                                         <CardHeader>
                                             <CardTitle className="text-lg">Next Steps from Your Doctor</CardTitle>
@@ -384,26 +385,34 @@ export function HealthInvestigation() {
                                             {c.doctorPlan?.suggestedLabTests?.length > 0 && (
                                                 <div>
                                                     <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
-                                                    <p className="text-sm text-muted-foreground mb-4">Please get these tests done and upload the results below.</p>
-                                                    <div className="space-y-4">
-                                                        {c.doctorPlan.suggestedLabTests.map((test, i) => (
-                                                            <div key={i} className="p-3 border rounded-md">
-                                                                <label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label>
-                                                                <div className="flex items-center gap-4 mt-2">
-                                                                    <Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />
-                                                                    {labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}
+                                                    {c.status === 'awaiting_nurse_visit' ? (
+                                                        <p className="text-sm text-muted-foreground mb-4">A nurse has been dispatched to your location to collect samples for these tests.</p>
+                                                    ) : (
+                                                    <div>
+                                                        <p className="text-sm text-muted-foreground mb-4">Please get these tests done and upload the results below.</p>
+                                                        <div className="space-y-4">
+                                                            {c.doctorPlan.suggestedLabTests.map((test, i) => (
+                                                                <div key={i} className="p-3 border rounded-md">
+                                                                    <label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label>
+                                                                    <div className="flex items-center gap-4 mt-2">
+                                                                        <Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />
+                                                                        {labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        ))}
+                                                            ))}
+                                                        </div>
                                                     </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </CardContent>
+                                        {c.status === 'awaiting_lab_results' && (
                                         <CardFooter>
                                             <Button onClick={() => handleSubmitLabResults(c)} disabled={isSubmittingLabs}>
                                                 {isSubmittingLabs ? <Loader2 className="animate-spin"/> : <><Upload className="mr-2"/> Submit Lab Results</>}
                                             </Button>
                                         </CardFooter>
+                                        )}
                                     </Card>
                                 )}
                                 {c.status === 'completed' && (

@@ -5,15 +5,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from "@/context/auth-provider";
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, orderBy, onSnapshot } from 'firebase/firestore';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../ui/card";
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { Loader2, LineChart, TableIcon, BrainCircuit } from 'lucide-react';
+import { Loader2, LineChart, TableIcon, BrainCircuit, Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill, Salad, ClipboardCheck, MessageSquare, Send } from 'lucide-react';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
-import { Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill, Salad, ClipboardCheck, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
@@ -23,9 +22,10 @@ import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Line, LineChart as RechartsLineChart, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
-type InvestigationStatus = 'pending_review' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected';
+type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected';
 
 interface Investigation {
   id: string;
@@ -209,12 +209,11 @@ export function DoctorDashboard() {
   const [isCompleting, setIsCompleting] = useState(false);
   const [doctorNote, setDoctorNote] = useState('');
   
-  // Fetch investigation queue
+  // Fetch investigations
   useEffect(() => {
     setIsLoading(true);
     const q = query(
         collection(db, "investigations"), 
-        where("status", "in", ["pending_review", "pending_final_review"]), 
         orderBy("createdAt", "desc")
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -230,30 +229,25 @@ export function DoctorDashboard() {
     return () => unsubscribe();
   }, [toast]);
 
-  // Fetch 'My Patients'
-   useEffect(() => {
+  // Derive patient list from investigations
+  useEffect(() => {
     if (!user) return;
-    const q = query(
-        collection(db, "investigations"),
-        where("reviewedByUid", "==", user.uid),
-        orderBy("createdAt", "desc")
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const patientMap = new Map<string, Patient>();
-        snapshot.docs.forEach(doc => {
-            const investigation = doc.data() as Investigation;
-            if (!patientMap.has(investigation.userId)) {
-                patientMap.set(investigation.userId, {
-                    id: investigation.userId,
-                    name: investigation.userName,
-                    lastInteraction: investigation.createdAt
-                });
-            }
-        });
-        setMyPatients(Array.from(patientMap.values()));
+    const myReviewedCases = investigations.filter(inv => inv.reviewedByUid === user.uid);
+    const patientMap = new Map<string, Patient>();
+    myReviewedCases.forEach(investigation => {
+        if (!patientMap.has(investigation.userId)) {
+            patientMap.set(investigation.userId, {
+                id: investigation.userId,
+                name: investigation.userName,
+                lastInteraction: investigation.createdAt
+            });
+        }
     });
-    return () => unsubscribe();
-  }, [user]);
+    setMyPatients(Array.from(patientMap.values()));
+  }, [investigations, user]);
+  
+  const investigationQueue = useMemo(() => investigations.filter(inv => inv.status === 'pending_review' || inv.status === 'pending_final_review'), [investigations]);
+  const dispatchedCases = useMemo(() => investigations.filter(inv => inv.status === 'awaiting_nurse_visit'), [investigations]);
 
 
   const handleUpdateInvestigation = async (investigationId: string, status: InvestigationStatus, payload: object) => {
@@ -276,7 +270,7 @@ export function DoctorDashboard() {
       }
   };
 
-   const handleApprovePlan = () => {
+   const handleDispatchNurse = () => {
         if (!selectedCase) return;
         const aiPlan = selectedCase.steps[selectedCase.steps.length - 1].aiAnalysis.suggestedNextSteps;
         let planToSubmit;
@@ -296,7 +290,7 @@ export function DoctorDashboard() {
             planToSubmit = aiPlan;
         }
 
-        handleUpdateInvestigation(selectedCase.id, 'awaiting_lab_results', { doctorPlan: planToSubmit });
+        handleUpdateInvestigation(selectedCase.id, 'awaiting_nurse_visit', { doctorPlan: planToSubmit });
     };
 
   const handleCompleteCase = () => {
@@ -350,7 +344,7 @@ export function DoctorDashboard() {
     setDoctorNote('');
   };
 
-  const renderCaseCard = (c: Investigation) => {
+  const renderCaseCard = (c: Investigation, isDispatchView?: boolean) => {
     const latestStep = c.steps[c.steps.length-1];
     const urgency = latestStep.aiAnalysis.urgency || 'Medium';
     return (
@@ -364,7 +358,7 @@ export function DoctorDashboard() {
                 Urgency: {urgency}
             </Badge>
             </div>
-            <Button onClick={() => openReviewDialog(c)}>Review Case <ArrowRight className="ml-2"/></Button>
+            {!isDispatchView && <Button onClick={() => openReviewDialog(c)}>Review Case <ArrowRight className="ml-2"/></Button>}
         </div>
     );
   };
@@ -435,7 +429,7 @@ export function DoctorDashboard() {
         return (
             <>
                 <Button variant="destructive" onClick={() => { setIsCompleting(true); setDoctorNote('Investigation closed.'); }}><X className="mr-2"/>Close/Complete</Button>
-                <Button onClick={handleApprovePlan}><Check className="mr-2"/>Approve & Request Tests</Button>
+                <Button onClick={handleDispatchNurse}><Send className="mr-2"/>Dispatch Nurse</Button>
             </>
         )
     };
@@ -552,22 +546,44 @@ export function DoctorDashboard() {
         <div className="lg:col-span-3">
           <Card>
             <CardHeader>
-              <CardTitle>Investigation Queue ({investigations.length})</CardTitle>
-              <CardDescription>AI-assisted investigations awaiting your professional review and action.</CardDescription>
+              <CardTitle>Case Management</CardTitle>
+              <CardDescription>Review new cases and track dispatched nurses.</CardDescription>
             </CardHeader>
             <CardContent>
-                {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
-                    <div className="space-y-4">
-                    {investigations.length > 0 ? 
-                        investigations.map(renderCaseCard) : 
-                        <div className="text-center text-muted-foreground py-12">
-                            <MessageSquare className="mx-auto w-12 h-12 text-gray-400" />
-                            <h3 className="mt-2 text-lg font-semibold">All Clear!</h3>
-                            <p>There are no investigations waiting for your review.</p>
-                        </div>
-                    }
-                    </div>
-                )}
+                <Tabs defaultValue="queue">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="queue">Review Queue ({investigationQueue.length})</TabsTrigger>
+                        <TabsTrigger value="dispatched">Dispatched ({dispatchedCases.length})</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="queue">
+                        {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
+                            <div className="space-y-4 pt-4">
+                            {investigationQueue.length > 0 ? 
+                                investigationQueue.map(c => renderCaseCard(c)) : 
+                                <div className="text-center text-muted-foreground py-12">
+                                    <MessageSquare className="mx-auto w-12 h-12 text-gray-400" />
+                                    <h3 className="mt-2 text-lg font-semibold">All Clear!</h3>
+                                    <p>There are no investigations waiting for your review.</p>
+                                </div>
+                            }
+                            </div>
+                        )}
+                    </TabsContent>
+                     <TabsContent value="dispatched">
+                        {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
+                            <div className="space-y-4 pt-4">
+                            {dispatchedCases.length > 0 ? 
+                                dispatchedCases.map(c => renderCaseCard(c, true)) : 
+                                <div className="text-center text-muted-foreground py-12">
+                                    <Send className="mx-auto w-12 h-12 text-gray-400" />
+                                    <h3 className="mt-2 text-lg font-semibold">No Active Dispatches</h3>
+                                    <p>Dispatch a nurse from the review queue to see cases here.</p>
+                                </div>
+                            }
+                            </div>
+                        )}
+                    </TabsContent>
+                </Tabs>
             </CardContent>
           </Card>
         </div>
