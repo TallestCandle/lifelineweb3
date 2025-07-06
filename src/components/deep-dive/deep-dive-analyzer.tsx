@@ -14,7 +14,7 @@ import { useAuth } from '@/context/auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { addDays, format, startOfDay, subDays } from 'date-fns';
 
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Lightbulb, BrainCircuit, Calendar as CalendarIcon, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Label } from "@/components/ui/label";
 
 
 const UrgencyConfig: Record<string, { color: string; text: string }> = {
@@ -121,11 +122,12 @@ export function DeepDiveAnalyzer() {
                     <CardTitle className="flex items-center gap-2"><Zap /> Deep Dive Health Analysis</CardTitle>
                     <CardDescription>Select a time frame and let our AI perform a comprehensive review of your entire health history to find hidden trends and insights.</CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-col sm:flex-row gap-4 items-center">
+                <CardContent className="flex flex-col sm:flex-row gap-4 items-center sm:items-end">
                      {datePickerMode === 'preset' ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-2 w-full sm:w-auto">
+                            <Label htmlFor="preset-selector">Select Preset</Label>
                             <Select onValueChange={handlePresetChange} value={preset}>
-                                <SelectTrigger className="w-full sm:w-[180px]">
+                                <SelectTrigger id="preset-selector" className="w-full sm:w-[180px]">
                                     <SelectValue placeholder="Select a preset" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -135,16 +137,17 @@ export function DeepDiveAnalyzer() {
                                     <SelectItem value="all">All Time</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Button variant="link" onClick={() => setDatePickerMode('custom')}>
+                            <Button variant="link" onClick={() => setDatePickerMode('custom')} className="p-0 h-auto self-start text-sm">
                                 Use Custom Range
                             </Button>
                         </div>
                     ) : (
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-2 w-full sm:w-auto">
+                            <Label htmlFor="date-picker">Custom Range</Label>
                             <Popover>
                                 <PopoverTrigger asChild>
                                 <Button
-                                    id="date"
+                                    id="date-picker"
                                     variant={"outline"}
                                     className={cn(
                                     "w-full sm:w-[300px] justify-start text-left font-normal",
@@ -186,13 +189,14 @@ export function DeepDiveAnalyzer() {
                                     setDatePickerMode('preset');
                                     handlePresetChange('7d');
                                 }}
+                                className="p-0 h-auto self-start text-sm"
                             >
                                 Use Presets
                             </Button>
                         </div>
                     )}
 
-                    <div className="flex-grow" />
+                    <div className="flex-grow hidden sm:block" />
 
                     <Button onClick={handleRunAnalysis} disabled={isLoading} className="w-full sm:w-auto">
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
