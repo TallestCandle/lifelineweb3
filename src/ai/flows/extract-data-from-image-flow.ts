@@ -20,6 +20,7 @@ export type ExtractDataFromImageInput = z.infer<typeof ExtractDataFromImageInput
 const ExtractedVitalsSchema = z.object({
     systolic: z.string().optional().describe("Systolic blood pressure in mmHg."),
     diastolic: z.string().optional().describe("Diastolic blood pressure in mmHg."),
+    pulseRate: z.string().optional().describe("Pulse rate in beats per minute (BPM)."),
     bloodSugar: z.string().optional().describe("Blood sugar level in mg/dL."),
     oxygenSaturation: z.string().optional().describe("Oxygen saturation percentage."),
     temperature: z.string().optional().describe("Body temperature in Fahrenheit."),
@@ -60,8 +61,8 @@ Image to analyze: {{media url=imageDataUri}}
 1.  **Identify Device:** First, determine the single type of device in the image. Is it a Blood Pressure Monitor, Glucometer, Pulse Oximeter, Thermometer, Scale, or a Urine Test Strip?
 2.  **Extract Only Relevant Data:** Based on the identified device, extract ONLY the data relevant to it.
     *   If it's a **Blood Pressure Monitor**, extract ONLY the 'systolic' and 'diastolic' values.
+    *   If it's a **Pulse Oximeter**, extract ONLY the 'oxygenSaturation' and 'pulseRate' values. A Pulse Oximeter shows SpO2 (oxygen saturation) and PR (pulse rate).
     *   If it's a **Glucometer**, extract ONLY the 'bloodSugar' value.
-    *   If it's a **Pulse Oximeter**, extract ONLY the 'oxygenSaturation' value.
     *   If it's a **Thermometer**, extract ONLY the 'temperature' value.
     *   If it's a **Scale**, extract ONLY the 'weight' value.
     *   If it's a **Urine Test Strip**, populate ONLY the relevant fields in the 'extractedTestStrip' object.

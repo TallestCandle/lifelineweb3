@@ -34,6 +34,7 @@ interface Vital {
     date: string; // ISO String
     systolic?: string;
     diastolic?: string;
+    pulseRate?: string;
     bloodSugar?: string;
     oxygenSaturation?: string;
     temperature?: string;
@@ -60,6 +61,7 @@ const HistoryItemContent = ({ item }: { item: HistoryItem }) => {
     const displayLabels: Record<string, string> = {
         systolic: 'Systolic',
         diastolic: 'Diastolic',
+        pulseRate: 'Pulse Rate',
         bloodSugar: 'Blood Sugar',
         oxygenSaturation: 'Oxygen Saturation',
         temperature: 'Temperature',
