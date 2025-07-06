@@ -39,6 +39,7 @@ export function DeepDiveAnalyzer() {
     const [preset, setPreset] = useState('7d');
     const [isLoading, setIsLoading] = useState(false);
     const [analysisResult, setAnalysisResult] = useState<ComprehensiveAnalysisOutput | null>(null);
+    const [datePickerMode, setDatePickerMode] = useState<'preset' | 'custom'>('preset');
 
     const handlePresetChange = (value: string) => {
         setPreset(value);
@@ -121,56 +122,79 @@ export function DeepDiveAnalyzer() {
                     <CardDescription>Select a time frame and let our AI perform a comprehensive review of your entire health history to find hidden trends and insights.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col sm:flex-row gap-4 items-center">
-                    <Select onValueChange={handlePresetChange} value={preset}>
-                        <SelectTrigger className="w-full sm:w-[180px]">
-                            <SelectValue placeholder="Select a preset" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="24h">Last 24 Hours</SelectItem>
-                            <SelectItem value="7d">Last 7 Days</SelectItem>
-                            <SelectItem value="30d">Last 30 Days</SelectItem>
-                            <SelectItem value="all">All Time</SelectItem>
-                        </SelectContent>
-                    </Select>
+                     {datePickerMode === 'preset' ? (
+                        <div className="flex items-center gap-2">
+                            <Select onValueChange={handlePresetChange} value={preset}>
+                                <SelectTrigger className="w-full sm:w-[180px]">
+                                    <SelectValue placeholder="Select a preset" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="24h">Last 24 Hours</SelectItem>
+                                    <SelectItem value="7d">Last 7 Days</SelectItem>
+                                    <SelectItem value="30d">Last 30 Days</SelectItem>
+                                    <SelectItem value="all">All Time</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Button variant="link" onClick={() => setDatePickerMode('custom')}>
+                                Use Custom Range
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <Button
+                                    id="date"
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-full sm:w-[300px] justify-start text-left font-normal",
+                                    !date && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {date?.from ? (
+                                    date.to ? (
+                                        <>
+                                        {format(date.from, "LLL dd, y")} -{" "}
+                                        {format(date.to, "LLL dd, y")}
+                                        </>
+                                    ) : (
+                                        format(date.from, "LLL dd, y")
+                                    )
+                                    ) : (
+                                    <span>Pick a date range</span>
+                                    )}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    initialFocus
+                                    mode="range"
+                                    defaultMonth={date?.from}
+                                    selected={date}
+                                    onSelect={(range) => {
+                                        setDate(range);
+                                        if (range) setPreset('');
+                                    }}
+                                    numberOfMonths={2}
+                                />
+                                </PopoverContent>
+                            </Popover>
+                            <Button 
+                                variant="link" 
+                                onClick={() => {
+                                    setDatePickerMode('preset');
+                                    handlePresetChange('7d');
+                                }}
+                            >
+                                Use Presets
+                            </Button>
+                        </div>
+                    )}
 
-                    <Popover>
-                        <PopoverTrigger asChild>
-                        <Button
-                            id="date"
-                            variant={"outline"}
-                            className={cn(
-                            "w-full sm:w-[300px] justify-start text-left font-normal",
-                            !date && "text-muted-foreground"
-                            )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {date?.from ? (
-                            date.to ? (
-                                <>
-                                {format(date.from, "LLL dd, y")} -{" "}
-                                {format(date.to, "LLL dd, y")}
-                                </>
-                            ) : (
-                                format(date.from, "LLL dd, y")
-                            )
-                            ) : (
-                            <span>Pick a date range</span>
-                            )}
-                        </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={date?.from}
-                            selected={date}
-                            onSelect={setDate}
-                            numberOfMonths={2}
-                        />
-                        </PopoverContent>
-                    </Popover>
+                    <div className="flex-grow" />
 
-                    <Button onClick={handleRunAnalysis} disabled={isLoading} className="w-full sm:w-auto ml-0 sm:ml-auto">
+                    <Button onClick={handleRunAnalysis} disabled={isLoading} className="w-full sm:w-auto">
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
                         Run Deep Analysis
                     </Button>
