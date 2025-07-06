@@ -21,7 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Camera, Sparkles, Save, RotateCcw, AlertCircle, HeartPulse, Beaker, Loader2, FileClock, Edit } from 'lucide-react';
+import { Camera, Sparkles, Save, RotateCcw, AlertCircle, HeartPulse, Beaker, Loader2, FileClock, Edit, Trash2 } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
@@ -215,20 +215,41 @@ export function UnifiedLogger() {
         }
     };
     
-    const handleFieldChange = (type: 'vitals' | 'strips' | 'other', key: string | number, value: string) => {
+    const handleFieldChange = (type: 'vitals' | 'strips' | 'otherName' | 'otherValue', key: string | number, value: string) => {
         setEditableResult(prev => {
             if (!prev) return null;
             const newResult = JSON.parse(JSON.stringify(prev));
 
-            if (type === 'vitals' && newResult.extractedVitals) {
+            if (type === 'vitals' && newResult.extractedVitals && typeof key === 'string') {
                 newResult.extractedVitals[key as keyof typeof newResult.extractedVitals] = value;
-            } else if (type === 'strips' && newResult.extractedTestStrip) {
+            } else if (type === 'strips' && newResult.extractedTestStrip && typeof key === 'string') {
                 newResult.extractedTestStrip[key as keyof typeof newResult.extractedTestStrip] = value;
-            } else if (type === 'other') {
-                if (newResult.otherData && newResult.otherData[key as number]) {
-                    newResult.otherData[key as number].metricValue = value;
+            } else if (type === 'otherValue' && newResult.otherData && typeof key === 'number') {
+                if (newResult.otherData[key]) {
+                    newResult.otherData[key].metricValue = value;
+                }
+            } else if (type === 'otherName' && newResult.otherData && typeof key === 'number') {
+                 if (newResult.otherData[key]) {
+                    newResult.otherData[key].metricName = value;
                 }
             }
+            return newResult;
+        });
+    };
+
+    const handleRemoveField = (type: 'vitals' | 'strips' | 'other', key: string | number) => {
+        setEditableResult(prev => {
+            if (!prev) return null;
+            const newResult = JSON.parse(JSON.stringify(prev));
+
+            if (type === 'vitals' && newResult.extractedVitals && typeof key === 'string') {
+                delete newResult.extractedVitals[key as keyof typeof newResult.extractedVitals];
+            } else if (type === 'strips' && newResult.extractedTestStrip && typeof key === 'string') {
+                delete newResult.extractedTestStrip[key as keyof typeof newResult.extractedTestStrip];
+            } else if (type === 'other' && newResult.otherData && typeof key === 'number') {
+                newResult.otherData.splice(key, 1);
+            }
+            
             return newResult;
         });
     };
@@ -367,37 +388,59 @@ export function UnifiedLogger() {
                                     {editableResult.extractedVitals && Object.entries(editableResult.extractedVitals).map(([key, value]) => (
                                         <div key={key} className="flex items-center justify-between gap-4">
                                             <Label htmlFor={key} className="capitalize text-muted-foreground">{key.replace(/([A-Z])/g, ' $1')}</Label>
-                                            <Input
-                                                id={key}
-                                                value={value || ''}
-                                                onChange={(e) => handleFieldChange('vitals', key, e.target.value)}
-                                                className="h-8 max-w-[150px]"
-                                            />
+                                            <div className="flex items-center gap-1">
+                                                <Input
+                                                    id={key}
+                                                    value={value || ''}
+                                                    onChange={(e) => handleFieldChange('vitals', key, e.target.value)}
+                                                    className="h-8 max-w-[150px]"
+                                                />
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive" onClick={() => handleRemoveField('vitals', key)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
                                     ))}
                                     {editableResult.extractedTestStrip && Object.entries(editableResult.extractedTestStrip).map(([key, value]) => (
                                         <div key={key} className="flex items-center justify-between gap-4">
                                             <Label htmlFor={key} className="capitalize text-muted-foreground">{key}</Label>
-                                            <Input
-                                                id={key}
-                                                value={value || ''}
-                                                onChange={(e) => handleFieldChange('strips', key, e.target.value)}
-                                                className="h-8 max-w-[150px]"
-                                            />
+                                            <div className="flex items-center gap-1">
+                                                <Input
+                                                    id={key}
+                                                    value={value || ''}
+                                                    onChange={(e) => handleFieldChange('strips', key, e.target.value)}
+                                                    className="h-8 max-w-[150px]"
+                                                />
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive" onClick={() => handleRemoveField('strips', key)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
                                     ))}
                                     {editableResult.otherData && editableResult.otherData.length > 0 && (
                                         <Separator className="my-2"/>
                                     )}
                                     {editableResult.otherData?.map((metric, index) => (
-                                        <div key={index} className="flex items-center justify-between gap-4">
-                                            <Label htmlFor={`other-${index}`} className="capitalize text-muted-foreground">{metric.metricName.replace(/([A-Z])/g, ' $1')}</Label>
+                                        <div key={index} className="flex items-center justify-between gap-2">
                                             <Input
-                                                id={`other-${index}`}
-                                                value={metric.metricValue}
-                                                onChange={(e) => handleFieldChange('other', index, e.target.value)}
-                                                className="h-8 max-w-[150px]"
+                                                id={`other-name-${index}`}
+                                                value={metric.metricName}
+                                                placeholder="Metric Name"
+                                                onChange={(e) => handleFieldChange('otherName', index, e.target.value)}
+                                                className="h-8 flex-grow capitalize"
                                             />
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <Input
+                                                    id={`other-value-${index}`}
+                                                    value={metric.metricValue}
+                                                    placeholder="Value"
+                                                    onChange={(e) => handleFieldChange('otherValue', index, e.target.value)}
+                                                    className="h-8 w-[120px]"
+                                                />
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive" onClick={() => handleRemoveField('other', index)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
