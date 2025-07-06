@@ -7,7 +7,7 @@ import {
   HeartPulse,
   FileText,
   Salad,
-  Search,
+  ClipboardCheck,
   ArrowRight
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -49,7 +49,7 @@ const mainFeatures: DashboardCardProps[] = [
   },
   {
     href: "/deep-dive",
-    icon: Search,
+    icon: ClipboardCheck,
     title: "Deep Dive",
     description: "AI analysis of your health trends.",
     color: "text-sky-400",
@@ -85,11 +85,11 @@ export function Dashboard() {
       <Card className="bg-primary/10 border-primary/20">
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
-                <CardTitle className="flex items-center gap-2"><Search /> Health Investigation</CardTitle>
-                <CardDescription className="mt-1">Feeling unwell? Start a step-by-step investigation with our AI to identify the issue.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><ClipboardCheck /> Virtual Admission</CardTitle>
+                <CardDescription className="mt-1">Feeling unwell? Start a virtual admission to get a diagnosis and treatment plan.</CardDescription>
             </div>
             <Button size="lg" className="w-full md:w-auto" asChild>
-                <Link href="/investigation">Start Investigation <ArrowRight className="ml-2"/></Link>
+                <Link href="/investigation">Start Admission <ArrowRight className="ml-2"/></Link>
             </Button>
         </CardHeader>
       </Card>

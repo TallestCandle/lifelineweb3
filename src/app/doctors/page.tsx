@@ -110,10 +110,10 @@ function DoctorsPageContent() {
                 </CardHeader>
                 <CardContent className="text-center">
                     <p className="text-muted-foreground mb-4">
-                        The AI Doctor Consultation has been upgraded to our new 24/7 Health Investigation service.
+                        The AI Doctor Consultation has been upgraded to our new 24/7 Admission service.
                     </p>
                     <Button asChild>
-                        <Link href="/investigation">Start an Investigation</Link>
+                        <Link href="/investigation">Start an Admission</Link>
                     </Button>
                 </CardContent>
             </Card>

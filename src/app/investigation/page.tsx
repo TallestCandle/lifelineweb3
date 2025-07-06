@@ -1,6 +1,6 @@
 
-import { HealthInvestigation } from "@/components/investigation/health-investigation";
+import { Admission } from "@/components/investigation/health-investigation";
 
-export default function InvestigationPage() {
-  return <HealthInvestigation />;
+export default function AdmissionPage() {
+  return <Admission />;
 }

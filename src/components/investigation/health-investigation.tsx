@@ -66,7 +66,7 @@ const statusConfig: Record<InvestigationStatus, { text: string; color: string }>
 };
 
 
-export function HealthInvestigation() {
+export function Admission() {
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -114,7 +114,7 @@ export function HealthInvestigation() {
   }, [messages]);
 
   const startNewAdmission = () => {
-      setMessages([{ role: 'model', content: "Hello! I'm your AI Investigator. To start your virtual admission, please briefly describe your main health concern." }]);
+      setMessages([{ role: 'model', content: "Hello! I'm your AI Admission Assistant. To start your virtual admission, please briefly describe your main health concern." }]);
       setInterviewState('in_progress');
       setActiveView('chat');
       setImageDataUri(null);
@@ -162,7 +162,7 @@ export function HealthInvestigation() {
       if (!user) return;
       setInterviewState('submitting');
       try {
-        const chatTranscript = messages.map(m => `${m.role === 'user' ? 'Patient' : 'AI Investigator'}: ${m.content}`).join('\n\n');
+        const chatTranscript = messages.map(m => `${m.role === 'user' ? 'Patient' : 'AI Assistant'}: ${m.content}`).join('\n\n');
         const result = await startInvestigation({
             userId: user.uid,
             userName: user.displayName || "User",

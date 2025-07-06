@@ -14,10 +14,10 @@ export default function DeprecatedCallPage() {
                 </CardHeader>
                 <CardContent className="text-center">
                     <p className="text-muted-foreground mb-4">
-                        Live video calls have been replaced by our new 24/7 Health Investigation service.
+                        Live video calls have been replaced by our new 24/7 Admission service.
                     </p>
                     <Button asChild>
-                        <Link href="/investigation">Start an Investigation</Link>
+                        <Link href="/investigation">Start an Admission</Link>
                     </Button>
                 </CardContent>
             </Card>
