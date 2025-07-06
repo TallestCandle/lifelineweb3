@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { Loader2, LineChart, TableIcon, BrainCircuit, Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill, Salad, ClipboardCheck, MessageSquare, Send } from 'lucide-react';
+import { Loader2, LineChart, TableIcon, BrainCircuit, Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill, Salad, ClipboardCheck, MessageSquare, Send, Camera, Video, FileText } from 'lucide-react';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
@@ -23,9 +23,12 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Line, LineChart as RechartsLineChart, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from '../ui/checkbox';
+import { Label } from '../ui/label';
 
 
 type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected';
+type RequiredFeedback = 'pictures' | 'videos' | 'text';
 
 interface Investigation {
   id: string;
@@ -37,6 +40,8 @@ interface Investigation {
   doctorPlan?: {
       preliminaryMedications: string[];
       suggestedLabTests: string[];
+      nurseNote?: string;
+      requiredFeedback?: RequiredFeedback[];
   };
   finalTreatmentPlan?: any;
   finalDiagnosis?: any;
@@ -208,6 +213,9 @@ export function DoctorDashboard() {
   const [modifiedPlan, setModifiedPlan] = useState('');
   const [isCompleting, setIsCompleting] = useState(false);
   const [doctorNote, setDoctorNote] = useState('');
+
+  const [nurseNote, setNurseNote] = useState('');
+  const [requiredFeedback, setRequiredFeedback] = useState<RequiredFeedback[]>([]);
   
   // Fetch investigations
   useEffect(() => {
@@ -290,6 +298,10 @@ export function DoctorDashboard() {
             planToSubmit = aiPlan;
         }
 
+        // Add nurse note and feedback requirements
+        planToSubmit.nurseNote = nurseNote;
+        planToSubmit.requiredFeedback = requiredFeedback;
+
         handleUpdateInvestigation(selectedCase.id, 'awaiting_nurse_visit', { doctorPlan: planToSubmit });
     };
 
@@ -342,6 +354,16 @@ export function DoctorDashboard() {
     setIsModifying(false);
     setIsCompleting(false);
     setDoctorNote('');
+    setNurseNote('');
+    setRequiredFeedback([]);
+  };
+
+  const handleFeedbackCheckbox = (feedbackType: RequiredFeedback) => {
+    setRequiredFeedback(prev => 
+        prev.includes(feedbackType) 
+        ? prev.filter(item => item !== feedbackType)
+        : [...prev, feedbackType]
+    );
   };
 
   const renderCaseCard = (c: Investigation, isDispatchView?: boolean) => {
@@ -501,13 +523,13 @@ export function DoctorDashboard() {
                     </Card>
                     <Card>
                         <CardHeader className="flex-row items-center justify-between">
-                            <CardTitle className="text-base m-0">{isCompleting ? 'Final Plan / Note' : 'Suggested Next Steps'}</CardTitle>
+                            <CardTitle className="text-base m-0">{isCompleting ? 'Final Plan / Note' : 'Next Steps & Nurse Instructions'}</CardTitle>
                              {!isCompleting && <Button variant="ghost" size="sm" onClick={() => setIsModifying(!isModifying)}><Pencil className="mr-2"/>{isModifying ? 'View Original' : 'Modify Plan'}</Button>}
                         </CardHeader>
                         <CardContent>
                             {isModifying && !isCompleting ? (
                                 <div>
-                                    <Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[200px] font-mono text-xs"/>
+                                    <Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[150px] font-mono text-xs"/>
                                 </div>
                             ) : isCompleting ? (
                                 <div className="space-y-4">
@@ -522,6 +544,34 @@ export function DoctorDashboard() {
                                 </div>
                             ) : (
                                 renderPlan(latestStep.aiAnalysis.suggestedNextSteps, false)
+                            )}
+                             {!isCompleting && (
+                                <div className="mt-4 pt-4 border-t">
+                                    <Label className="font-bold text-base">Instructions for Nurse</Label>
+                                    <Textarea 
+                                        value={nurseNote}
+                                        onChange={(e) => setNurseNote(e.target.value)}
+                                        placeholder="e.g., Please check for swelling in the lower limbs and record blood pressure on both arms."
+                                        className="mt-2"
+                                    />
+                                    <div className="mt-4">
+                                        <Label className="font-bold">Required Feedback from Nurse:</Label>
+                                        <div className="flex items-center space-x-4 mt-2">
+                                            <div className="flex items-center space-x-2">
+                                                <Checkbox id="feedback-text" onCheckedChange={() => handleFeedbackCheckbox('text')} checked={requiredFeedback.includes('text')} />
+                                                <Label htmlFor="feedback-text" className="font-normal flex items-center gap-1"><FileText size={16}/> Text Report</Label>
+                                            </div>
+                                             <div className="flex items-center space-x-2">
+                                                <Checkbox id="feedback-pictures" onCheckedChange={() => handleFeedbackCheckbox('pictures')} checked={requiredFeedback.includes('pictures')} />
+                                                <Label htmlFor="feedback-pictures" className="font-normal flex items-center gap-1"><Camera size={16}/> Pictures</Label>
+                                            </div>
+                                             <div className="flex items-center space-x-2">
+                                                <Checkbox id="feedback-videos" onCheckedChange={() => handleFeedbackCheckbox('videos')} checked={requiredFeedback.includes('videos')} />
+                                                <Label htmlFor="feedback-videos" className="font-normal flex items-center gap-1"><Video size={16}/> Videos</Label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             )}
                         </CardContent>
                     </Card>

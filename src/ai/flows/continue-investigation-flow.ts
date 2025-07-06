@@ -16,11 +16,18 @@ const LabResultInputSchema = z.object({
     imageDataUri: z.string().describe("The lab result image as a data URI."),
 });
 
+const NurseReportInputSchema = z.object({
+    text: z.string().optional().describe("A text report from the nurse about the visit."),
+    pictures: z.array(z.string()).optional().describe("Data URIs of pictures taken by the nurse."),
+    videos: z.array(z.string()).optional().describe("Data URIs of videos taken by the nurse."),
+});
+
 // Public-facing Zod schema for the data submitted from the client.
 const ContinueInvestigationClientInputSchema = z.object({
     userId: z.string(),
     investigationId: z.string(),
     labResults: z.array(LabResultInputSchema),
+    nurseReport: NurseReportInputSchema.optional(),
 });
 export type ContinueInvestigationClientInput = z.infer<typeof ContinueInvestigationClientInputSchema>;
 
@@ -28,16 +35,17 @@ export type ContinueInvestigationClientInput = z.infer<typeof ContinueInvestigat
 const ContinueInvestigationInputSchema = z.object({
   investigationContext: z.string().describe("The full context of the investigation so far, including the initial chat, AI analysis, and doctor's plan."),
   labResults: z.array(LabResultInputSchema).describe("An array of the new lab results, including the test name and an image of the result."),
+  nurseReport: NurseReportInputSchema.optional().describe("An optional report from the nurse including text, and references to submitted pictures or videos."),
 });
 export type ContinueInvestigationInput = z.infer<typeof ContinueInvestigationInputSchema>;
 
 // Internal Zod schema for the AI's structured output.
 const ContinueInvestigationOutputSchema = z.object({
-    refinedAnalysis: z.string().describe("A new, deeper analysis summary for the doctor, incorporating the new lab results. Explain how the results confirm or change the initial assessment."),
+    refinedAnalysis: z.string().describe("A new, deeper analysis summary for the doctor, incorporating the new lab results and nurse's report. Explain how the results confirm or change the initial assessment."),
     potentialConditions: z.array(z.object({
         condition: z.string().describe("The name of the potential health condition, updated with new data."),
         probability: z.number().int().min(0).max(100).describe("The estimated probability of this diagnosis (0-100)."),
-        reasoning: z.string().describe("A final, conclusive reasoning for the diagnosis, citing evidence from the chat, history, and new lab results."),
+        reasoning: z.string().describe("A final, conclusive reasoning for the diagnosis, citing evidence from the chat, history, and new lab/nurse reports."),
     })).describe("An updated list of potential diagnoses based on all available data."),
     suggestedNextSteps: z.object({
         suggestedLabTests: z.array(z.string()).describe("A list of any *additional* lab tests required to confirm a diagnosis. Return an empty array if no more tests are needed."),
@@ -54,7 +62,7 @@ export type ContinueInvestigationOutput = z.infer<typeof ContinueInvestigationOu
  * The main public-facing function that orchestrates the follow-up analysis.
  */
 export async function continueInvestigation(input: ContinueInvestigationClientInput): Promise<{ success: boolean }> {
-    const { investigationId, labResults, userId } = input;
+    const { investigationId, labResults, nurseReport, userId } = input;
 
     // Step 1: Fetch the existing investigation context.
     const investigationDocRef = doc(db, 'investigations', investigationId);
@@ -68,6 +76,7 @@ export async function continueInvestigation(input: ContinueInvestigationClientIn
     const aiFlowInput: ContinueInvestigationInput = {
         investigationContext,
         labResults,
+        nurseReport,
     };
 
     // Step 3: Call the internal AI flow to get the new, deeper analysis.
@@ -75,12 +84,17 @@ export async function continueInvestigation(input: ContinueInvestigationClientIn
 
     // Step 4: Append this new step to the investigation and update the status.
     const currentSteps = investigationSnap.data().steps || [];
+    const userInputPayload: any = { labResults };
+    if (nurseReport) {
+        userInputPayload.nurseReport = nurseReport;
+    }
+    
     const updatedInvestigation = {
         status: 'pending_final_review' as const,
         steps: [...currentSteps, {
             type: 'lab_result_submission' as const,
             timestamp: new Date().toISOString(),
-            userInput: { labResults },
+            userInput: userInputPayload,
             aiAnalysis: aiResponse,
         }],
     };
@@ -95,7 +109,7 @@ const continueInvestigationPrompt = ai.definePrompt({
   name: 'continueInvestigationPrompt',
   input: { schema: ContinueInvestigationInputSchema },
   output: { schema: ContinueInvestigationOutputSchema },
-  prompt: `You are a world-class AI diagnostician. An investigation is ongoing. The patient has returned with lab results that were previously requested. Your task is to perform a DEEP analysis and suggest the next logical step.
+  prompt: `You are a world-class AI diagnostician. An investigation is ongoing. The patient has returned with lab results that were previously requested, and a nurse may have provided an on-site report. Your task is to perform a DEEP analysis and suggest the next logical step.
 
 **Full Investigation Context (Initial chat, analysis, doctor's plan, etc.):**
 {{{investigationContext}}}
@@ -106,9 +120,22 @@ const continueInvestigationPrompt = ai.definePrompt({
 - **Result Image:** {{media url=this.imageDataUri}}
 {{/each}}
 
+{{#if nurseReport}}
+**Nurse's On-site Visit Report:**
+{{#if nurseReport.text}}
+- **Observations:** {{nurseReport.text}}
+{{/if}}
+{{#if nurseReport.pictures}}
+- **Note:** The nurse has submitted {{nurseReport.pictures.length}} picture(s) for review.
+{{/if}}
+{{#if nurseReport.videos}}
+- **Note:** The nurse has submitted {{nurseReport.videos.length}} video(s) for review.
+{{/if}}
+{{/if}}
+
 **Your Task:**
-1.  **Analyze Lab Results:** Meticulously analyze the images of the lab results. Correlate the findings with the full investigation history.
-2.  **Refine Analysis:** Write a 'refinedAnalysis' that explains how these lab results confirm, deny, or modify your previous hypotheses.
+1.  **Analyze All New Data:** Meticulously analyze the images of the lab results AND the nurse's report if available. Correlate the findings with the full investigation history.
+2.  **Refine Analysis:** Write a 'refinedAnalysis' that explains how these new results confirm, deny, or modify your previous hypotheses.
 3.  **Update Potential Conditions:** Re-evaluate the 'potentialConditions' based on this new evidence. Update probabilities and reasoning.
 4.  **Determine Next Step:** Based on ALL information, decide the next logical step.
     - If a diagnosis is now clear and certain, set 'isFinalDiagnosisPossible' to 'true'. The 'suggestedNextSteps.suggestedLabTests' should be an empty array. The 'preliminaryMedications' could now contain a full treatment plan.
