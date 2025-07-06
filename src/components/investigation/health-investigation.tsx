@@ -97,7 +97,7 @@ function CaseChat({ investigationId, doctorName }: { investigationId: string, do
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(true);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [editingMessage, setEditingMessage] = useState<{id: string, content: string} | null>(null);
 
   useEffect(() => {
@@ -116,9 +116,7 @@ function CaseChat({ investigationId, doctorName }: { investigationId: string, do
   }, [investigationId]);
 
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.parentElement?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -163,7 +161,7 @@ function CaseChat({ investigationId, doctorName }: { investigationId: string, do
         <MessageSquare size={16} /> Chat with Dr. {doctorName}
       </h4>
       <div className="border rounded-lg p-2 bg-background/50">
-        <ScrollArea className="h-48 pr-4" ref={scrollAreaRef}>
+        <ScrollArea className="h-48 pr-4">
           <div className="space-y-4">
             {isChatLoading && <Loader2 className="animate-spin mx-auto"/>}
             {!isChatLoading && messages.length === 0 && (
@@ -209,6 +207,7 @@ function CaseChat({ investigationId, doctorName }: { investigationId: string, do
                 </div>
               )
             })}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
         <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-2 border-t mt-2">
@@ -746,3 +745,5 @@ export function Admission() {
     </div>
   );
 }
+
+    
