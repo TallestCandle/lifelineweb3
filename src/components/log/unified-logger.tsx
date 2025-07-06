@@ -244,29 +244,31 @@ export function UnifiedLogger() {
         if (!aiResult) return null;
         const vitals = aiResult.extractedVitals;
         const strips = aiResult.extractedTestStrip;
-        const hasVitals = vitals && Object.values(vitals).some(v => v);
-        const hasStrips = strips && Object.values(strips).some(v => v);
+        
+        // Filter out empty/null/undefined values from the objects
+        const validVitals = vitals ? Object.entries(vitals).filter(([_, value]) => value && String(value).trim()) : [];
+        const validStrips = strips ? Object.entries(strips).filter(([_, value]) => value && String(value).trim()) : [];
 
-        if (!hasVitals && !hasStrips) {
+        if (validVitals.length === 0 && validStrips.length === 0) {
             return <p className="text-muted-foreground text-sm">The AI could not find any specific data to extract.</p>;
         }
 
         return (
             <div className="space-y-3 text-sm font-medium">
-                {hasVitals && Object.entries(vitals!).map(([key, value]) => value && (
+                {validVitals.map(([key, value]) => (
                     <div key={key} className="flex justify-between">
                         <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
-                        <span className="font-bold">{value}</span>
+                        <span className="font-bold">{String(value)}</span>
                     </div>
                 ))}
-                {hasStrips && Object.entries(strips!).map(([key, value]) => value && (
+                {validStrips.map(([key, value]) => (
                     <div key={key} className="flex justify-between">
                         <span className="text-muted-foreground capitalize">{key}</span>
-                        <span className="font-bold">{value}</span>
+                        <span className="font-bold">{String(value)}</span>
                     </div>
                 ))}
             </div>
-        )
+        );
     };
 
     return (
