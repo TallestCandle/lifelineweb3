@@ -9,12 +9,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, User, Send, Bot } from 'lucide-react';
+import { Loader2, User, Send, Bot, ArrowLeft } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useIsMobile } from '@/hooks/use-mobile';
+
 
 interface Investigation {
   id: string;
@@ -32,12 +34,19 @@ interface ChatMessage {
   authorName: string;
 }
 
-function ChatPanel({ investigationId, patientName }: { investigationId: string, patientName: string }) {
+interface ChatPanelProps {
+    investigationId: string;
+    patientName: string;
+    onBack?: () => void;
+}
+
+function ChatPanel({ investigationId, patientName, onBack }: ChatPanelProps) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(true);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!investigationId) {
@@ -62,9 +71,7 @@ function ChatPanel({ investigationId, patientName }: { investigationId: string, 
   }, [investigationId]);
   
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.parentElement?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
 
@@ -83,7 +90,7 @@ function ChatPanel({ investigationId, patientName }: { investigationId: string, 
     setNewMessage("");
   };
   
-  if (!investigationId) {
+  if (!investigationId && !isMobile) {
     return (
         <div className="flex flex-col items-center justify-center h-full text-center">
             <User className="w-12 h-12 text-muted-foreground" />
@@ -94,27 +101,34 @@ function ChatPanel({ investigationId, patientName }: { investigationId: string, 
   }
 
   return (
-    <div className="flex flex-col h-full">
-        <CardHeader>
+    <div className="flex flex-col h-full w-full">
+        <CardHeader className="flex flex-row items-center gap-4">
+            {isMobile && onBack && (
+                <Button variant="ghost" size="icon" onClick={onBack}>
+                    <ArrowLeft />
+                    <span className="sr-only">Back</span>
+                </Button>
+            )}
             <CardTitle>{patientName}</CardTitle>
         </CardHeader>
         <CardContent className="flex-1 p-0 overflow-hidden">
-            <ScrollArea className="h-full px-4" ref={scrollAreaRef}>
-            <div className="space-y-4">
-                {isChatLoading && <Loader2 className="animate-spin mx-auto"/>}
-                {!isChatLoading && messages.length === 0 && (
-                <p className="text-center text-sm text-muted-foreground pt-4">No messages yet. Send a welcome message!</p>
-                )}
-                {messages.map((message) => (
-                <div key={message.id} className={`flex items-end gap-2 ${message.role === 'doctor' ? 'justify-end' : 'justify-start'}`}>
-                    {message.role === 'user' && <Avatar className="w-8 h-8"><AvatarFallback>{message.authorName.charAt(0)}</AvatarFallback></Avatar>}
-                    <div className={`max-w-[80%] rounded-lg p-3 ${message.role === 'doctor' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+            <ScrollArea className="h-full px-4">
+                <div className="space-y-4">
+                    {isChatLoading && <Loader2 className="animate-spin mx-auto"/>}
+                    {!isChatLoading && messages.length === 0 && (
+                        <p className="text-center text-sm text-muted-foreground pt-4">No messages yet. Send a welcome message!</p>
+                    )}
+                    {messages.map((message) => (
+                    <div key={message.id} className={`flex items-end gap-2 ${message.role === 'doctor' ? 'justify-end' : 'justify-start'}`}>
+                        {message.role === 'user' && <Avatar className="w-8 h-8"><AvatarFallback>{message.authorName.charAt(0)}</AvatarFallback></Avatar>}
+                        <div className={`max-w-[80%] rounded-lg p-3 ${message.role === 'doctor' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+                        <p className="whitespace-pre-wrap">{message.content}</p>
+                        </div>
+                        {message.role === 'doctor' && <Avatar className="w-8 h-8"><AvatarFallback><Bot size={20}/></AvatarFallback></Avatar>}
                     </div>
-                    {message.role === 'doctor' && <Avatar className="w-8 h-8"><AvatarFallback><Bot size={20}/></AvatarFallback></Avatar>}
+                    ))}
+                    <div ref={messagesEndRef} />
                 </div>
-                ))}
-            </div>
             </ScrollArea>
         </CardContent>
         <CardFooter className="p-4 border-t">
@@ -133,6 +147,7 @@ export function MessagesDashboard() {
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedInvestigationId, setSelectedInvestigationId] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!user) {
@@ -149,6 +164,9 @@ export function MessagesDashboard() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investigation));
         setInvestigations(fetched);
+        if (!isMobile && !selectedInvestigationId && fetched.length > 0) {
+            setSelectedInvestigationId(fetched[0].id);
+        }
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching investigations: ", error);
@@ -156,7 +174,7 @@ export function MessagesDashboard() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, isMobile, selectedInvestigationId]);
 
   const selectedInvestigation = useMemo(() => {
       return investigations.find(inv => inv.id === selectedInvestigationId);
@@ -172,8 +190,11 @@ export function MessagesDashboard() {
 
   return (
     <div className="h-[calc(100vh-10rem)]">
-        <Card className="h-full grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4">
-            <div className="col-span-1 border-r flex flex-col">
+        <Card className="h-full flex overflow-hidden">
+            <div className={cn(
+                "border-r flex-col w-full md:w-[320px] lg:w-[380px] shrink-0",
+                isMobile && selectedInvestigationId ? 'hidden' : 'flex'
+            )}>
                 <CardHeader>
                     <CardTitle>Conversations</CardTitle>
                 </CardHeader>
@@ -203,10 +224,14 @@ export function MessagesDashboard() {
                     </div>
                 </ScrollArea>
             </div>
-            <div className="col-span-1 md:col-span-2 lg:col-span-3">
+            <div className={cn(
+                "flex-col flex-1",
+                isMobile && !selectedInvestigationId ? 'hidden' : 'flex'
+            )}>
                 <ChatPanel 
                     investigationId={selectedInvestigation?.id || ""} 
                     patientName={selectedInvestigation?.userName || ""} 
+                    onBack={() => setSelectedInvestigationId(null)}
                 />
             </div>
         </Card>
