@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { Loader2, LineChart, TableIcon, BrainCircuit, Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill, Salad, ClipboardCheck, MessageSquare, Send, Camera, Video, FileText } from 'lucide-react';
+import { Loader2, LineChart, TableIcon, BrainCircuit, Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill, Salad, ClipboardCheck, MessageSquare, Send, Camera, Video, FileText, Trash2 } from 'lucide-react';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
@@ -25,6 +25,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
+import { Input } from '../ui/input';
 
 
 type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected';
@@ -209,7 +210,7 @@ export function DoctorDashboard() {
   const [selectedCase, setSelectedCase] = useState<Investigation | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<{ userId: string; userName: string; } | null>(null);
 
-  const [isModifying, setIsModifying] = useState(false);
+  const [editablePlan, setEditablePlan] = useState<{ preliminaryMedications: string[]; suggestedLabTests: string[]; } | null>(null);
   const [modifiedPlan, setModifiedPlan] = useState('');
   const [isCompleting, setIsCompleting] = useState(false);
   const [doctorNote, setDoctorNote] = useState('');
@@ -278,32 +279,22 @@ export function DoctorDashboard() {
       }
   };
 
-   const handleDispatchNurse = () => {
-        if (!selectedCase) return;
-        const aiPlan = selectedCase.steps[selectedCase.steps.length - 1].aiAnalysis.suggestedNextSteps;
-        let planToSubmit;
-
-        if (isModifying) {
-            try {
-                planToSubmit = JSON.parse(modifiedPlan);
-            } catch (e) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Invalid Plan Format',
-                    description: 'The modified plan has a syntax error. Please correct it.',
-                });
-                return;
-            }
-        } else {
-            planToSubmit = aiPlan;
-        }
-
-        // Add nurse note and feedback requirements
-        planToSubmit.nurseNote = nurseNote;
-        planToSubmit.requiredFeedback = requiredFeedback;
-
-        handleUpdateInvestigation(selectedCase.id, 'awaiting_nurse_visit', { doctorPlan: planToSubmit });
+  const handleDispatchNurse = () => {
+    if (!selectedCase || !editablePlan) return;
+    
+    const cleanedPlan = {
+        suggestedLabTests: editablePlan.suggestedLabTests.filter(t => t.trim() !== ''),
+        preliminaryMedications: editablePlan.preliminaryMedications.filter(m => m.trim() !== ''),
     };
+    
+    const planToSubmit = {
+        ...cleanedPlan,
+        nurseNote: nurseNote,
+        requiredFeedback: requiredFeedback,
+    };
+
+    handleUpdateInvestigation(selectedCase.id, 'awaiting_nurse_visit', { doctorPlan: planToSubmit });
+  };
 
   const handleCompleteCase = () => {
       if (!selectedCase || !doctorNote) {
@@ -336,7 +327,7 @@ export function DoctorDashboard() {
   const openReviewDialog = (investigation: Investigation) => {
     setSelectedCase(investigation);
     const latestStep = investigation.steps[investigation.steps.length - 1];
-    let planToModify = latestStep.aiAnalysis.suggestedNextSteps;
+    const planToModify = latestStep.aiAnalysis.suggestedNextSteps;
     
     if (latestStep.aiAnalysis.isFinalDiagnosisPossible) {
         const finalPlanSuggestion = {
@@ -347,11 +338,13 @@ export function DoctorDashboard() {
             }
         };
         setModifiedPlan(JSON.stringify(finalPlanSuggestion, null, 2));
-    } else {
-        setModifiedPlan(JSON.stringify(planToModify, null, 2));
     }
+    
+    setEditablePlan({
+        preliminaryMedications: planToModify?.preliminaryMedications || [],
+        suggestedLabTests: planToModify?.suggestedLabTests || [],
+    });
 
-    setIsModifying(false);
     setIsCompleting(false);
     setDoctorNote('');
     setNurseNote('');
@@ -364,6 +357,33 @@ export function DoctorDashboard() {
         ? prev.filter(item => item !== feedbackType)
         : [...prev, feedbackType]
     );
+  };
+  
+  const handlePlanChange = (type: 'suggestedLabTests' | 'preliminaryMedications', index: number, value: string) => {
+    setEditablePlan(prev => {
+        if (!prev) return null;
+        const newPlan = { ...prev };
+        newPlan[type][index] = value;
+        return newPlan;
+    });
+  };
+
+  const addPlanItem = (type: 'suggestedLabTests' | 'preliminaryMedications') => {
+      setEditablePlan(prev => {
+          if (!prev) return null;
+          const newPlan = { ...prev };
+          newPlan[type].push('');
+          return newPlan;
+      });
+  };
+
+  const removePlanItem = (type: 'suggestedLabTests' | 'preliminaryMedications', index: number) => {
+      setEditablePlan(prev => {
+          if (!prev) return null;
+          const newPlan = { ...prev };
+          newPlan[type].splice(index, 1);
+          return newPlan;
+      });
   };
 
   const renderCaseCard = (c: Investigation, isDispatchView?: boolean) => {
@@ -381,53 +401,6 @@ export function DoctorDashboard() {
             </Badge>
             </div>
             {!isDispatchView && <Button onClick={() => openReviewDialog(c)}>Review Case <ArrowRight className="ml-2"/></Button>}
-        </div>
-    );
-  };
-  
-  const renderPlan = (plan: any, isFinal: boolean) => {
-    if (!plan) return <p className="text-sm text-muted-foreground">No plan details available.</p>;
-
-    const fields = isFinal 
-        ? { meds: 'medications', lifestyle: 'lifestyleChanges' }
-        : { meds: 'preliminaryMedications', tests: 'suggestedLabTests' };
-
-    const medications = plan[fields.meds] || [];
-    const labTests = plan[fields.tests] || [];
-    const lifestyleChanges = plan[fields.lifestyle] || [];
-    
-    const hasContent = medications.length > 0 || labTests.length > 0 || lifestyleChanges.length > 0;
-
-    if (!hasContent) {
-        return <p className="text-sm text-muted-foreground">AI did not suggest specific items for this plan.</p>;
-    }
-
-    return (
-        <div className="space-y-4 text-sm">
-            {medications.length > 0 && (
-                <div>
-                    <h4 className="font-bold flex items-center gap-2"><Pill size={16}/> {isFinal ? 'Medications' : 'Preliminary Medications'}</h4>
-                    <ul className="list-disc list-inside pl-4 text-muted-foreground">
-                        {medications.map((med: string, i: number) => <li key={i}>{med}</li>)}
-                    </ul>
-                </div>
-            )}
-            {labTests.length > 0 && (
-                 <div>
-                    <h4 className="font-bold flex items-center gap-2"><TestTube size={16}/> Suggested Lab Tests</h4>
-                    <ul className="list-disc list-inside pl-4 text-muted-foreground">
-                        {labTests.map((test: string, i: number) => <li key={i}>{test}</li>)}
-                    </ul>
-                </div>
-            )}
-            {lifestyleChanges.length > 0 && (
-                 <div>
-                    <h4 className="font-bold flex items-center gap-2"><Salad size={16}/> Lifestyle Changes</h4>
-                    <ul className="list-disc list-inside pl-4 text-muted-foreground">
-                        {lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}
-                    </ul>
-                </div>
-            )}
         </div>
     );
   };
@@ -522,52 +495,87 @@ export function DoctorDashboard() {
                         </CardContent>
                     </Card>
                     <Card>
-                        <CardHeader className="flex-row items-center justify-between">
+                        <CardHeader>
                             <CardTitle className="text-base m-0">{isCompleting ? 'Final Plan / Note' : 'Next Steps & Nurse Instructions'}</CardTitle>
-                             {!isCompleting && <Button variant="ghost" size="sm" onClick={() => setIsModifying(!isModifying)}><Pencil className="mr-2"/>{isModifying ? 'View Original' : 'Modify Plan'}</Button>}
                         </CardHeader>
                         <CardContent>
-                            {isModifying && !isCompleting ? (
-                                <div>
-                                    <Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[150px] font-mono text-xs"/>
-                                </div>
-                            ) : isCompleting ? (
-                                <div className="space-y-4">
+                            {isCompleting ? (
+                                 <div className="space-y-4">
                                     <div>
-                                        <label className="font-bold text-sm">Final Plan (JSON format)</label>
+                                        <Label className="font-bold text-sm">Final Plan (JSON format)</Label>
                                         <Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[150px] font-mono text-xs"/>
                                     </div>
                                     <div>
-                                        <label className="font-bold text-sm">Note for Patient</label>
+                                        <Label className="font-bold text-sm">Note for Patient</Label>
                                         <Textarea value={doctorNote} onChange={(e) => setDoctorNote(e.target.value)} placeholder="e.g., Your results are normal. Please continue monitoring your symptoms."/>
                                     </div>
                                 </div>
                             ) : (
-                                renderPlan(latestStep.aiAnalysis.suggestedNextSteps, false)
-                            )}
-                             {!isCompleting && (
-                                <div className="mt-4 pt-4 border-t">
-                                    <Label className="font-bold text-base">Instructions for Nurse</Label>
-                                    <Textarea 
-                                        value={nurseNote}
-                                        onChange={(e) => setNurseNote(e.target.value)}
-                                        placeholder="e.g., Please check for swelling in the lower limbs and record blood pressure on both arms."
-                                        className="mt-2"
-                                    />
-                                    <div className="mt-4">
-                                        <Label className="font-bold">Required Feedback from Nurse:</Label>
-                                        <div className="flex items-center space-x-4 mt-2">
-                                            <div className="flex items-center space-x-2">
-                                                <Checkbox id="feedback-text" onCheckedChange={() => handleFeedbackCheckbox('text')} checked={requiredFeedback.includes('text')} />
-                                                <Label htmlFor="feedback-text" className="font-normal flex items-center gap-1"><FileText size={16}/> Text Report</Label>
+                                <div className="space-y-6">
+                                    {editablePlan && (
+                                        <div className="space-y-4">
+                                            <div>
+                                                <Label className="font-bold">Suggested Lab Tests</Label>
+                                                <div className="space-y-2 mt-2">
+                                                    {editablePlan.suggestedLabTests.map((test, index) => (
+                                                        <div key={`test-${index}`} className="flex items-center gap-2">
+                                                            <Input 
+                                                                value={test} 
+                                                                placeholder="e.g., Complete Blood Count"
+                                                                onChange={(e) => handlePlanChange('suggestedLabTests', index, e.target.value)} 
+                                                            />
+                                                            <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('suggestedLabTests', index)}>
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('suggestedLabTests')}>Add Test</Button>
                                             </div>
-                                             <div className="flex items-center space-x-2">
-                                                <Checkbox id="feedback-pictures" onCheckedChange={() => handleFeedbackCheckbox('pictures')} checked={requiredFeedback.includes('pictures')} />
-                                                <Label htmlFor="feedback-pictures" className="font-normal flex items-center gap-1"><Camera size={16}/> Pictures</Label>
+                                            <div>
+                                                <Label className="font-bold">Preliminary Medications</Label>
+                                                <div className="space-y-2 mt-2">
+                                                    {editablePlan.preliminaryMedications.map((med, index) => (
+                                                        <div key={`med-${index}`} className="flex items-center gap-2">
+                                                            <Input 
+                                                                value={med}
+                                                                placeholder="e.g., Ibuprofen 200mg" 
+                                                                onChange={(e) => handlePlanChange('preliminaryMedications', index, e.target.value)} 
+                                                            />
+                                                            <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('preliminaryMedications', index)}>
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('preliminaryMedications')}>Add Medication</Button>
                                             </div>
-                                             <div className="flex items-center space-x-2">
-                                                <Checkbox id="feedback-videos" onCheckedChange={() => handleFeedbackCheckbox('videos')} checked={requiredFeedback.includes('videos')} />
-                                                <Label htmlFor="feedback-videos" className="font-normal flex items-center gap-1"><Video size={16}/> Videos</Label>
+                                        </div>
+                                    )}
+                                    
+                                    <div className="pt-4 border-t">
+                                        <Label className="font-bold text-base">Instructions for Nurse</Label>
+                                        <Textarea 
+                                            value={nurseNote}
+                                            onChange={(e) => setNurseNote(e.target.value)}
+                                            placeholder="e.g., Please check for swelling in the lower limbs and record blood pressure on both arms."
+                                            className="mt-2"
+                                        />
+                                        <div className="mt-4">
+                                            <Label className="font-bold">Required Feedback from Nurse:</Label>
+                                            <div className="flex items-center space-x-4 mt-2">
+                                                <div className="flex items-center space-x-2">
+                                                    <Checkbox id="feedback-text" onCheckedChange={() => handleFeedbackCheckbox('text')} checked={requiredFeedback.includes('text')} />
+                                                    <Label htmlFor="feedback-text" className="font-normal flex items-center gap-1"><FileText size={16}/> Text Report</Label>
+                                                </div>
+                                                 <div className="flex items-center space-x-2">
+                                                    <Checkbox id="feedback-pictures" onCheckedChange={() => handleFeedbackCheckbox('pictures')} checked={requiredFeedback.includes('pictures')} />
+                                                    <Label htmlFor="feedback-pictures" className="font-normal flex items-center gap-1"><Camera size={16}/> Pictures</Label>
+                                                </div>
+                                                 <div className="flex items-center space-x-2">
+                                                    <Checkbox id="feedback-videos" onCheckedChange={() => handleFeedbackCheckbox('videos')} checked={requiredFeedback.includes('videos')} />
+                                                    <Label htmlFor="feedback-videos" className="font-normal flex items-center gap-1"><Video size={16}/> Videos</Label>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
