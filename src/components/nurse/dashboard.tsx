@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
-import { Loader2, User, TestTube, Check, Upload, Home, ClipboardList } from 'lucide-react';
+import { Loader2, User, TestTube, Check, Upload, Home, ClipboardList, Phone } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { continueInvestigation } from '@/ai/flows/continue-investigation-flow';
 import type { Profile } from '@/context/profile-provider';
@@ -176,6 +176,13 @@ export function NurseDashboard() {
                                     <Home className="h-4 w-4" />
                                     <AlertTitle>Patient Address</AlertTitle>
                                     <AlertDescription>{patientProfile.address}</AlertDescription>
+                                </Alert>
+                            )}
+                            {patientProfile?.phone && (
+                                <Alert>
+                                    <Phone className="h-4 w-4" />
+                                    <AlertTitle>Patient Phone</AlertTitle>
+                                    <AlertDescription>{patientProfile.phone}</AlertDescription>
                                 </Alert>
                             )}
                             <Card>

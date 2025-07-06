@@ -20,6 +20,7 @@ const profileSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   age: z.string().refine((val) => !isNaN(parseInt(val, 10)) && parseInt(val, 10) > 0, { message: "Please enter a valid age." }),
   gender: z.enum(['Male', 'Female'], { required_error: "Please select a gender." }),
+  phone: z.string().min(10, { message: "Please enter a valid phone number." }),
   address: z.string().min(10, { message: "Please enter a valid address for home visits." }),
 });
 
@@ -32,7 +33,7 @@ export function ProfileManager() {
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: { name: "", age: "", gender: undefined, address: "" },
+    defaultValues: { name: "", age: "", gender: undefined, phone: "", address: "" },
   });
 
   useEffect(() => {
@@ -41,10 +42,11 @@ export function ProfileManager() {
         name: profile.name,
         age: profile.age,
         gender: profile.gender,
+        phone: profile.phone,
         address: profile.address,
       });
     } else if (user?.displayName) {
-      form.reset({ name: user.displayName, age: "", gender: undefined, address: "" });
+      form.reset({ name: user.displayName, age: "", gender: undefined, phone: "", address: "" });
     }
   }, [profile, user, form]);
 
@@ -92,6 +94,15 @@ export function ProfileManager() {
                     </SelectContent>
                   </Select>
                   <FormMessage />
+                </FormItem>
+              )} />
+               <FormField control={form.control} name="phone" render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Phone Number</FormLabel>
+                    <FormControl>
+                        <Input placeholder="e.g., 08012345678" {...field} />
+                    </FormControl>
+                    <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="address" render={({ field }) => (

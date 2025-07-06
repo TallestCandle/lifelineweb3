@@ -12,6 +12,7 @@ export interface Profile {
   age: string;
   gender: 'Male' | 'Female';
   address: string;
+  phone: string;
   theme: ThemeId;
 }
 
