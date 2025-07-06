@@ -22,9 +22,10 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Search, Pill, TestTube, Upload, Check, Salad, MessageSquare } from 'lucide-react';
+import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { Separator } from '../ui/separator';
 
 // Types
 interface Message {
@@ -42,6 +43,7 @@ interface Investigation {
   doctorPlan?: {
       preliminaryMedications: string[];
       suggestedLabTests: string[];
+      nurseNote?: string;
   };
   finalTreatmentPlan?: any;
   finalDiagnosis?: any;
@@ -52,6 +54,7 @@ interface Investigation {
 
 interface InvestigationStep {
     type: 'initial_submission' | 'lab_result_submission';
+    timestamp: string;
     userInput: any;
     aiAnalysis: any;
 }
@@ -312,89 +315,139 @@ export function Admission() {
                                     <Badge variant="outline" className="hidden sm:inline-flex">{statusConfig[c.status]?.text}</Badge>
                                 </div>
                             </AccordionTrigger>
-                            <AccordionContent className="space-y-4 pt-4">
-                                 {(c.status === 'awaiting_lab_results' || c.status === 'awaiting_nurse_visit') && c.doctorPlan && (
-                                    <Card className="bg-secondary/50">
-                                        <CardHeader>
-                                            <CardTitle className="text-lg">Next Steps from Your Doctor</CardTitle>
-                                            {c.reviewedByName && c.reviewedByUid && (<CardDescription>Prescribed by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></CardDescription>)}
-                                        </CardHeader>
-                                        <CardContent className="space-y-6">
-                                            {c.doctorPlan?.preliminaryMedications?.length > 0 && (
-                                                <div>
-                                                    <h3 className="font-bold flex items-center gap-2"><Pill/> Preliminary Medications</h3>
-                                                    <ul className="list-disc list-inside pl-4 mt-2 text-muted-foreground">
-                                                        {c.doctorPlan.preliminaryMedications.map((med, i) => <li key={i}>{med}</li>)}
-                                                    </ul>
-                                                </div>
-                                            )}
-                                            {c.doctorPlan?.suggestedLabTests?.length > 0 && (
-                                                <div>
-                                                    <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
-                                                    <p className="text-sm text-muted-foreground mb-2">{c.status === 'awaiting_nurse_visit' ? 'A nurse has been dispatched to your location to collect samples for these tests:' : 'Please get these tests done and upload the results below.'}</p>
-                                                     <ul className="list-disc list-inside pl-4 text-muted-foreground text-sm">
-                                                        {c.doctorPlan.suggestedLabTests.map((test, i) => <li key={i}>{test}</li>)}
-                                                    </ul>
-                                                    {c.status === 'awaiting_lab_results' && (
-                                                        <div className="space-y-4 mt-4">
-                                                            {c.doctorPlan.suggestedLabTests.map((test, i) => (
-                                                                <div key={i} className="p-3 border rounded-md">
-                                                                    <label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label>
-                                                                    <div className="flex items-center gap-4 mt-2">
-                                                                        <Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />
-                                                                        {labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}
-                                                                    </div>
+                             <AccordionContent className="space-y-6 pt-4">
+                                
+                                {c.steps.map((step, index) => {
+                                    const isLastStep = index === c.steps.length - 1;
+                                    return (
+                                        <div key={index} className="relative pl-8">
+                                            <div className="absolute left-3 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
+                                            <div className="absolute left-3 top-2 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2"></div>
+                                            
+                                            <p className="font-bold text-sm mb-1">
+                                                {step.type === 'initial_submission' ? 'Initial Admission' : 'Follow-up Submission'}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground mb-2">
+                                                {format(parseISO(step.timestamp), 'MMM d, yyyy, h:mm a')}
+                                            </p>
+
+                                            <div className="p-4 bg-secondary/50 rounded-lg space-y-4">
+                                                {step.type === 'initial_submission' && (
+                                                    <div>
+                                                        <h4 className="font-semibold text-sm mb-2">Your Symptoms</h4>
+                                                        <p className="text-sm text-muted-foreground whitespace-pre-line">{step.userInput.chatTranscript}</p>
+                                                        {step.userInput.imageDataUri && (
+                                                            <div className="mt-2">
+                                                                <h4 className="font-semibold text-sm mb-1">Image Submitted</h4>
+                                                                <Image src={step.userInput.imageDataUri} alt="Initial submission" width={100} height={100} className="rounded-md border"/>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                
+                                                {step.type === 'lab_result_submission' && (
+                                                    <div>
+                                                        <h4 className="font-semibold text-sm mb-2">Lab Results Submitted by Nurse</h4>
+                                                        {step.userInput.nurseReport?.text && (
+                                                            <Alert className="mb-2"><FileText className="h-4 w-4"/><AlertTitle>Nurse's Report</AlertTitle><AlertDescription>{step.userInput.nurseReport.text}</AlertDescription></Alert>
+                                                        )}
+                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                                            {step.userInput.labResults?.map((res: any, i: number) => (
+                                                                <div key={i}>
+                                                                    <p className="font-semibold text-xs truncate">{res.testName}</p>
+                                                                    <Image src={res.imageDataUri} alt={res.testName} width={150} height={150} className="rounded-md border mt-1"/>
                                                                 </div>
                                                             ))}
                                                         </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </CardContent>
-                                        {c.status === 'awaiting_lab_results' && (
-                                        <CardFooter>
-                                            <Button onClick={() => handleSubmitLabResults(c)} disabled={isSubmittingLabs}>
-                                                {isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}
-                                                Submit Lab Results
-                                            </Button>
-                                        </CardFooter>
-                                        )}
-                                    </Card>
-                                )}
-                                {c.status === 'completed' && (
-                                    <Alert>
-                                        <ShieldCheck className="h-4 w-4" />
-                                        <AlertTitle>Diagnosis &amp; Treatment Plan</AlertTitle>
-                                        {c.reviewedByName && c.reviewedByUid && (<p className="text-xs text-muted-foreground -mt-1 mb-2">Finalized by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></p>)}
-                                        <AlertDescription asChild>
-                                            <div className="space-y-4 mt-2">
-                                                {c.finalDiagnosis?.map((diag: any, i: number) => (
-                                                    <div key={i} className="pb-2 border-b last:border-b-0"><h4 className="font-bold text-foreground">Diagnosis: {diag.condition} ({diag.probability}%)</h4><p className="text-xs text-muted-foreground">{diag.reasoning}</p></div>
-                                                ))}
-                                                {c.finalTreatmentPlan?.medications?.length > 0 && (
-                                                    <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Pill size={16}/> Medications</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.medications.map((med: string, i: number) => <li key={i}>{med}</li>)}</ul></div>
-                                                )}
-                                                {c.finalTreatmentPlan?.lifestyleChanges?.length > 0 && (
-                                                    <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Salad size={16}/> Lifestyle Changes</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}</ul></div>
+                                                    </div>
                                                 )}
                                             </div>
-                                        </AlertDescription>
-                                    </Alert>
-                                )}
-                                {c.status === 'rejected' && (
-                                    <Alert variant="destructive">
-                                        <X className="h-4 w-4"/>
-                                        <AlertTitle>Case Closed by Doctor</AlertTitle>
-                                        {c.doctorNote && <AlertDescription>{c.doctorNote}{c.reviewedByName && c.reviewedByUid && (<span className="italic">{' - '}<Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold hover:underline">{c.reviewedByName}</Link></span>)}</AlertDescription>}
-                                    </Alert>
-                                )}
-                                {(c.status === 'pending_review' || c.status === 'pending_final_review') && (
-                                    <Alert>
-                                        <Sparkles className="h-4 w-4"/>
-                                        <AlertTitle>Under Review</AlertTitle>
-                                        <AlertDescription>Your case is currently being reviewed by a doctor. You will be notified of the next steps.</AlertDescription>
-                                    </Alert>
-                                )}
+                                        </div>
+                                    )
+                                })}
+
+                                <Separator />
+
+                                <div className="px-4">
+                                    {(c.status === 'awaiting_lab_results' || c.status === 'awaiting_nurse_visit') && c.doctorPlan && (
+                                        <Card className="bg-secondary/50">
+                                            <CardHeader>
+                                                <CardTitle className="text-lg">Next Steps from Your Doctor</CardTitle>
+                                                {c.reviewedByName && c.reviewedByUid && (<CardDescription>Prescribed by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></CardDescription>)}
+                                            </CardHeader>
+                                            <CardContent className="space-y-6">
+                                                {c.doctorPlan?.preliminaryMedications?.length > 0 && (
+                                                    <div>
+                                                        <h3 className="font-bold flex items-center gap-2"><Pill/> Preliminary Medications</h3>
+                                                        <ul className="list-disc list-inside pl-4 mt-2 text-muted-foreground">
+                                                            {c.doctorPlan.preliminaryMedications.map((med, i) => <li key={i}>{med}</li>)}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                                {c.doctorPlan?.suggestedLabTests?.length > 0 && (
+                                                    <div>
+                                                        <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
+                                                        <p className="text-sm text-muted-foreground mb-2">{c.status === 'awaiting_nurse_visit' ? 'A nurse has been dispatched to your location to collect samples for these tests.' : 'Please get these tests done and upload the results below.'}</p>
+                                                         <ul className="list-disc list-inside pl-4 text-muted-foreground text-sm">
+                                                            {c.doctorPlan.suggestedLabTests.map((test, i) => <li key={i}>{test}</li>)}
+                                                        </ul>
+                                                        {c.status === 'awaiting_lab_results' && (
+                                                            <div className="space-y-4 mt-4">
+                                                                {c.doctorPlan.suggestedLabTests.map((test, i) => (
+                                                                    <div key={i} className="p-3 border rounded-md">
+                                                                        <label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label>
+                                                                        <div className="flex items-center gap-4 mt-2">
+                                                                            <Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />
+                                                                            {labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                                <Button onClick={() => handleSubmitLabResults(c)} disabled={isSubmittingLabs}>
+                                                                    {isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}
+                                                                    Submit Lab Results
+                                                                </Button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    )}
+                                    {c.status === 'completed' && (
+                                        <Alert>
+                                            <ShieldCheck className="h-4 w-4" />
+                                            <AlertTitle>Diagnosis &amp; Treatment Plan</AlertTitle>
+                                            {c.reviewedByName && c.reviewedByUid && (<p className="text-xs text-muted-foreground -mt-1 mb-2">Finalized by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></p>)}
+                                            <AlertDescription asChild>
+                                                <div className="space-y-4 mt-2">
+                                                    {c.finalDiagnosis?.map((diag: any, i: number) => (
+                                                        <div key={i} className="pb-2 border-b last:border-b-0"><h4 className="font-bold text-foreground">Diagnosis: {diag.condition} ({diag.probability}%)</h4><p className="text-xs text-muted-foreground">{diag.reasoning}</p></div>
+                                                    ))}
+                                                    {c.finalTreatmentPlan?.medications?.length > 0 && (
+                                                        <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Pill size={16}/> Medications</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.medications.map((med: string, i: number) => <li key={i}>{med}</li>)}</ul></div>
+                                                    )}
+                                                    {c.finalTreatmentPlan?.lifestyleChanges?.length > 0 && (
+                                                        <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Salad size={16}/> Lifestyle Changes</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}</ul></div>
+                                                    )}
+                                                </div>
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+                                    {c.status === 'rejected' && (
+                                        <Alert variant="destructive">
+                                            <X className="h-4 w-4"/>
+                                            <AlertTitle>Case Closed by Doctor</AlertTitle>
+                                            {c.doctorNote && <AlertDescription>{c.doctorNote}{c.reviewedByName && c.reviewedByUid && (<span className="italic">{' - '}<Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold hover:underline">{c.reviewedByName}</Link></span>)}</AlertDescription>}
+                                        </Alert>
+                                    )}
+                                    {(c.status === 'pending_review' || c.status === 'pending_final_review') && (
+                                        <Alert>
+                                            <Sparkles className="h-4 w-4"/>
+                                            <AlertTitle>Under Review</AlertTitle>
+                                            <AlertDescription>Your case is currently being reviewed by a doctor. You will be notified of the next steps.</AlertDescription>
+                                        </Alert>
+                                    )}
+                                </div>
                             </AccordionContent>
                         </AccordionItem>
                     ))}
@@ -416,5 +469,3 @@ export function Admission() {
     </div>
   );
 }
-
-    

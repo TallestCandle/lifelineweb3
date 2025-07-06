@@ -408,7 +408,6 @@ export function DoctorDashboard() {
   const renderReviewDialog = () => {
     if (!selectedCase) return null;
     const latestStep = selectedCase.steps[selectedCase.steps.length - 1];
-    const initialStep = selectedCase.steps[0];
     const isFinalStepSuggested = latestStep.aiAnalysis.isFinalDiagnosisPossible;
 
     const ActionButtons = () => {
@@ -437,153 +436,162 @@ export function DoctorDashboard() {
                     <DialogDescription>Submitted {formatDistanceToNow(parseISO(selectedCase.createdAt), { addSuffix: true })}. Urgency: {latestStep.aiAnalysis.urgency}</DialogDescription>
                 </DialogHeader>
                 <div className="grid md:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto p-4">
-                <div className="space-y-4">
-                    <h3 className="font-bold text-lg flex items-center gap-2"><User/>Patient's Submission</h3>
-                    <Card>
-                        <CardHeader><CardTitle className="text-base">Interview Transcript</CardTitle></CardHeader>
-                        <CardContent>
-                            <ScrollArea className="h-40">
-                                <p className="text-sm whitespace-pre-line">{initialStep.userInput.chatTranscript}</p>
-                            </ScrollArea>
-                        </CardContent>
-                    </Card>
-                    {initialStep.userInput.imageDataUri && (
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-lg flex items-center gap-2"><User/>Patient Submission History</h3>
+                        <ScrollArea className="h-[calc(70vh-100px)] pr-4">
+                            <div className="space-y-4">
+                                {selectedCase.steps.map((step, index) => (
+                                    <Card key={index}>
+                                        <CardHeader>
+                                            <CardTitle className="text-base">{step.type === 'initial_submission' ? 'Initial Submission' : 'Follow-up Submission'}</CardTitle>
+                                            <CardDescription>{format(parseISO(step.timestamp), 'MMM d, yyyy, h:mm a')}</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2">
+                                            {step.type === 'initial_submission' && (
+                                                <>
+                                                    <p className="text-sm font-semibold">Interview Transcript</p>
+                                                    <p className="text-sm whitespace-pre-line text-muted-foreground">{step.userInput.chatTranscript}</p>
+                                                    {step.userInput.imageDataUri && (
+                                                        <div className="pt-2">
+                                                          <p className="text-sm font-semibold">Submitted Image</p>
+                                                          <Image src={step.userInput.imageDataUri} alt="User submission" width={150} height={150} className="rounded-md border mt-1"/>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                            {step.type === 'lab_result_submission' && (
+                                                <>
+                                                    {step.userInput.nurseReport?.text && <p className="text-sm"><span className="font-semibold">Nurse Report:</span> {step.userInput.nurseReport.text}</p>}
+                                                    <p className="text-sm font-semibold pt-2">Submitted Lab Results</p>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        {step.userInput.labResults.map((res: any, i: number) => (
+                                                            <div key={i}>
+                                                                <p className="font-semibold text-xs truncate">{res.testName}</p>
+                                                                <Image src={res.imageDataUri} alt={res.testName} width={150} height={150} className="rounded-md border mt-1"/>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </div>
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-lg flex items-center gap-2"><Bot/>AI's Analysis</h3>
+                        <Alert variant={latestStep.aiAnalysis.urgency === 'Critical' ? 'destructive' : 'default'}>
+                            <AlertTitle>AI Summary & Justification</AlertTitle>
+                            <AlertDescription>{latestStep.aiAnalysis.analysisSummary || latestStep.aiAnalysis.refinedAnalysis} <br/><br/> <strong>Justification:</strong> {latestStep.aiAnalysis.justification}</AlertDescription>
+                        </Alert>
+                        {isFinalStepSuggested && !isCompleting && (
+                            <Alert variant="default" className="border-primary">
+                                <ClipboardCheck className="h-4 w-4" />
+                                <AlertTitle>Ready for Final Diagnosis</AlertTitle>
+                                <AlertDescription>The AI believes enough data exists to complete this investigation. You can modify the suggested final plan below and click "Close/Complete".</AlertDescription>
+                            </Alert>
+                        )}
                         <Card>
-                        <CardHeader><CardTitle className="text-base">Initial Image</CardTitle></CardHeader>
-                        <CardContent>
-                            <Image src={initialStep.userInput.imageDataUri} alt="User submission" width={200} height={200} className="rounded-md border"/>
-                        </CardContent>
-                        </Card>
-                    )}
-                    {latestStep.type === 'lab_result_submission' && latestStep.userInput.labResults && (
-                        <Card>
-                            <CardHeader><CardTitle className="text-base">Submitted Lab Results</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="text-base">Potential Conditions</CardTitle></CardHeader>
                             <CardContent>
-                                <ScrollArea className="h-64 space-y-2">
-                                    {latestStep.userInput.labResults.map((res: any, index: number) => (
-                                        <div key={index}>
-                                            <p className="font-semibold">{res.testName}</p>
-                                            <Image src={res.imageDataUri} alt={res.testName} width={200} height={200} className="rounded-md border mt-1"/>
-                                        </div>
+                                <ul className="list-disc list-inside space-y-1 text-sm">
+                                    {(latestStep.aiAnalysis.potentialConditions).map((p:any) => (
+                                        <li key={p.condition}><strong>{p.condition}</strong> ({p.probability}%): {p.reasoning}</li>
                                     ))}
-                                </ScrollArea>
+                                </ul>
                             </CardContent>
                         </Card>
-                    )}
-                </div>
-                <div className="space-y-4">
-                    <h3 className="font-bold text-lg flex items-center gap-2"><Bot/>AI's Analysis</h3>
-                    <Alert variant={latestStep.aiAnalysis.urgency === 'Critical' ? 'destructive' : 'default'}>
-                        <AlertTitle>AI Summary & Justification</AlertTitle>
-                        <AlertDescription>{latestStep.aiAnalysis.analysisSummary || latestStep.aiAnalysis.refinedAnalysis} <br/><br/> <strong>Justification:</strong> {latestStep.aiAnalysis.justification}</AlertDescription>
-                    </Alert>
-                    {isFinalStepSuggested && !isCompleting && (
-                         <Alert variant="default" className="border-primary">
-                            <ClipboardCheck className="h-4 w-4" />
-                            <AlertTitle>Ready for Final Diagnosis</AlertTitle>
-                            <AlertDescription>The AI believes enough data exists to complete this investigation. You can modify the suggested final plan below and click "Close/Complete".</AlertDescription>
-                        </Alert>
-                    )}
-                    <Card>
-                        <CardHeader><CardTitle className="text-base">Potential Conditions</CardTitle></CardHeader>
-                        <CardContent>
-                            <ul className="list-disc list-inside space-y-1 text-sm">
-                                {(latestStep.aiAnalysis.potentialConditions).map((p:any) => (
-                                    <li key={p.condition}><strong>{p.condition}</strong> ({p.probability}%): {p.reasoning}</li>
-                                ))}
-                            </ul>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base m-0">{isCompleting ? 'Final Plan / Note' : 'Next Steps & Nurse Instructions'}</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {isCompleting ? (
-                                 <div className="space-y-4">
-                                    <div>
-                                        <Label className="font-bold text-sm">Final Plan (JSON format)</Label>
-                                        <Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[150px] font-mono text-xs"/>
-                                    </div>
-                                    <div>
-                                        <Label className="font-bold text-sm">Note for Patient</Label>
-                                        <Textarea value={doctorNote} onChange={(e) => setDoctorNote(e.target.value)} placeholder="e.g., Your results are normal. Please continue monitoring your symptoms."/>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-6">
-                                    {editablePlan && (
-                                        <div className="space-y-4">
-                                            <div>
-                                                <Label className="font-bold">Suggested Lab Tests</Label>
-                                                <div className="space-y-2 mt-2">
-                                                    {editablePlan.suggestedLabTests.map((test, index) => (
-                                                        <div key={`test-${index}`} className="flex items-center gap-2">
-                                                            <Input 
-                                                                value={test} 
-                                                                placeholder="e.g., Complete Blood Count"
-                                                                onChange={(e) => handlePlanChange('suggestedLabTests', index, e.target.value)} 
-                                                            />
-                                                            <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('suggestedLabTests', index)}>
-                                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                                            </Button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('suggestedLabTests')}>Add Test</Button>
-                                            </div>
-                                            <div>
-                                                <Label className="font-bold">Preliminary Medications</Label>
-                                                <div className="space-y-2 mt-2">
-                                                    {editablePlan.preliminaryMedications.map((med, index) => (
-                                                        <div key={`med-${index}`} className="flex items-center gap-2">
-                                                            <Input 
-                                                                value={med}
-                                                                placeholder="e.g., Ibuprofen 200mg" 
-                                                                onChange={(e) => handlePlanChange('preliminaryMedications', index, e.target.value)} 
-                                                            />
-                                                            <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('preliminaryMedications', index)}>
-                                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                                            </Button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('preliminaryMedications')}>Add Medication</Button>
-                                            </div>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-base m-0">{isCompleting ? 'Final Plan / Note' : 'Next Steps & Nurse Instructions'}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {isCompleting ? (
+                                    <div className="space-y-4">
+                                        <div>
+                                            <Label className="font-bold text-sm">Final Plan (JSON format)</Label>
+                                            <Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[150px] font-mono text-xs"/>
                                         </div>
-                                    )}
-                                    
-                                    <div className="pt-4 border-t">
-                                        <Label className="font-bold text-base">Instructions for Nurse</Label>
-                                        <Textarea 
-                                            value={nurseNote}
-                                            onChange={(e) => setNurseNote(e.target.value)}
-                                            placeholder="e.g., Please check for swelling in the lower limbs and record blood pressure on both arms."
-                                            className="mt-2"
-                                        />
-                                        <div className="mt-4">
-                                            <Label className="font-bold">Required Feedback from Nurse:</Label>
-                                            <div className="flex items-center space-x-4 mt-2">
-                                                <div className="flex items-center space-x-2">
-                                                    <Checkbox id="feedback-text" onCheckedChange={() => handleFeedbackCheckbox('text')} checked={requiredFeedback.includes('text')} />
-                                                    <Label htmlFor="feedback-text" className="font-normal flex items-center gap-1"><FileText size={16}/> Text Report</Label>
+                                        <div>
+                                            <Label className="font-bold text-sm">Note for Patient</Label>
+                                            <Textarea value={doctorNote} onChange={(e) => setDoctorNote(e.target.value)} placeholder="e.g., Your results are normal. Please continue monitoring your symptoms."/>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-6">
+                                        {editablePlan && (
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <Label className="font-bold">Suggested Lab Tests</Label>
+                                                    <div className="space-y-2 mt-2">
+                                                        {editablePlan.suggestedLabTests.map((test, index) => (
+                                                            <div key={`test-${index}`} className="flex items-center gap-2">
+                                                                <Input 
+                                                                    value={test} 
+                                                                    placeholder="e.g., Complete Blood Count"
+                                                                    onChange={(e) => handlePlanChange('suggestedLabTests', index, e.target.value)} 
+                                                                />
+                                                                <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('suggestedLabTests', index)}>
+                                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                                </Button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('suggestedLabTests')}>Add Test</Button>
                                                 </div>
-                                                 <div className="flex items-center space-x-2">
-                                                    <Checkbox id="feedback-pictures" onCheckedChange={() => handleFeedbackCheckbox('pictures')} checked={requiredFeedback.includes('pictures')} />
-                                                    <Label htmlFor="feedback-pictures" className="font-normal flex items-center gap-1"><Camera size={16}/> Pictures</Label>
+                                                <div>
+                                                    <Label className="font-bold">Preliminary Medications</Label>
+                                                    <div className="space-y-2 mt-2">
+                                                        {editablePlan.preliminaryMedications.map((med, index) => (
+                                                            <div key={`med-${index}`} className="flex items-center gap-2">
+                                                                <Input 
+                                                                    value={med}
+                                                                    placeholder="e.g., Ibuprofen 200mg" 
+                                                                    onChange={(e) => handlePlanChange('preliminaryMedications', index, e.target.value)} 
+                                                                />
+                                                                <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('preliminaryMedications', index)}>
+                                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                                </Button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('preliminaryMedications')}>Add Medication</Button>
                                                 </div>
-                                                 <div className="flex items-center space-x-2">
-                                                    <Checkbox id="feedback-videos" onCheckedChange={() => handleFeedbackCheckbox('videos')} checked={requiredFeedback.includes('videos')} />
-                                                    <Label htmlFor="feedback-videos" className="font-normal flex items-center gap-1"><Video size={16}/> Videos</Label>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="pt-4 border-t">
+                                            <Label className="font-bold text-base">Instructions for Nurse</Label>
+                                            <Textarea 
+                                                value={nurseNote}
+                                                onChange={(e) => setNurseNote(e.target.value)}
+                                                placeholder="e.g., Please check for swelling in the lower limbs and record blood pressure on both arms."
+                                                className="mt-2"
+                                            />
+                                            <div className="mt-4">
+                                                <Label className="font-bold">Required Feedback from Nurse:</Label>
+                                                <div className="flex items-center space-x-4 mt-2">
+                                                    <div className="flex items-center space-x-2">
+                                                        <Checkbox id="feedback-text" onCheckedChange={() => handleFeedbackCheckbox('text')} checked={requiredFeedback.includes('text')} />
+                                                        <Label htmlFor="feedback-text" className="font-normal flex items-center gap-1"><FileText size={16}/> Text Report</Label>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <Checkbox id="feedback-pictures" onCheckedChange={() => handleFeedbackCheckbox('pictures')} checked={requiredFeedback.includes('pictures')} />
+                                                        <Label htmlFor="feedback-pictures" className="font-normal flex items-center gap-1"><Camera size={16}/> Pictures</Label>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <Checkbox id="feedback-videos" onCheckedChange={() => handleFeedbackCheckbox('videos')} checked={requiredFeedback.includes('videos')} />
+                                                        <Label htmlFor="feedback-videos" className="font-normal flex items-center gap-1"><Video size={16}/> Videos</Label>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
                 <DialogFooter>
                     <ActionButtons />
