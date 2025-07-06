@@ -51,20 +51,24 @@ const extractDataPrompt = ai.definePrompt({
     name: 'extractDataFromImagePrompt',
     input: { schema: ExtractDataFromImageInputSchema },
     output: { schema: ExtractDataFromImageOutputSchema },
-    prompt: `You are an expert AI at reading and interpreting images of medical device screens and test strips. Your task is to analyze the provided image and extract any relevant health data into a structured format with high precision. The user will upload an image of a single device or test strip at a time.
+    prompt: `You are an expert AI at reading and interpreting images of medical device screens and test strips. Your task is to analyze the provided image and extract specific health data into a structured format with extreme precision. The user will upload an image of a single device or test strip at a time.
 
 User context: "{{userPrompt}}"
 Image to analyze: {{media url=imageDataUri}}
 
 **Instructions:**
-1.  **Identify the Image Content:** First, determine if the image shows a medical device (like a blood pressure monitor, glucometer, thermometer) or a urine test strip.
-2.  **Extract Relevant Data Only:** Based on your identification, extract the corresponding data.
-    *   For a **medical device**, read the digital display and populate the relevant fields in the 'extractedVitals' object ONLY.
-    *   For a **urine test strip**, carefully compare the color of each reagent pad to a standard color reference chart for such tests. Your analysis must be consistent and based on standard interpretations. For example, a light green on a glucose pad usually means 'Trace' or '+'. Populate the relevant fields in the 'extractedTestStrip' object ONLY.
-3.  **Be Precise and Consistent:** Your primary goal is accuracy. Do not invent or guess values. If a specific value isn't present or the color is ambiguous, leave its field empty. Your output must be deterministic.
-4.  **Create Summary:** Write a very short 'analysisSummary' confirming what you found, e.g., "Extracted blood pressure: 120/80 mmHg." or "Detected trace ketones."
+1.  **Identify the Device Type:** First, determine the primary type of device in the image. Is it a Blood Pressure Monitor, a Glucometer, a Pulse Oximeter, a Thermometer, a Scale, or a Urine Test Strip?
+2.  **Extract Specific Data Only:** Based on the identified device, extract ONLY the data relevant to that device.
+    *   If it is a **Blood Pressure Monitor**, extract ONLY the 'systolic' and 'diastolic' values. IGNORE all other metrics, even if they appear on the screen.
+    *   If it is a **Glucometer**, extract ONLY the 'bloodSugar' value. IGNORE all other metrics.
+    *   If it is a **Pulse Oximeter**, extract ONLY the 'oxygenSaturation' value. IGNORE all other metrics.
+    *   If it is a **Thermometer**, extract ONLY the 'temperature' value. IGNORE all other metrics.
+    *   If it is a **Scale**, extract ONLY the 'weight' value. IGNORE all other metrics.
+    *   If it is a **Urine Test Strip**, compare the colors and populate the relevant fields in the 'extractedTestStrip' object ONLY. Do NOT populate any fields in 'extractedVitals'.
+3.  **Be Precise and Consistent:** Your primary goal is accuracy. Do not invent or guess values. If a specific value isn't present or the color is ambiguous, leave its field empty.
+4.  **Create Summary:** Write a very short 'analysisSummary' confirming only what you found, e.g., "Extracted blood pressure: 120/80 mmHg." or "Detected trace ketones."
 5.  **Assess Confidence:** If the image is blurry, poorly lit, cut off, or you cannot reliably read the values or match the colors, set 'isConfident' to 'false'. Otherwise, set it to 'true'.
-6.  **CRITICAL RULE:** You MUST populate EITHER the 'extractedVitals' object OR the 'extractedTestStrip' object, never both. Your response should only contain data for the single type of item you identified in the image.`,
+6.  **CRITICAL RULE:** For devices that measure vitals, populate ONLY the specified fields for that device type within the 'extractedVitals' object and leave all others empty. For a urine test strip, populate ONLY the 'extractedTestStrip' object. NEVER populate both objects.`,
     config: {
         temperature: 0, // Force more deterministic, consistent output.
     },
