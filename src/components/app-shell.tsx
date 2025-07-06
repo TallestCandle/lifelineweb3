@@ -31,7 +31,8 @@ import {
   Stethoscope,
   Search,
   Camera,
-  ClipboardCheck
+  ClipboardCheck,
+  UserCircle
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -47,6 +48,7 @@ const menuItems: { href: string; label: string; icon: LucideIcon; color: string 
   { href: "/dietician", label: "AI Dietician", icon: Salad, color: "text-green-400" },
   { href: "/report", label: "Health Report", icon: FileText, color: "text-orange-400" },
   { href: "/reminders", label: "Medication", icon: Pill, color: "text-pink-400" },
+  { href: "/profiles", label: "My Profile", icon: UserCircle, color: "text-gray-400" },
   { href: "/emergency", label: "Emergency", icon: Siren, color: "text-red-500" },
 ];
 

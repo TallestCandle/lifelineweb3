@@ -26,12 +26,6 @@ export function ProfileGuard({ children }: { children: React.ReactNode }) {
             router.replace('/profiles');
         }
         
-        // If loading is done, and a profile *does* exist, but we are still on the profile page,
-        // it means the user just created/updated their profile, so we send them to the dashboard.
-        // This also prevents a logged-in user with a profile from visiting /profiles manually.
-        if (profile && isProfilePage) {
-            router.replace('/');
-        }
     }, [loading, profile, isProfilePage, router]);
 
     // This section determines what to RENDER.
@@ -44,9 +38,6 @@ export function ProfileGuard({ children }: { children: React.ReactNode }) {
     // If loading is done, but a redirect is needed, show a loader to prevent content flash.
     if (!profile && !isProfilePage) {
         return <Loader />; // Waiting for redirect to /profiles
-    }
-    if (profile && isProfilePage) {
-        return <Loader />; // Waiting for redirect to /
     }
 
     // If none of the above, the state is correct, so render the actual page content.
