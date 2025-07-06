@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -10,16 +11,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { Loader2, LineChart, TableIcon, BrainCircuit, Bot, User, Check, X, Pencil, ArrowRight, TestTube, Pill, Salad, ClipboardCheck, MessageSquare, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown } from 'lucide-react';
+import { Loader2, User, Check, X, Pencil, ArrowRight, TestTube, Pill, ClipboardCheck, MessageSquare, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { ChartConfig } from "@/components/ui/chart";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Line, LineChart as RechartsLineChart, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   Collapsible,
@@ -32,7 +29,7 @@ import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 
 
-type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected';
+type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
 type RequiredFeedback = 'pictures' | 'videos' | 'text';
 
 interface Investigation {
@@ -47,6 +44,10 @@ interface Investigation {
       suggestedLabTests: string[];
       nurseNote?: string;
       requiredFeedback?: RequiredFeedback[];
+  };
+  followUpRequest?: {
+      note: string;
+      requiredFeedback: RequiredFeedback[];
   };
   finalTreatmentPlan?: any;
   finalDiagnosis?: any;
@@ -75,134 +76,6 @@ const UrgencyConfig: Record<string, { color: string; text: string }> = {
     'Critical': { color: 'bg-red-600', text: 'Critical' },
 };
 
-const bpChartConfig = {
-  systolic: { label: "Systolic", color: "hsl(var(--chart-1))" },
-  diastolic: { label: "Diastolic", color: "hsl(var(--chart-2))" },
-} satisfies ChartConfig;
-
-const singleMetricChartConfig = (label: string, color: string) => ({
-    value: { label, color },
-}) satisfies ChartConfig;
-
-function PatientAnalyticsView({ userId }: { userId: string }) {
-    const [loading, setLoading] = useState(true);
-    const [vitals, setVitals] = useState<any[]>([]);
-    const [strips, setStrips] = useState<any[]>([]);
-    const [analyses, setAnalyses] = useState<any[]>([]);
-
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            const basePath = `users/${userId}`;
-            const [vitalsSnap, stripsSnap, analysesSnap] = await Promise.all([
-                getDocs(query(collection(db, `${basePath}/vitals`), orderBy('date', 'desc'))),
-                getDocs(query(collection(db, `${basePath}/test_strips`), orderBy('date', 'desc'))),
-                getDocs(query(collection(db, `${basePath}/health_analyses`), orderBy('timestamp', 'desc'))),
-            ]);
-            setVitals(vitalsSnap.docs.map(d => ({...d.data(), id: d.id})));
-            setStrips(stripsSnap.docs.map(d => ({...d.data(), id: d.id})));
-            setAnalyses(analysesSnap.docs.map(d => ({...d.data(), id: d.id})));
-            setLoading(false);
-        };
-        fetchData();
-    }, [userId]);
-
-    const chartData = useMemo(() => {
-        return vitals
-          .map(entry => ({
-            ...entry,
-            dateObj: parseISO(entry.date),
-          }))
-          .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
-          .map(entry => ({
-            ...entry,
-            date: format(entry.dateObj, 'MMM d'),
-            systolic: entry.systolic ? Number(entry.systolic) : null,
-            diastolic: entry.diastolic ? Number(entry.diastolic) : null,
-            oxygenSaturation: entry.oxygenSaturation ? Number(entry.oxygenSaturation) : null,
-            temperature: entry.temperature ? Number(entry.temperature) : null,
-            bloodSugar: entry.bloodSugar ? Number(entry.bloodSugar) : null,
-            weight: entry.weight ? Number(entry.weight) : null,
-          }));
-    }, [vitals]);
-
-    if(loading) return <div className="flex h-full items-center justify-center"><Loader2 className="w-8 h-8 animate-spin" /></div>;
-    
-    return (
-        <ScrollArea className="flex-1 p-6">
-            <div className="space-y-6">
-                <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><LineChart/> Vitals History</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                         {chartData.length < 2 ? <p className="text-muted-foreground">Not enough data to display charts.</p> : (
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                                <ChartContainer config={bpChartConfig} className="min-h-[200px] w-full">
-                                    <RechartsLineChart data={chartData} margin={{ left: 0, right: 10 }}>
-                                        <CartesianGrid vertical={false} />
-                                        <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
-                                        <YAxis domain={['dataMin - 10', 'dataMax + 10']} tickLine={false} axisLine={false}/>
-                                        <Tooltip content={<ChartTooltipContent />} />
-                                        <Line dataKey="systolic" type="monotone" stroke="var(--color-systolic)" strokeWidth={2} dot={false} />
-                                        <Line dataKey="diastolic" type="monotone" stroke="var(--color-diastolic)" strokeWidth={2} dot={false} />
-                                    </RechartsLineChart>
-                                </ChartContainer>
-                                <ChartContainer config={singleMetricChartConfig("O2%", "hsl(var(--chart-3))")} className="min-h-[200px] w-full">
-                                    <RechartsLineChart data={chartData.filter(d => d.oxygenSaturation)} margin={{ left: 0, right: 10 }}>
-                                         <CartesianGrid vertical={false} />
-                                         <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
-                                         <YAxis domain={['dataMin - 2', 'dataMax + 2']} tickLine={false} axisLine={false}/>
-                                         <Tooltip content={<ChartTooltipContent />} />
-                                         <Line dataKey="oxygenSaturation" name="value" type="monotone" stroke="var(--color-value)" strokeWidth={2} dot={false} />
-                                    </RechartsLineChart>
-                                </ChartContainer>
-                            </div>
-                         )}
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><TableIcon/> Test Strip History</CardTitle></CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Marker</TableHead><TableHead>Result</TableHead></TableRow></TableHeader>
-                            <TableBody>
-                                {strips.length > 0 ? strips.slice(0, 5).map((s: any) => (
-                                    <TableRow key={s.id}>
-                                        <TableCell>{format(parseISO(s.date), 'MMM d, yyyy')}</TableCell>
-                                        <TableCell>{s.marker}</TableCell>
-                                        <TableCell><Badge variant="outline">{s.level}</Badge></TableCell>
-                                    </TableRow>
-                                )) : <TableRow><TableCell colSpan={3} className="text-center">No strip results.</TableCell></TableRow>}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><BrainCircuit/> AI Analysis History</CardTitle></CardHeader>
-                    <CardContent>
-                        <Accordion type="single" collapsible>
-                            {analyses.length > 0 ? analyses.slice(0, 5).map((a: any) => (
-                                <AccordionItem value={a.id} key={a.id}>
-                                    <AccordionTrigger>
-                                        <div className="flex justify-between items-center w-full pr-4">
-                                            <span>{format(parseISO(a.timestamp), 'MMM d, yyyy, h:mm a')}</span>
-                                            <Badge variant="outline">{a.analysisResult.urgency}</Badge>
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent>
-                                        <p><strong>Summary:</strong> {a.analysisResult.summary}</p>
-                                        <p><strong>Advice:</strong> {a.analysisResult.advice}</p>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            )) : <p className="text-muted-foreground text-center py-4">No past analyses.</p>}
-                        </Accordion>
-                    </CardContent>
-                </Card>
-            </div>
-        </ScrollArea>
-    );
-}
-
-
 export function DoctorDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -212,16 +85,20 @@ export function DoctorDashboard() {
   const [myPatients, setMyPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCase, setSelectedCase] = useState<Investigation | null>(null);
-  const [selectedPatient, setSelectedPatient] = useState<{ userId: string; userName: string; } | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  // State for case review dialog
   const [editablePlan, setEditablePlan] = useState<{ preliminaryMedications: string[]; suggestedLabTests: string[]; } | null>(null);
   const [modifiedPlan, setModifiedPlan] = useState('');
   const [isCompleting, setIsCompleting] = useState(false);
   const [doctorNote, setDoctorNote] = useState('');
-
   const [nurseNote, setNurseNote] = useState('');
   const [requiredFeedback, setRequiredFeedback] = useState<RequiredFeedback[]>([]);
+
+  // State for follow-up dialog
+  const [followUpPatient, setFollowUpPatient] = useState<Patient | null>(null);
+  const [followUpNote, setFollowUpNote] = useState('');
+  const [followUpFeedback, setFollowUpFeedback] = useState<RequiredFeedback[]>([]);
   
   // Fetch investigations
   useEffect(() => {
@@ -260,8 +137,9 @@ export function DoctorDashboard() {
     setMyPatients(Array.from(patientMap.values()));
   }, [investigations, user]);
   
-  const investigationQueue = useMemo(() => investigations.filter(inv => inv.status === 'pending_review' || inv.status === 'pending_final_review'), [investigations]);
-  const dispatchedCases = useMemo(() => investigations.filter(inv => inv.status === 'awaiting_nurse_visit'), [investigations]);
+  const investigationQueue = useMemo(() => investigations.filter(inv => inv.status === 'pending_review'), [investigations]);
+  const dispatchedCases = useMemo(() => investigations.filter(inv => inv.status === 'awaiting_nurse_visit' || inv.status === 'awaiting_lab_results'), [investigations]);
+  const patientUpdates = useMemo(() => investigations.filter(inv => inv.status === 'pending_final_review' && inv.reviewedByUid === user?.uid), [investigations, user]);
 
 
   const handleUpdateInvestigation = async (investigationId: string, status: InvestigationStatus, payload: object) => {
@@ -275,9 +153,9 @@ export function DoctorDashboard() {
               ...payload,
           };
           await updateDoc(investigationRef, updateData);
-          setInvestigations(prev => prev.filter(c => c.id !== investigationId));
+          setInvestigations(prev => prev.map(inv => inv.id === investigationId ? {...inv, status, ...payload} : inv));
           setSelectedCase(null);
-          toast({ title: 'Case Updated', description: `The investigation has been updated to: ${status}.` });
+          toast({ title: 'Case Updated', description: `The investigation has been updated.` });
       } catch (error) {
         console.error("Error updating status:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to update investigation status.' });
@@ -329,6 +207,31 @@ export function DoctorDashboard() {
     handleUpdateInvestigation(selectedCase.id, 'rejected', { doctorNote });
   };
 
+  const handleRequestFollowUp = async () => {
+    if (!followUpPatient) return;
+
+    const latestInvestigation = investigations
+        .filter(inv => inv.userId === followUpPatient.id)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    
+    if (!latestInvestigation) {
+        toast({ variant: "destructive", title: "No Case Found", description: "Cannot request follow-up as no prior case exists for this patient."});
+        return;
+    }
+
+    const payload = {
+        followUpRequest: {
+            note: followUpNote,
+            requiredFeedback: followUpFeedback,
+        }
+    };
+    
+    await handleUpdateInvestigation(latestInvestigation.id, 'awaiting_follow_up_visit', payload);
+    setFollowUpPatient(null);
+    setFollowUpNote('');
+    setFollowUpFeedback([]);
+  };
+
   const openReviewDialog = (investigation: Investigation) => {
     setSelectedCase(investigation);
     const latestStep = investigation.steps[investigation.steps.length - 1];
@@ -356,8 +259,8 @@ export function DoctorDashboard() {
     setRequiredFeedback([]);
   };
 
-  const handleFeedbackCheckbox = (feedbackType: RequiredFeedback) => {
-    setRequiredFeedback(prev => 
+  const handleFeedbackCheckbox = (feedbackType: RequiredFeedback, setFeedback: React.Dispatch<React.SetStateAction<RequiredFeedback[]>>) => {
+    setFeedback(prev => 
         prev.includes(feedbackType) 
         ? prev.filter(item => item !== feedbackType)
         : [...prev, feedbackType]
@@ -424,7 +327,7 @@ export function DoctorDashboard() {
     }
   };
 
-  const renderCaseCard = (c: Investigation, isDispatchView?: boolean) => {
+  const renderCaseCard = (c: Investigation) => {
     const latestStep = c.steps[c.steps.length-1];
     const urgency = latestStep.aiAnalysis.urgency || 'Medium';
     return (
@@ -438,7 +341,7 @@ export function DoctorDashboard() {
                 Urgency: {urgency}
             </Badge>
             </div>
-            {!isDispatchView && <Button onClick={() => openReviewDialog(c)}>Review Case <ArrowRight className="ml-2"/></Button>}
+            <Button onClick={() => openReviewDialog(c)}>Review Case <ArrowRight className="ml-2"/></Button>
         </div>
     );
   };
@@ -530,7 +433,7 @@ export function DoctorDashboard() {
                         </ScrollArea>
                     </div>
                     <div className="space-y-4">
-                        <h3 className="font-bold text-lg flex items-center gap-2"><Bot/>AI's Analysis</h3>
+                        <h3 className="font-bold text-lg flex items-center gap-2"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.5 1.5L13.5 3.5L4.5 12.5L2.5 12.5L2.5 10.5L11.5 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M9.5 3.5L11.5 5.5" stroke="currentColor" strokeWidth="1.3"/><path d="M6.5 6.5L8.5 8.5" stroke="currentColor" strokeWidth="1.3"/><path d="M2.5 10.5L4.5 8.5" stroke="currentColor" strokeWidth="1.3"/><path d="M11.5 1.5L13.5 3.5" stroke="currentColor" strokeWidth="1.3"/></svg> AI's Analysis</h3>
                         <Alert variant={latestStep.aiAnalysis.urgency === 'Critical' ? 'destructive' : 'default'}>
                             <AlertTitle>AI Summary & Justification</AlertTitle>
                             <AlertDescription>{latestStep.aiAnalysis.analysisSummary || latestStep.aiAnalysis.refinedAnalysis} <br/><br/> <strong>Justification:</strong> {latestStep.aiAnalysis.justification}</AlertDescription>
@@ -623,15 +526,15 @@ export function DoctorDashboard() {
                                                 <Label className="font-bold">Required Feedback from Nurse:</Label>
                                                 <div className="flex items-center space-x-4 mt-2">
                                                     <div className="flex items-center space-x-2">
-                                                        <Checkbox id="feedback-text" onCheckedChange={() => handleFeedbackCheckbox('text')} checked={requiredFeedback.includes('text')} />
+                                                        <Checkbox id="feedback-text" onCheckedChange={() => handleFeedbackCheckbox('text', setRequiredFeedback)} checked={requiredFeedback.includes('text')} />
                                                         <Label htmlFor="feedback-text" className="font-normal flex items-center gap-1"><FileText size={16}/> Text Report</Label>
                                                     </div>
                                                     <div className="flex items-center space-x-2">
-                                                        <Checkbox id="feedback-pictures" onCheckedChange={() => handleFeedbackCheckbox('pictures')} checked={requiredFeedback.includes('pictures')} />
+                                                        <Checkbox id="feedback-pictures" onCheckedChange={() => handleFeedbackCheckbox('pictures', setRequiredFeedback)} checked={requiredFeedback.includes('pictures')} />
                                                         <Label htmlFor="feedback-pictures" className="font-normal flex items-center gap-1"><Camera size={16}/> Pictures</Label>
                                                     </div>
                                                     <div className="flex items-center space-x-2">
-                                                        <Checkbox id="feedback-videos" onCheckedChange={() => handleFeedbackCheckbox('videos')} checked={requiredFeedback.includes('videos')} />
+                                                        <Checkbox id="feedback-videos" onCheckedChange={() => handleFeedbackCheckbox('videos', setRequiredFeedback)} checked={requiredFeedback.includes('videos')} />
                                                         <Label htmlFor="feedback-videos" className="font-normal flex items-center gap-1"><Video size={16}/> Videos</Label>
                                                     </div>
                                                 </div>
@@ -663,12 +566,12 @@ export function DoctorDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Case Management</CardTitle>
-              <CardDescription>Review new cases and track dispatched nurses.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Tabs defaultValue="queue">
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="queue">Review Queue ({investigationQueue.length})</TabsTrigger>
+                        <TabsTrigger value="updates">Patient Updates ({patientUpdates.length})</TabsTrigger>
                         <TabsTrigger value="dispatched">Dispatched ({dispatchedCases.length})</TabsTrigger>
                     </TabsList>
                     <TabsContent value="queue">
@@ -679,7 +582,21 @@ export function DoctorDashboard() {
                                 <div className="text-center text-muted-foreground py-12">
                                     <MessageSquare className="mx-auto w-12 h-12 text-gray-400" />
                                     <h3 className="mt-2 text-lg font-semibold">All Clear!</h3>
-                                    <p>There are no investigations waiting for your review.</p>
+                                    <p>There are no new cases waiting for your review.</p>
+                                </div>
+                            }
+                            </div>
+                        )}
+                    </TabsContent>
+                    <TabsContent value="updates">
+                        {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
+                            <div className="space-y-4 pt-4">
+                            {patientUpdates.length > 0 ? 
+                                patientUpdates.map(c => renderCaseCard(c)) : 
+                                <div className="text-center text-muted-foreground py-12">
+                                    <MessageSquare className="mx-auto w-12 h-12 text-gray-400" />
+                                    <h3 className="mt-2 text-lg font-semibold">No Patient Updates</h3>
+                                    <p>New results from dispatched nurses will appear here.</p>
                                 </div>
                             }
                             </div>
@@ -689,7 +606,7 @@ export function DoctorDashboard() {
                         {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
                             <div className="space-y-4 pt-4">
                             {dispatchedCases.length > 0 ? 
-                                dispatchedCases.map(c => renderCaseCard(c, true)) : 
+                                dispatchedCases.map(c => renderCaseCard(c)) : 
                                 <div className="text-center text-muted-foreground py-12">
                                     <Send className="mx-auto w-12 h-12 text-gray-400" />
                                     <h3 className="mt-2 text-lg font-semibold">No Active Dispatches</h3>
@@ -707,12 +624,12 @@ export function DoctorDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>My Patients ({myPatients.length})</CardTitle>
-              <CardDescription>Select a patient to view their detailed health analytics.</CardDescription>
+              <CardDescription>Select a patient to request a follow-up visit.</CardDescription>
             </CardHeader>
             <CardContent>
                <div className="space-y-4">
                 {myPatients.length > 0 ? myPatients.map(patient => (
-                    <button key={patient.id} onClick={() => setSelectedPatient({userId: patient.id, userName: patient.name})} className="w-full text-left flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/50 transition-colors">
+                    <button key={patient.id} onClick={() => setFollowUpPatient(patient)} className="w-full text-left flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/50 transition-colors">
                         <div>
                             <p className="font-bold">{patient.name}</p>
                             <p className="text-sm text-muted-foreground">Last interaction: {formatDistanceToNow(parseISO(patient.lastInteraction), { addSuffix: true })}</p>
@@ -734,17 +651,44 @@ export function DoctorDashboard() {
       
       {renderReviewDialog()}
       
-      <Dialog open={!!selectedPatient} onOpenChange={() => setSelectedPatient(null)}>
-        <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0">
-          {selectedPatient && (
-            <>
-                <DialogHeader className="p-6 pb-4 border-b shrink-0">
-                    <DialogTitle className="text-2xl">Health Analytics: {selectedPatient.userName}</DialogTitle>
-                    <DialogDescription>A comprehensive overview of the patient's recorded health history.</DialogDescription>
-                </DialogHeader>
-                <PatientAnalyticsView userId={selectedPatient.userId} />
-            </>
-          )}
+      <Dialog open={!!followUpPatient} onOpenChange={() => setFollowUpPatient(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Follow-up for {followUpPatient?.name}</DialogTitle>
+            <DialogDescription>Dispatch a nurse for a follow-up visit with specific instructions.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div>
+              <Label className="font-bold">Note for Nurse</Label>
+              <Textarea 
+                value={followUpNote}
+                onChange={(e) => setFollowUpNote(e.target.value)}
+                placeholder="e.g., Please re-check blood pressure and ask about symptom changes."
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <Label className="font-bold">Required Feedback:</Label>
+              <div className="flex items-center space-x-4 mt-2">
+                  <div className="flex items-center space-x-2">
+                      <Checkbox id="followup-text" onCheckedChange={() => handleFeedbackCheckbox('text', setFollowUpFeedback)} checked={followUpFeedback.includes('text')} />
+                      <Label htmlFor="followup-text" className="font-normal flex items-center gap-1"><FileText size={16}/> Text Report</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                      <Checkbox id="followup-pictures" onCheckedChange={() => handleFeedbackCheckbox('pictures', setFollowUpFeedback)} checked={followUpFeedback.includes('pictures')} />
+                      <Label htmlFor="followup-pictures" className="font-normal flex items-center gap-1"><Camera size={16}/> Pictures</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                      <Checkbox id="followup-videos" onCheckedChange={() => handleFeedbackCheckbox('videos', setFollowUpFeedback)} checked={followUpFeedback.includes('videos')} />
+                      <Label htmlFor="followup-videos" className="font-normal flex items-center gap-1"><Video size={16}/> Videos</Label>
+                  </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setFollowUpPatient(null)}>Cancel</Button>
+            <Button onClick={handleRequestFollowUp}><RefreshCw className="mr-2"/> Dispatch Follow-up</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
