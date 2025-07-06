@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -5,15 +6,16 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Apple, GlassWater, HeartPulse, Move, Beaker, Bed, Clock } from "lucide-react";
+import { Apple, GlassWater, HeartPulse, Move, Beaker, Bed, Clock, ClipboardCheck } from "lucide-react";
 import { useAuth } from '@/context/auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDocs, setDoc, getDoc, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import Confetti from 'react-confetti';
 import { format, subDays } from 'date-fns';
 import { generateDailyTasks } from '@/ai/flows/generate-daily-tasks-flow';
 import { Loader } from '../ui/loader';
+import { cn } from '@/lib/utils';
 
 interface Task {
   text: string;
@@ -171,7 +173,7 @@ export function TaskList() {
             {showConfetti && <Confetti width={width} height={height} recycle={false} numberOfPieces={500} gravity={0.2} />}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-glow">Your AI-Powered Daily Plan</CardTitle>
+                    <CardTitle className="flex items-center gap-3"><ClipboardCheck className="w-8 h-8 text-primary"/> Your AI-Powered Daily Plan</CardTitle>
                     <CardDescription>
                         {completedTasks} of {totalTasks} tasks completed. Keep it up!
                     </CardDescription>
@@ -212,11 +214,11 @@ export function TaskList() {
                                             aria-labelledby={`task-label-${index}`}
                                         />
                                         <div className="flex items-center gap-3 flex-grow">
-                                            <Icon className={`w-6 h-6 transition-colors ${task.completed ? "text-primary/50" : "text-primary"}`} />
+                                            <Icon className={cn("w-6 h-6 transition-colors", task.completed ? "text-primary/50" : "text-primary")} />
                                             <Label
                                                 htmlFor={`task-${index}`}
                                                 id={`task-label-${index}`}
-                                                className={`text-base cursor-pointer transition-colors ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}
+                                                className={cn("text-base cursor-pointer transition-colors", task.completed ? "line-through text-muted-foreground" : "text-foreground")}
                                             >
                                                 {task.text}
                                             </Label>
