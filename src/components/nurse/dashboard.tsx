@@ -17,6 +17,8 @@ import { continueInvestigation, type ContinueInvestigationClientInput } from '@/
 import type { Profile } from '@/context/profile-provider';
 import { Textarea } from '../ui/textarea';
 import Image from 'next/image';
+import { Label } from '../ui/label';
+import { Badge } from '../ui/badge';
 
 type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected';
 type RequiredFeedback = 'pictures' | 'videos' | 'text';
@@ -111,14 +113,21 @@ export function NurseDashboard() {
         reader.readAsDataURL(file);
     });
 
-    const handleFileUpload = async (files: FileList | null, type: 'picture' | 'video') => {
+    const handleFileUpload = async (files: FileList | null, type: 'picture' | 'video', testName?: string) => {
         if (!files) return;
-        for (const file of Array.from(files)) {
+
+        if (testName) { // Lab result upload
+            const file = files[0];
             const dataUri = await fileToDataUri(file);
-            if (type === 'picture') {
-                setNursePictures(prev => ({ ...prev, [file.name]: dataUri }));
-            } else {
-                setNurseVideos(prev => ({ ...prev, [file.name]: dataUri }));
+            setLabResultUploads(prev => ({ ...prev, [testName]: dataUri }));
+        } else { // Nurse feedback upload
+            for (const file of Array.from(files)) {
+                const dataUri = await fileToDataUri(file);
+                if (type === 'picture') {
+                    setNursePictures(prev => ({ ...prev, [file.name]: dataUri }));
+                } else {
+                    setNurseVideos(prev => ({ ...prev, [file.name]: dataUri }));
+                }
             }
         }
     };
@@ -226,7 +235,7 @@ export function NurseDashboard() {
                                         <div key={i} className="p-3 border rounded-md">
                                             <label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label>
                                             <div className="flex items-center gap-4 mt-2">
-                                                <Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleFileUpload(e.target.files, 'picture')} className="file:text-foreground flex-grow" />
+                                                <Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleFileUpload(e.target.files, 'picture', test)} className="file:text-foreground flex-grow" />
                                                 {labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}
                                             </div>
                                         </div>
