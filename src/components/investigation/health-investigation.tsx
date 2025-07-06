@@ -102,7 +102,7 @@ export function HealthInvestigation() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isLoading, setIsLoading] = useState(true);
-  const [view, setView] = useState<'chat' | 'history'>('chat');
+  const [view, setView] = useState<'chat' | 'history'>('history');
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
   
   // Chat state
@@ -200,6 +200,7 @@ export function HealthInvestigation() {
         if (result.success) {
             toast({ title: 'Investigation Submitted', description: 'Your case has been sent for review. A doctor will prescribe the next steps shortly.' });
             setInterviewState('not_started');
+            setView('history');
         } else {
              throw new Error("Submission failed on the server.");
         }
@@ -321,7 +322,7 @@ export function HealthInvestigation() {
                         </div>
                     ) : (
                          <div className="w-full flex items-center justify-center h-10">
-                            <Loader />
+                            <Loader2 className="animate-spin" />
                             <p className="ml-4 text-muted-foreground">Submitting your case for review...</p>
                          </div>
                     )}
@@ -338,8 +339,8 @@ export function HealthInvestigation() {
             <CardDescription>Review your past and ongoing cases.</CardDescription>
         </CardHeader>
         <CardContent>
-            {isLoading ? <Loader /> : investigations.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full">
+            {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : investigations.length > 0 ? (
+                <Accordion type="single" collapsible className="w-full" defaultValue={investigations[0]?.id}>
                     {investigations.map(c => (
                         <AccordionItem value={c.id} key={c.id}>
                             <AccordionTrigger className="text-left">
@@ -400,7 +401,7 @@ export function HealthInvestigation() {
                                         </CardContent>
                                         <CardFooter>
                                             <Button onClick={() => handleSubmitLabResults(c)} disabled={isSubmittingLabs}>
-                                                {isSubmittingLabs ? <Loader/> : <><Upload className="mr-2"/> Submit Lab Results</>}
+                                                {isSubmittingLabs ? <Loader2 className="animate-spin"/> : <><Upload className="mr-2"/> Submit Lab Results</>}
                                             </Button>
                                         </CardFooter>
                                     </Card>
@@ -488,11 +489,11 @@ export function HealthInvestigation() {
         </Card>
         
         <div className="grid lg:grid-cols-3 gap-8 items-start">
-            <div className={cn("lg:col-span-2", view === 'chat' ? 'block' : 'hidden lg:block')}>
+            <div className={cn("lg:col-span-2", view === 'chat' || interviewState !== 'not_started' ? 'block' : 'hidden lg:block')}>
                 <ChatInterface />
             </div>
 
-            <div className={cn("lg:col-span-1 space-y-8", view === 'history' ? 'block' : 'hidden lg:block')}>
+            <div className={cn("lg:col-span-1 space-y-8", view === 'history' && interviewState === 'not_started' ? 'block' : 'hidden lg:block')}>
                 <HistoryPanel />
             </div>
         </div>
