@@ -386,7 +386,12 @@ export function HealthInvestigation() {
                                                 <div>
                                                     <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
                                                     {c.status === 'awaiting_nurse_visit' ? (
-                                                        <p className="text-sm text-muted-foreground mb-4">A nurse has been dispatched to your location to collect samples for these tests.</p>
+                                                        <div>
+                                                            <p className="text-sm text-muted-foreground mb-2">A nurse has been dispatched to your location to collect samples for these tests:</p>
+                                                            <ul className="list-disc list-inside pl-4 text-muted-foreground text-sm">
+                                                                {c.doctorPlan.suggestedLabTests.map((test, i) => <li key={i}>{test}</li>)}
+                                                            </ul>
+                                                        </div>
                                                     ) : (
                                                     <div>
                                                         <p className="text-sm text-muted-foreground mb-4">Please get these tests done and upload the results below.</p>
