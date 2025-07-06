@@ -22,10 +22,11 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video } from 'lucide-react';
+import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video, Share2 } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 // Types
 interface Message {
@@ -88,6 +89,9 @@ export function Admission() {
   // Lab result upload state
   const [labResultUploads, setLabResultUploads] = useState<Record<string, string>>({});
   const [isSubmittingLabs, setIsSubmittingLabs] = useState(false);
+
+  // Image viewer state
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Fetch history of investigations
   useEffect(() => {
@@ -221,6 +225,39 @@ export function Admission() {
     }
   };
 
+  const handleShareImage = async () => {
+    if (!selectedImage) return;
+
+    try {
+        const response = await fetch(selectedImage);
+        const blob = await response.blob();
+        const file = new File([blob], 'lifeline-image.png', { type: blob.type });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                files: [file],
+                title: 'Health Image',
+                text: 'Image from Lifeline AI Case',
+            });
+        } else {
+            const link = document.createElement('a');
+            link.href = selectedImage;
+            link.download = 'lifeline-image.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toast({ title: "Image downloaded", description: "Sharing is not supported, the image has been downloaded instead." });
+        }
+    } catch (error) {
+        console.error('Error sharing image:', error);
+        toast({
+            variant: 'destructive',
+            title: 'Share Failed',
+            description: 'Could not share the image.',
+        });
+    }
+};
+
   const ChatInterface = () => (
     <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -339,7 +376,9 @@ export function Admission() {
                                                         {step.userInput.imageDataUri && (
                                                             <div className="mt-2">
                                                                 <h4 className="font-semibold text-sm mb-1">Image Submitted</h4>
-                                                                <Image src={step.userInput.imageDataUri} alt="Initial submission" width={100} height={100} className="rounded-md border"/>
+                                                                <button onClick={() => setSelectedImage(step.userInput.imageDataUri)} className="transition-transform hover:scale-105">
+                                                                    <Image src={step.userInput.imageDataUri} alt="Initial submission" width={100} height={100} className="rounded-md border"/>
+                                                                </button>
                                                             </div>
                                                         )}
                                                     </div>
@@ -355,7 +394,9 @@ export function Admission() {
                                                             {step.userInput.labResults?.map((res: any, i: number) => (
                                                                 <div key={i}>
                                                                     <p className="font-semibold text-xs truncate">{res.testName}</p>
-                                                                    <Image src={res.imageDataUri} alt={res.testName} width={150} height={150} className="rounded-md border mt-1"/>
+                                                                    <button onClick={() => setSelectedImage(res.imageDataUri)} className="transition-transform hover:scale-105 mt-1">
+                                                                        <Image src={res.imageDataUri} alt={res.testName} width={150} height={150} className="rounded-md border"/>
+                                                                    </button>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -466,6 +507,23 @@ export function Admission() {
   return (
     <div className="space-y-8">
       {activeView === 'list' ? <HistoryPanel /> : <ChatInterface />}
+
+      <Dialog open={!!selectedImage} onOpenChange={(isOpen) => !isOpen && setSelectedImage(null)}>
+        <DialogContent className="max-w-3xl">
+            <DialogHeader>
+                <DialogTitle>Image Viewer</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center p-4">
+                {selectedImage && <Image src={selectedImage} alt="Enlarged view" width={800} height={800} className="rounded-md max-h-[70vh] w-auto object-contain"/>}
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setSelectedImage(null)}>Close</Button>
+                <Button onClick={handleShareImage}>
+                    <Share2 className="mr-2"/> Share / Print
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
