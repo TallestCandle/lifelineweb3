@@ -37,9 +37,12 @@ const ExtractedTestStripSchema = z.object({
 });
 
 const ExtractDataFromImageOutputSchema = z.object({
-    extractedVitals: ExtractedVitalsSchema.optional().describe("Structured data extracted for vital signs. Only populate if vitals are found."),
-    extractedTestStrip: ExtractedTestStripSchema.optional().describe("Structured data extracted from a urine test strip. Only populate if test strip results are found."),
-    otherData: z.record(z.string()).optional().describe("A dictionary for any other metrics found on the device that do not fit into the standard vitals or test strip fields. Use the metric's name as the key and its value as the value. For example, {'Irregular Heartbeat': 'Detected'}. Only include this field if you find such data."),
+    extractedVitals: ExtractedVitalsSchema.optional().describe("Structured data extracted for vital signs. Omit if no vitals are found."),
+    extractedTestStrip: ExtractedTestStripSchema.optional().describe("Structured data extracted from a urine test strip. Omit if no test strip results are found."),
+    otherData: z.array(z.object({
+        metricName: z.string().describe("The name of the unexpected metric."),
+        metricValue: z.string().describe("The value of the unexpected metric."),
+    })).optional().describe("A list for any other metrics found on the device that do not fit into the standard vitals or test strip fields. Only include this field if you find such data."),
     analysisSummary: z.string().describe("A brief, human-readable summary of what was found in the image, for user confirmation. e.g., 'Found a blood pressure reading of 125/85 mmHg.' or 'Detected Glucose at ++ and Ketones as Trace.'"),
     isConfident: z.boolean().describe("Set to true if you are highly confident in the extracted values. If the image is blurry, ambiguous, or doesn't seem to contain medical data, set this to false."),
 });
@@ -67,8 +70,8 @@ Image to analyze: {{media url=imageDataUri}}
     *   **Thermometer:** Extract 'temperature'.
     *   **Scale:** Extract 'weight'.
     *   **Urine Test Strip:** Populate the fields in 'extractedTestStrip'.
-3.  **CRITICAL - Handle Unknown Metrics:** If you identify a metric on the device that does NOT have a corresponding field in the structured objects (e.g., an 'Irregular Heartbeat' indicator, 'Body Fat %'), you MUST place this information in the \`otherData\` object. Use the metric's name as the key (e.g., "Irregular Heartbeat") and its reading as the value (e.g., "Detected").
-4.  **Data Precision:** NEVER force a value into an incorrect field. If a value doesn't match a predefined field, use \`otherData\`. If a value is unreadable, OMIT it entirely. Do not include fields with empty strings or "N/A".
+3.  **CRITICAL - Handle Unknown Metrics:** If you identify a metric on the device that does NOT have a corresponding field in the structured objects (e.g., an 'Irregular Heartbeat' indicator, 'Body Fat %'), you MUST place this information in the \`otherData\` array. Each item in the array should be an object with a 'metricName' key (e.g., 'Irregular Heartbeat') and a 'metricValue' key (e.g., 'Detected').
+4.  **Data Precision:** NEVER force a value into an incorrect field. If a value doesn't match a predefined field, use \`otherData\`. If a value is unreadable or not present, OMIT the field entirely from the output. Do not include fields with empty strings or "N/A".
 5.  **Create Summary:** Write a short 'analysisSummary' confirming what you found.
 6.  **Assess Confidence:** Set 'isConfident' to 'false' if the image is blurry, poorly lit, or you cannot reliably read the values.
 7.  **Mutually Exclusive Output:** For devices measuring vitals, populate ONLY the 'extractedVitals' object (and 'otherData' if needed). For a urine test strip, populate ONLY the 'extractedTestStrip' object (and 'otherData' if needed). NEVER populate both 'extractedVitals' and 'extractedTestStrip' from the same image.`,

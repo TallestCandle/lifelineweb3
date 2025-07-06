@@ -29,6 +29,8 @@ const loggerSchema = z.object({
 });
 type LoggerFormValues = z.infer<typeof loggerSchema>;
 
+type OtherData = { metricName: string; metricValue: string };
+
 interface Vital {
     type: 'vitals';
     id: string;
@@ -40,7 +42,7 @@ interface Vital {
     oxygenSaturation?: string;
     temperature?: string;
     weight?: string;
-    otherData?: Record<string, string>;
+    otherData?: OtherData[];
 }
 
 interface Strip {
@@ -53,7 +55,7 @@ interface Strip {
     blood?: string;
     nitrite?: string;
     ph?: string;
-    otherData?: Record<string, string>;
+    otherData?: OtherData[];
 }
 
 type HistoryItem = Vital | Strip;
@@ -69,14 +71,14 @@ const HistoryItemContent = ({ item }: { item: HistoryItem }) => {
     };
 
     const data = { ...item };
-    const otherData = (data as any).otherData;
+    const otherData = (data as any).otherData as OtherData[] | undefined;
     delete (data as any).id;
     delete (data as any).type;
     delete (data as any).date;
     delete (data as any).otherData;
 
     const entries = Object.entries(data).filter(([_, value]) => value != null && value !== '');
-    const otherEntries = otherData ? Object.entries(otherData).filter(([_, value]) => value != null && value !== '') : [];
+    const otherEntries = otherData || [];
 
     if (entries.length === 0 && otherEntries.length === 0) {
         return <p className="text-muted-foreground text-sm">No specific data points were recorded for this entry.</p>;
@@ -91,10 +93,10 @@ const HistoryItemContent = ({ item }: { item: HistoryItem }) => {
                 </div>
             ))}
             {otherEntries.length > 0 && entries.length > 0 && <Separator className="my-2" />}
-            {otherEntries.map(([key, value]) => (
-                 <div key={key} className="flex justify-between">
-                    <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
-                    <span className="font-bold">{String(value)}</span>
+            {otherEntries.map((metric, index) => (
+                 <div key={index} className="flex justify-between">
+                    <span className="text-muted-foreground capitalize">{metric.metricName.replace(/([A-Z])/g, ' $1')}</span>
+                    <span className="font-bold">{String(metric.metricValue)}</span>
                 </div>
             ))}
         </div>
@@ -196,7 +198,7 @@ export function UnifiedLogger() {
         
         try {
             const dateToSave = { date: new Date().toISOString() };
-            const otherDataToSave = aiResult.otherData && Object.keys(aiResult.otherData).length > 0 ? { otherData: aiResult.otherData } : {};
+            const otherDataToSave = aiResult.otherData && aiResult.otherData.length > 0 ? { otherData: aiResult.otherData } : {};
 
             let logType: 'vitals' | 'strips' | null = null;
             let collectionRef;
@@ -256,7 +258,7 @@ export function UnifiedLogger() {
         
         const validVitals = extractedVitals ? Object.entries(extractedVitals).filter(([_, value]) => value && String(value).trim()) : [];
         const validStrips = extractedTestStrip ? Object.entries(extractedTestStrip).filter(([_, value]) => value && String(value).trim()) : [];
-        const validOther = otherData ? Object.entries(otherData).filter(([_, value]) => value && String(value).trim()) : [];
+        const validOther = otherData || [];
 
         if (validVitals.length === 0 && validStrips.length === 0 && validOther.length === 0) {
             return <p className="text-muted-foreground text-sm">The AI could not find any specific data to extract.</p>;
@@ -277,10 +279,10 @@ export function UnifiedLogger() {
                     </div>
                 ))}
                 {validOther.length > 0 && (validVitals.length > 0 || validStrips.length > 0) && <Separator className="my-2"/>}
-                {validOther.map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
-                        <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
-                        <span className="font-bold">{String(value)}</span>
+                {validOther.map((metric, index) => (
+                    <div key={index} className="flex justify-between">
+                        <span className="text-muted-foreground capitalize">{metric.metricName.replace(/([A-Z])/g, ' $1')}</span>
+                        <span className="font-bold">{String(metric.metricValue)}</span>
                     </div>
                 ))}
             </div>
