@@ -15,7 +15,7 @@ import { DoctorProfileGuard } from "./doctor-profile-guard"
 
 const pageTitles: Record<string, string> = {
   "/doctor/dashboard": "Doctor Dashboard",
-  "/doctor/patients": "Patients",
+  "/doctor/messages": "Messages",
   "/doctor/profile": "Your Profile",
 };
 
@@ -54,7 +54,7 @@ function DoctorAppShellInternal({ children }: { children: React.ReactNode }) {
                 <Link href="/doctor/dashboard"><BarChart className="mr-2"/>Dashboard</Link>
             </Button>
              <Button asChild variant={pathname.startsWith('/doctor/messages') ? 'default' : 'ghost'} className="w-full justify-start">
-                <Link href="#"><MessageSquare className="mr-2"/>Messages</Link>
+                <Link href="/doctor/messages"><MessageSquare className="mr-2"/>Messages</Link>
             </Button>
         </div>
          <div className="p-4 border-t border-primary/20">

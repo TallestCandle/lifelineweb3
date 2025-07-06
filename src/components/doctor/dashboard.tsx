@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { Loader2, User, Check, X, Pencil, ArrowRight, TestTube, Pill, ClipboardCheck, ClipboardList, MessageSquare, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown, RefreshCw, Home, Phone, Sparkles, Bot } from 'lucide-react';
+import { Loader2, User, Check, X, Pencil, ArrowRight, TestTube, Pill, ClipboardCheck, ClipboardList, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown, RefreshCw, Home, Phone, Sparkles } from 'lucide-react';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
@@ -77,14 +77,6 @@ interface Patient {
     lastInteraction: string;
 }
 
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'doctor';
-  content: string;
-  timestamp: string;
-  authorName: string;
-}
-
 const UrgencyConfig: Record<string, { color: string; text: string }> = {
     'Low': { color: 'bg-blue-500', text: 'Low' },
     'Medium': { color: 'bg-yellow-500', text: 'Medium' },
@@ -96,86 +88,6 @@ const vitalsChartConfig = {
   systolic: { label: "Systolic", color: "hsl(var(--chart-1))" },
   diastolic: { label: "Diastolic", color: "hsl(var(--chart-2))" },
 } satisfies ChartConfig;
-
-function CaseChat({ investigationId, patientName }: { investigationId: string, patientName: string }) {
-  const { user } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [isChatLoading, setIsChatLoading] = useState(true);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const messagesCol = collection(db, `investigations/${investigationId}/messages`);
-    const q = query(messagesCol, orderBy("timestamp", "asc"));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage)));
-      setIsChatLoading(false);
-    }, (error) => {
-      console.error("Chat Error: ", error);
-      setIsChatLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [investigationId]);
-  
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.parentElement?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
-    }
-  }, [messages]);
-
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !user) return;
-
-    const messagesCol = collection(db, `investigations/${investigationId}/messages`);
-    await addDoc(messagesCol, {
-      role: 'doctor',
-      content: newMessage,
-      timestamp: new Date().toISOString(),
-      authorId: user.uid,
-      authorName: user.displayName || 'Doctor',
-    });
-    setNewMessage("");
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-            <MessageSquare /> Chat with {patientName}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <ScrollArea className="h-64 px-4" ref={scrollAreaRef}>
-           <div className="space-y-4">
-            {isChatLoading && <Loader2 className="animate-spin mx-auto"/>}
-            {!isChatLoading && messages.length === 0 && (
-              <p className="text-center text-sm text-muted-foreground pt-4">No messages yet.</p>
-            )}
-            {messages.map((message) => (
-              <div key={message.id} className={`flex items-end gap-2 ${message.role === 'doctor' ? 'justify-end' : 'justify-start'}`}>
-                {message.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center"><User size={20}/></div>}
-                <div className={`max-w-[80%] rounded-lg p-3 ${message.role === 'doctor' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
-                  <p className="whitespace-pre-wrap">{message.content}</p>
-                </div>
-                {message.role === 'doctor' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center"><Bot size={20}/></div>}
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </CardContent>
-      <CardFooter className="p-4 border-t">
-         <form onSubmit={handleSendMessage} className="w-full flex items-center gap-2">
-          <Input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..." />
-          <Button type="submit" size="icon"><Send /></Button>
-        </form>
-      </CardFooter>
-    </Card>
-  );
-}
 
 
 export function DoctorDashboard() {
@@ -811,7 +723,6 @@ export function DoctorDashboard() {
                                 )}
                             </CardContent>
                         </Card>
-                        <CaseChat investigationId={selectedCase.id} patientName={selectedCase.userName} />
                     </div>
                 </div>
                 <DialogFooter>
@@ -848,7 +759,7 @@ export function DoctorDashboard() {
                             {investigationQueue.length > 0 ? 
                                 investigationQueue.map(c => renderCaseCard(c)) : 
                                 <div className="text-center text-muted-foreground py-12">
-                                    <MessageSquare className="mx-auto w-12 h-12 text-gray-400" />
+                                    <User className="mx-auto w-12 h-12 text-gray-400" />
                                     <h3 className="mt-2 text-lg font-semibold">All Clear!</h3>
                                     <p>There are no new cases waiting for your review.</p>
                                 </div>
@@ -862,7 +773,7 @@ export function DoctorDashboard() {
                             {patientUpdates.length > 0 ? 
                                 patientUpdates.map(c => renderCaseCard(c)) : 
                                 <div className="text-center text-muted-foreground py-12">
-                                    <MessageSquare className="mx-auto w-12 h-12 text-gray-400" />
+                                    <User className="mx-auto w-12 h-12 text-gray-400" />
                                     <h3 className="mt-2 text-lg font-semibold">No Patient Updates</h3>
                                     <p>New results from dispatched nurses will appear here.</p>
                                 </div>
