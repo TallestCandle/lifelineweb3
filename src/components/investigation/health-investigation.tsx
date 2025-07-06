@@ -1,10 +1,10 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, orderBy, onSnapshot, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import Image from 'next/image';
@@ -15,7 +15,6 @@ import { conductInterview } from '@/ai/flows/conduct-interview-flow';
 import { startInvestigation } from '@/ai/flows/start-investigation-flow';
 import { continueInvestigation } from '@/ai/flows/continue-investigation-flow';
 
-
 // UI Components
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
@@ -23,11 +22,9 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader } from '@/components/ui/loader';
-import { Bot, User, PlusCircle, FileClock, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, XCircle, Search, Pill, TestTube, Upload, Check, Salad, MapPin, Building, Loader2, Phone } from 'lucide-react';
+import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Search, Pill, TestTube, Upload, Check, Salad, MessageSquare } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Label } from '../ui/label';
 
 // Types
 interface Message {
@@ -59,54 +56,27 @@ interface InvestigationStep {
     aiAnalysis: any;
 }
 
-
 const statusConfig: Record<InvestigationStatus, { text: string; color: string }> = {
   pending_review: { text: 'Awaiting Doctor Review', color: 'bg-yellow-500' },
   awaiting_nurse_visit: { text: 'Nurse Visit Pending', color: 'bg-cyan-500' },
   awaiting_lab_results: { text: 'Awaiting Lab Results', color: 'bg-blue-500' },
   pending_final_review: { text: 'Doctor Reviewing Results', color: 'bg-yellow-500' },
-  completed: { text: 'Investigation Complete', color: 'bg-green-500' },
-  rejected: { text: 'Investigation Closed', color: 'bg-red-500' },
+  completed: { text: 'Case Complete', color: 'bg-green-500' },
+  rejected: { text: 'Case Closed', color: 'bg-red-500' },
 };
 
-// Sub-component for the chat input form to isolate its state
-const ChatInputForm = ({ onSendMessage, isLoading }: { onSendMessage: (input: string) => void, isLoading: boolean }) => {
-    const [input, setInput] = useState('');
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!input.trim() || isLoading) return;
-        onSendMessage(input);
-        setInput('');
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="w-full flex items-center gap-2">
-            <Input 
-                value={input} 
-                onChange={(e) => setInput(e.target.value)} 
-                placeholder="Type your message..." 
-                disabled={isLoading}
-                autoComplete="off"
-            />
-            <Button type="submit" disabled={isLoading || !input.trim()}>
-                <Send />
-            </Button>
-        </form>
-    );
-};
 
 export function HealthInvestigation() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [view, setView] = useState<'chat' | 'history'>('history');
+  
+  const [activeView, setActiveView] = useState<'list' | 'chat'>('list');
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   
   // Chat state
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [interviewState, setInterviewState] = useState<'not_started' | 'in_progress' | 'awaiting_upload' | 'submitting'>('not_started');
@@ -116,37 +86,46 @@ export function HealthInvestigation() {
   const [labResultUploads, setLabResultUploads] = useState<Record<string, string>>({});
   const [isSubmittingLabs, setIsSubmittingLabs] = useState(false);
 
-
-  // Scroll to bottom of chat
+  // Fetch history of investigations
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.parentElement?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+    if (!user) {
+        setIsLoadingHistory(false);
+        return;
     }
-  }, [messages]);
-  
-  // Fetch history
-  useEffect(() => {
-    if (!user) return;
 
     const q = query(collection(db, "investigations"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
         setInvestigations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investigation)));
-        setIsLoading(false);
+        setIsLoadingHistory(false);
     }, (err) => {
         console.error("Error fetching investigations: ", err);
-        toast({variant: 'destructive', title: 'Error', description: 'Could not fetch past investigations.'});
-        setIsLoading(false);
+        toast({variant: 'destructive', title: 'Error', description: 'Could not fetch past cases.'});
+        setIsLoadingHistory(false);
     });
 
     return () => unsubscribe();
   }, [user, toast]);
 
-  const startNewInvestigation = () => {
-      setMessages([{ role: 'model', content: "Hello! I'm your AI Investigator. To get started, please briefly describe your main health concern." }]);
+  // Scroll chat to bottom
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.parentElement?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  const startNewAdmission = () => {
+      setMessages([{ role: 'model', content: "Hello! I'm your AI Investigator. To start your virtual admission, please briefly describe your main health concern." }]);
       setInterviewState('in_progress');
-      setView('chat');
+      setActiveView('chat');
       setImageDataUri(null);
   };
+
+  const cancelAdmission = () => {
+    setMessages([]);
+    setInterviewState('not_started');
+    setActiveView('list');
+    setImageDataUri(null);
+  }
   
   const handleSendMessage = async (currentInput: string) => {
     if (!currentInput.trim() || isChatLoading) return;
@@ -156,20 +135,15 @@ export function HealthInvestigation() {
     setIsChatLoading(true);
 
     try {
-      const thinkingMessage: Message = { role: 'model', content: '' };
-      setMessages([...newMessages, thinkingMessage]);
-
+      setMessages([...newMessages, { role: 'model', content: '' }]); // Thinking indicator
       const result = await conductInterview({ chatHistory: newMessages });
-      
       setMessages([...newMessages, { role: 'model', content: result.nextQuestion }]);
-      
       if (result.isFinalQuestion) {
         setInterviewState('awaiting_upload');
       }
     } catch (error) {
       console.error("AI chat failed:", error);
-      toast({ variant: 'destructive', title: 'Chat Error', description: 'Could not get a response from the AI.' });
-      setMessages([...newMessages, { role: 'model', content: "I'm sorry, I'm having trouble connecting. Please try again in a moment." }]);
+      setMessages([...newMessages, { role: 'model', content: "I'm sorry, an error occurred. Please try again." }]);
     } finally {
       setIsChatLoading(false);
     }
@@ -187,10 +161,8 @@ export function HealthInvestigation() {
   const handleFinalSubmission = async () => {
       if (!user) return;
       setInterviewState('submitting');
-      
       try {
         const chatTranscript = messages.map(m => `${m.role === 'user' ? 'Patient' : 'AI Investigator'}: ${m.content}`).join('\n\n');
-        
         const result = await startInvestigation({
             userId: user.uid,
             userName: user.displayName || "User",
@@ -199,15 +171,14 @@ export function HealthInvestigation() {
         });
 
         if (result.success) {
-            toast({ title: 'Investigation Submitted', description: 'Your case has been sent for review. A doctor will prescribe the next steps shortly.' });
-            setInterviewState('not_started');
-            setView('history');
+            toast({ title: 'Case Submitted for Review', description: 'A doctor will review your case and prescribe the next steps shortly.' });
+            cancelAdmission();
         } else {
              throw new Error("Submission failed on the server.");
         }
       } catch (error) {
           console.error("Failed to submit investigation:", error);
-          toast({ variant: 'destructive', title: 'Submission Failed', description: 'Could not submit your investigation. Please try again.' });
+          toast({ variant: 'destructive', title: 'Submission Failed', description: 'Could not submit your case. Please try again.' });
           setInterviewState('awaiting_upload');
       }
   };
@@ -235,20 +206,10 @@ export function HealthInvestigation() {
     
     setIsSubmittingLabs(true);
     try {
-        const labResults = requiredTests.map(testName => ({
-            testName,
-            imageDataUri: labResultUploads[testName],
-        }));
-
-        await continueInvestigation({
-            userId: user.uid,
-            investigationId: investigation.id,
-            labResults,
-        });
-        
+        const labResults = requiredTests.map(testName => ({ testName, imageDataUri: labResultUploads[testName] }));
+        await continueInvestigation({ userId: user.uid, investigationId: investigation.id, labResults });
         toast({ title: "Lab Results Submitted", description: "Your results have been sent for final analysis." });
         setLabResultUploads({});
-
     } catch (error) {
         console.error("Error submitting lab results:", error);
         toast({ variant: 'destructive', title: "Submission Failed", description: "Could not submit your lab results." });
@@ -256,122 +217,107 @@ export function HealthInvestigation() {
         setIsSubmittingLabs(false);
     }
   };
-  
+
   const ChatInterface = () => (
-     interviewState === 'not_started' ? (
-        <Card className="flex flex-col items-center justify-center text-center h-[70vh]">
-            <CardHeader>
-                <Search className="w-16 h-16 mx-auto text-primary/50" />
-                <CardTitle className="mt-4">Start a New Health Investigation</CardTitle>
-                <CardDescription>Ready to investigate your health concerns? Start a new chat with our AI.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button onClick={startNewInvestigation}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Start New Investigation
-                </Button>
-            </CardContent>
-        </Card>
-    ) : (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Bot/> AI Investigator</CardTitle>
-                <CardDescription>The interview will have 15 questions to gather details.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-                <ScrollArea className="h-[50vh] p-4" ref={scrollAreaRef}>
-                    <div className="space-y-4">
-                        {messages.map((message, index) => (
-                             <div key={index} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                {message.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center"><Bot size={20}/></div>}
-                                <div className={`max-w-[90%] md:max-w-md rounded-lg p-3 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
-                                    {isChatLoading && index === messages.length - 1 && message.role === 'model' ? (
-                                        <div className="flex items-center justify-center gap-1.5 h-5">
-                                            <span className="h-2 w-2 rounded-full bg-current animate-bounce [animation-delay:-0.3s]"></span>
-                                            <span className="h-2 w-2 rounded-full bg-current animate-bounce [animation-delay:-0.15s]"></span>
-                                            <span className="h-2 w-2 rounded-full bg-current animate-bounce"></span>
-                                        </div>
-                                    ) : <p className="whitespace-pre-wrap">{message.content}</p>}
-                                </div>
-                                {message.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center"><User size={20}/></div>}
-                            </div>
-                        ))}
-                    </div>
-                </ScrollArea>
-                <CardFooter className="p-4 border-t">
-                    {interviewState === 'in_progress' ? (
-                        <ChatInputForm onSendMessage={handleSendMessage} isLoading={isChatLoading} />
-                    ) : interviewState === 'awaiting_upload' ? (
-                        <div className="w-full space-y-4">
-                            <Alert>
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertTitle>Interview Complete!</AlertTitle>
-                                <AlertDescription>You can now upload any relevant images (e.g., of a skin condition) for the doctor to review.</AlertDescription>
-                            </Alert>
-                             <div className="flex flex-col sm:flex-row items-center gap-4">
-                                <Button variant="outline" className="w-full sm:w-auto" onClick={() => fileInputRef.current?.click()}><Camera className="mr-2"/> Upload Image</Button>
-                                <Input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                                {imageDataUri && (
-                                    <div className="relative w-fit">
-                                        <Image src={imageDataUri} alt="Preview" width={40} height={40} className="rounded-md border" />
-                                        <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 rounded-full h-6 w-6" onClick={() => setImageDataUri(null)}><Trash2 className="h-4 w-4" /></Button>
+    <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle className="flex items-center gap-2"><Bot/> New Admission Interview</CardTitle>
+                <CardDescription>The AI will ask 15 questions to gather details for the doctor.</CardDescription>
+            </div>
+            <Button variant="ghost" onClick={cancelAdmission} size="sm"><X className="mr-2 h-4 w-4"/> Cancel</Button>
+        </CardHeader>
+        <CardContent className="p-0">
+            <ScrollArea className="h-[50vh] p-4" ref={scrollAreaRef}>
+                <div className="space-y-4">
+                    {messages.map((message, index) => (
+                         <div key={index} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            {message.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center"><Bot size={20}/></div>}
+                            <div className={`max-w-[90%] md:max-w-md rounded-lg p-3 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+                                {isChatLoading && index === messages.length - 1 && message.role === 'model' ? (
+                                    <div className="flex items-center justify-center gap-1.5 h-5">
+                                        <span className="h-2 w-2 rounded-full bg-current animate-bounce [animation-delay:-0.3s]"></span>
+                                        <span className="h-2 w-2 rounded-full bg-current animate-bounce [animation-delay:-0.15s]"></span>
+                                        <span className="h-2 w-2 rounded-full bg-current animate-bounce"></span>
                                     </div>
-                                )}
-                                <div className="flex-grow"/>
-                                <Button className="w-full sm:w-auto" onClick={handleFinalSubmission}>Submit for Initial Review</Button>
+                                ) : <p className="whitespace-pre-wrap">{message.content}</p>}
                             </div>
+                            {message.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center"><User size={20}/></div>}
                         </div>
-                    ) : (
-                         <div className="w-full flex items-center justify-center h-10">
-                            <Loader2 className="animate-spin" />
-                            <p className="ml-4 text-muted-foreground">Submitting your case for review...</p>
-                         </div>
-                    )}
-                </CardFooter>
-            </CardContent>
-        </Card>
-    )
+                    ))}
+                </div>
+            </ScrollArea>
+        </CardContent>
+        <CardFooter className="p-4 border-t">
+            {interviewState === 'in_progress' ? (
+                <form onSubmit={(e) => { e.preventDefault(); handleSendMessage((e.currentTarget.elements.namedItem('message') as HTMLInputElement).value); e.currentTarget.reset(); }} className="w-full flex items-center gap-2">
+                    <Input name="message" placeholder="Type your message..." disabled={isChatLoading} autoComplete="off" />
+                    <Button type="submit" disabled={isChatLoading}><Send /></Button>
+                </form>
+            ) : interviewState === 'awaiting_upload' ? (
+                <div className="w-full space-y-4">
+                    <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Interview Complete!</AlertTitle>
+                        <AlertDescription>Optionally, upload a relevant image (e.g., of a skin condition) before submitting for review.</AlertDescription>
+                    </Alert>
+                     <div className="flex flex-col sm:flex-row items-center gap-4">
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => fileInputRef.current?.click()}><Camera className="mr-2"/> Upload Image</Button>
+                        <Input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                        {imageDataUri && (
+                            <div className="relative w-fit">
+                                <Image src={imageDataUri} alt="Preview" width={40} height={40} className="rounded-md border" />
+                                <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 rounded-full h-6 w-6" onClick={() => setImageDataUri(null)}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                        )}
+                        <div className="flex-grow"/>
+                        <Button className="w-full sm:w-auto" onClick={handleFinalSubmission}>Submit Case for Review</Button>
+                    </div>
+                </div>
+            ) : (
+                 <div className="w-full flex items-center justify-center h-10">
+                    <Loader2 className="animate-spin" />
+                    <p className="ml-4 text-muted-foreground">Submitting your case for doctor's review...</p>
+                 </div>
+            )}
+        </CardFooter>
+    </Card>
   );
 
   const HistoryPanel = () => (
     <Card>
-        <CardHeader>
-            <CardTitle>Investigation History</CardTitle>
-            <CardDescription>Review your past and ongoing cases.</CardDescription>
+        <CardHeader className="flex-row items-center justify-between">
+            <div>
+                <CardTitle>My Clinic Cases</CardTitle>
+                <CardDescription>Review your ongoing and past virtual admissions.</CardDescription>
+            </div>
+            <Button onClick={startNewAdmission}>
+                <PlusCircle className="mr-2"/> New Admission
+            </Button>
         </CardHeader>
         <CardContent>
-            {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : investigations.length > 0 ? (
+            {isLoadingHistory ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : investigations.length > 0 ? (
                 <Accordion type="single" collapsible className="w-full" defaultValue={investigations[0]?.id}>
                     {investigations.map(c => (
                         <AccordionItem value={c.id} key={c.id}>
-                            <AccordionTrigger className="text-left">
+                            <AccordionTrigger className="text-left hover:no-underline">
                                 <div className="flex justify-between items-center w-full pr-4 gap-2">
                                     <div className="flex items-center gap-3">
-                                        <span className={`w-3 h-3 rounded-full ${statusConfig[c.status]?.color || 'bg-gray-400'}`} />
+                                        <span className={cn("w-3 h-3 rounded-full flex-shrink-0", statusConfig[c.status]?.color || 'bg-gray-400')} />
                                         <div className="min-w-0">
-                                            <p className="font-bold truncate">
-                                                {format(parseISO(c.createdAt), 'MMM d, yyyy')}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}
-                                            </p>
+                                            <p className="font-bold truncate">Case from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
+                                            <p className="text-xs text-muted-foreground">{formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}</p>
                                         </div>
                                     </div>
-                                    <Badge variant="outline" className="hidden sm:inline-flex">
-                                        {statusConfig[c.status]?.text}
-                                    </Badge>
+                                    <Badge variant="outline" className="hidden sm:inline-flex">{statusConfig[c.status]?.text}</Badge>
                                 </div>
                             </AccordionTrigger>
-                            <AccordionContent className="space-y-4 pt-2">
+                            <AccordionContent className="space-y-4 pt-4">
                                  {(c.status === 'awaiting_lab_results' || c.status === 'awaiting_nurse_visit') && c.doctorPlan && (
                                     <Card className="bg-secondary/50">
                                         <CardHeader>
                                             <CardTitle className="text-lg">Next Steps from Your Doctor</CardTitle>
-                                            {c.reviewedByName && c.reviewedByUid && (
-                                                <CardDescription>
-                                                    Prescribed by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link>
-                                                </CardDescription>
-                                            )}
+                                            {c.reviewedByName && c.reviewedByUid && (<CardDescription>Prescribed by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></CardDescription>)}
                                         </CardHeader>
                                         <CardContent className="space-y-6">
                                             {c.doctorPlan?.preliminaryMedications?.length > 0 && (
@@ -385,17 +331,12 @@ export function HealthInvestigation() {
                                             {c.doctorPlan?.suggestedLabTests?.length > 0 && (
                                                 <div>
                                                     <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
-                                                    {c.status === 'awaiting_nurse_visit' ? (
-                                                        <div>
-                                                            <p className="text-sm text-muted-foreground mb-2">A nurse has been dispatched to your location to collect samples for these tests:</p>
-                                                            <ul className="list-disc list-inside pl-4 text-muted-foreground text-sm">
-                                                                {c.doctorPlan.suggestedLabTests.map((test, i) => <li key={i}>{test}</li>)}
-                                                            </ul>
-                                                        </div>
-                                                    ) : (
-                                                    <div>
-                                                        <p className="text-sm text-muted-foreground mb-4">Please get these tests done and upload the results below.</p>
-                                                        <div className="space-y-4">
+                                                    <p className="text-sm text-muted-foreground mb-2">{c.status === 'awaiting_nurse_visit' ? 'A nurse has been dispatched to your location to collect samples for these tests:' : 'Please get these tests done and upload the results below.'}</p>
+                                                     <ul className="list-disc list-inside pl-4 text-muted-foreground text-sm">
+                                                        {c.doctorPlan.suggestedLabTests.map((test, i) => <li key={i}>{test}</li>)}
+                                                    </ul>
+                                                    {c.status === 'awaiting_lab_results' && (
+                                                        <div className="space-y-4 mt-4">
                                                             {c.doctorPlan.suggestedLabTests.map((test, i) => (
                                                                 <div key={i} className="p-3 border rounded-md">
                                                                     <label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label>
@@ -406,7 +347,6 @@ export function HealthInvestigation() {
                                                                 </div>
                                                             ))}
                                                         </div>
-                                                    </div>
                                                     )}
                                                 </div>
                                             )}
@@ -414,7 +354,8 @@ export function HealthInvestigation() {
                                         {c.status === 'awaiting_lab_results' && (
                                         <CardFooter>
                                             <Button onClick={() => handleSubmitLabResults(c)} disabled={isSubmittingLabs}>
-                                                {isSubmittingLabs ? <Loader2 className="animate-spin"/> : <><Upload className="mr-2"/> Submit Lab Results</>}
+                                                {isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}
+                                                Submit Lab Results
                                             </Button>
                                         </CardFooter>
                                         )}
@@ -424,34 +365,17 @@ export function HealthInvestigation() {
                                     <Alert>
                                         <ShieldCheck className="h-4 w-4" />
                                         <AlertTitle>Diagnosis &amp; Treatment Plan</AlertTitle>
-                                        {c.reviewedByName && c.reviewedByUid && (
-                                            <p className="text-xs text-muted-foreground -mt-1 mb-2">
-                                                Finalized by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link>
-                                            </p>
-                                        )}
+                                        {c.reviewedByName && c.reviewedByUid && (<p className="text-xs text-muted-foreground -mt-1 mb-2">Finalized by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></p>)}
                                         <AlertDescription asChild>
                                             <div className="space-y-4 mt-2">
                                                 {c.finalDiagnosis?.map((diag: any, i: number) => (
-                                                    <div key={i} className="pb-2 border-b last:border-b-0">
-                                                        <h4 className="font-bold text-foreground">Diagnosis: {diag.condition} ({diag.probability}%)</h4>
-                                                        <p className="text-xs text-muted-foreground">{diag.reasoning}</p>
-                                                    </div>
+                                                    <div key={i} className="pb-2 border-b last:border-b-0"><h4 className="font-bold text-foreground">Diagnosis: {diag.condition} ({diag.probability}%)</h4><p className="text-xs text-muted-foreground">{diag.reasoning}</p></div>
                                                 ))}
                                                 {c.finalTreatmentPlan?.medications?.length > 0 && (
-                                                    <div>
-                                                        <h4 className="font-bold flex items-center gap-2 text-foreground"><Pill size={16}/> Medications</h4>
-                                                        <ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">
-                                                            {c.finalTreatmentPlan.medications.map((med: string, i: number) => <li key={i}>{med}</li>)}
-                                                        </ul>
-                                                    </div>
+                                                    <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Pill size={16}/> Medications</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.medications.map((med: string, i: number) => <li key={i}>{med}</li>)}</ul></div>
                                                 )}
                                                 {c.finalTreatmentPlan?.lifestyleChanges?.length > 0 && (
-                                                    <div>
-                                                        <h4 className="font-bold flex items-center gap-2 text-foreground"><Salad size={16}/> Lifestyle Changes</h4>
-                                                        <ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">
-                                                            {c.finalTreatmentPlan.lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}
-                                                        </ul>
-                                                    </div>
+                                                    <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Salad size={16}/> Lifestyle Changes</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}</ul></div>
                                                 )}
                                             </div>
                                         </AlertDescription>
@@ -459,15 +383,9 @@ export function HealthInvestigation() {
                                 )}
                                 {c.status === 'rejected' && (
                                     <Alert variant="destructive">
-                                        <XCircle className="h-4 w-4"/>
-                                        <AlertTitle>Investigation Closed by Doctor</AlertTitle>
-                                        {c.doctorNote && <AlertDescription>
-                                                {c.doctorNote}
-                                                {c.reviewedByName && c.reviewedByUid && (
-                                                    <span className="italic">{' - '}<Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold hover:underline">{c.reviewedByName}</Link></span>
-                                                )}
-                                            </AlertDescription>
-                                        }
+                                        <X className="h-4 w-4"/>
+                                        <AlertTitle>Case Closed by Doctor</AlertTitle>
+                                        {c.doctorNote && <AlertDescription>{c.doctorNote}{c.reviewedByName && c.reviewedByUid && (<span className="italic">{' - '}<Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold hover:underline">{c.reviewedByName}</Link></span>)}</AlertDescription>}
                                     </Alert>
                                 )}
                                 {(c.status === 'pending_review' || c.status === 'pending_final_review') && (
@@ -482,7 +400,11 @@ export function HealthInvestigation() {
                     ))}
                 </Accordion>
             ) : (
-                <p className="text-muted-foreground text-center py-4">You have no past investigations.</p>
+                <div className="text-center py-12 text-muted-foreground">
+                    <MessageSquare className="mx-auto h-12 w-12" />
+                    <h3 className="mt-4 text-lg font-semibold">No Cases Yet</h3>
+                    <p className="mt-1 text-sm">Start a new admission to begin your health journey.</p>
+                </div>
             )}
         </CardContent>
     </Card>
@@ -490,27 +412,9 @@ export function HealthInvestigation() {
 
   return (
     <div className="space-y-8">
-        <Card>
-            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                    <CardTitle className="flex items-center gap-2"><Search /> Health Investigation</CardTitle>
-                    <CardDescription>Chat with our AI to analyze your symptoms, follow doctor-prescribed steps, and uncover the root cause.</CardDescription>
-                </div>
-                <Button onClick={() => setView(v => v === 'chat' ? 'history' : 'chat')} className="w-full sm:w-auto lg:hidden">
-                    {view === 'chat' ? <><FileClock className="mr-2"/> View History & Labs</> : <><Search className="mr-2"/> View Chat</>}
-                </Button>
-            </CardHeader>
-        </Card>
-        
-        <div className="grid lg:grid-cols-3 gap-8 items-start">
-            <div className={cn("lg:col-span-2", view === 'chat' || interviewState !== 'not_started' ? 'block' : 'hidden lg:block')}>
-                <ChatInterface />
-            </div>
-
-            <div className={cn("lg:col-span-1 space-y-8", view === 'history' && interviewState === 'not_started' ? 'block' : 'hidden lg:block')}>
-                <HistoryPanel />
-            </div>
-        </div>
+      {activeView === 'list' ? <HistoryPanel /> : <ChatInterface />}
     </div>
   );
 }
+
+    
