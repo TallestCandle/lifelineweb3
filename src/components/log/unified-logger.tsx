@@ -17,10 +17,11 @@ import { collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Camera, Sparkles, Save, RotateCcw, AlertCircle, HeartPulse, Beaker, Loader2, FileClock } from 'lucide-react';
+import { Camera, Sparkles, Save, RotateCcw, AlertCircle, HeartPulse, Beaker, Loader2, FileClock, Edit } from 'lucide-react';
 import { Separator } from '../ui/separator';
 
 // --- Form Schema and Types ---
@@ -113,6 +114,7 @@ export function UnifiedLogger() {
     const [imageDataUri, setImageDataUri] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [aiResult, setAiResult] = useState<ExtractDataFromImageOutput | null>(null);
+    const [editableResult, setEditableResult] = useState<ExtractDataFromImageOutput | null>(null);
     const [history, setHistory] = useState<HistoryItem[]>([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(true);
 
@@ -164,6 +166,7 @@ export function UnifiedLogger() {
             reader.onloadend = () => {
                 setImageDataUri(reader.result as string);
                 setAiResult(null);
+                setEditableResult(null);
             };
             reader.readAsDataURL(file);
         }
@@ -176,12 +179,14 @@ export function UnifiedLogger() {
         }
         setIsLoading(true);
         setAiResult(null);
+        setEditableResult(null);
         try {
             const result = await extractDataFromImage({
                 imageDataUri,
                 userPrompt: data.userPrompt,
             });
             setAiResult(result);
+            setEditableResult(JSON.parse(JSON.stringify(result))); // Deep copy for editing
         } catch (error) {
             console.error("AI analysis failed:", error);
             toast({ variant: 'destructive', title: 'Analysis Failed', description: 'The AI could not process the image.' });
@@ -190,30 +195,48 @@ export function UnifiedLogger() {
         }
     };
     
+    const handleFieldChange = (type: 'vitals' | 'strips' | 'other', key: string | number, value: string) => {
+        setEditableResult(prev => {
+            if (!prev) return null;
+            const newResult = JSON.parse(JSON.stringify(prev));
+
+            if (type === 'vitals' && newResult.extractedVitals) {
+                newResult.extractedVitals[key as keyof typeof newResult.extractedVitals] = value;
+            } else if (type === 'strips' && newResult.extractedTestStrip) {
+                newResult.extractedTestStrip[key as keyof typeof newResult.extractedTestStrip] = value;
+            } else if (type === 'other') {
+                if (newResult.otherData && newResult.otherData[key as number]) {
+                    newResult.otherData[key as number].metricValue = value;
+                }
+            }
+            return newResult;
+        });
+    };
+    
     const handleSave = async () => {
-        if (!user || !aiResult) return;
+        if (!user || !editableResult) return;
         
         setIsLoading(true);
         let saved = false;
         
         try {
             const dateToSave = { date: new Date().toISOString() };
-            const otherDataToSave = aiResult.otherData && aiResult.otherData.length > 0 ? { otherData: aiResult.otherData } : {};
+            const otherDataToSave = editableResult.otherData && editableResult.otherData.length > 0 ? { otherData: editableResult.otherData } : {};
 
             let logType: 'vitals' | 'strips' | null = null;
             let collectionRef;
             let dataPayload: any;
 
-            const hasVitals = aiResult.extractedVitals && Object.values(aiResult.extractedVitals).some(v => v);
-            const hasStrips = aiResult.extractedTestStrip && Object.values(aiResult.extractedTestStrip).some(v => v);
+            const hasVitals = editableResult.extractedVitals && Object.values(editableResult.extractedVitals).some(v => v);
+            const hasStrips = editableResult.extractedTestStrip && Object.values(editableResult.extractedTestStrip).some(v => v);
 
             if (hasVitals) {
                 logType = 'vitals';
-                dataPayload = aiResult.extractedVitals;
+                dataPayload = editableResult.extractedVitals;
                 collectionRef = collection(db, `users/${user.uid}/vitals`);
             } else if (hasStrips) {
                 logType = 'strips';
-                dataPayload = aiResult.extractedTestStrip;
+                dataPayload = editableResult.extractedTestStrip;
                 collectionRef = collection(db, `users/${user.uid}/test_strips`);
             } else if (Object.keys(otherDataToSave).length > 0) {
                  logType = 'vitals';
@@ -233,7 +256,7 @@ export function UnifiedLogger() {
                 toast({ title: 'Data Saved', description: 'Your health data has been logged to your history.' });
                 resetState();
             } else {
-                toast({ variant: 'destructive', title: 'Nothing to Save', description: 'The AI did not extract any data to save.' });
+                toast({ variant: 'destructive', title: 'Nothing to Save', description: 'No data was available to save.' });
             }
         } catch (error) {
              console.error("Error saving data:", error);
@@ -245,48 +268,12 @@ export function UnifiedLogger() {
     
     const resetState = () => {
         setAiResult(null);
+        setEditableResult(null);
         setImageDataUri(null);
         form.reset();
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
-    };
-
-    const renderExtractedData = () => {
-        if (!aiResult) return null;
-        const { extractedVitals, extractedTestStrip, otherData } = aiResult;
-        
-        const validVitals = extractedVitals ? Object.entries(extractedVitals).filter(([_, value]) => value && String(value).trim()) : [];
-        const validStrips = extractedTestStrip ? Object.entries(extractedTestStrip).filter(([_, value]) => value && String(value).trim()) : [];
-        const validOther = otherData || [];
-
-        if (validVitals.length === 0 && validStrips.length === 0 && validOther.length === 0) {
-            return <p className="text-muted-foreground text-sm">The AI could not find any specific data to extract.</p>;
-        }
-
-        return (
-            <div className="space-y-3 text-sm font-medium">
-                {validVitals.map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
-                        <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
-                        <span className="font-bold">{String(value)}</span>
-                    </div>
-                ))}
-                {validStrips.map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
-                        <span className="text-muted-foreground capitalize">{key}</span>
-                        <span className="font-bold">{String(value)}</span>
-                    </div>
-                ))}
-                {validOther.length > 0 && (validVitals.length > 0 || validStrips.length > 0) && <Separator className="my-2"/>}
-                {validOther.map((metric, index) => (
-                    <div key={index} className="flex justify-between">
-                        <span className="text-muted-foreground capitalize">{metric.metricName.replace(/([A-Z])/g, ' $1')}</span>
-                        <span className="font-bold">{String(metric.metricValue)}</span>
-                    </div>
-                ))}
-            </div>
-        );
     };
 
     return (
@@ -328,14 +315,14 @@ export function UnifiedLogger() {
                     </CardContent>
                 </Card>
 
-                {aiResult && (
+                {editableResult && (
                     <Card className="bg-secondary">
                         <CardHeader>
                             <CardTitle>Analysis Result</CardTitle>
-                            <CardDescription>Please review the data our AI extracted before saving.</CardDescription>
+                            <CardDescription>Please review and edit the data our AI extracted before saving.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {!aiResult.isConfident && (
+                            {!editableResult.isConfident && (
                                 <Alert variant="destructive">
                                     <AlertCircle className="h-4 w-4" />
                                     <AlertTitle>Low Confidence</AlertTitle>
@@ -343,17 +330,50 @@ export function UnifiedLogger() {
                                 </Alert>
                             )}
                             <Alert>
-                                <AlertTitle className="flex items-center gap-2">
-                                    {aiResult.extractedVitals && <HeartPulse />}
-                                    {aiResult.extractedTestStrip && <Beaker />}
-                                    Summary
-                                </AlertTitle>
-                                <AlertDescription>{aiResult.analysisSummary}</AlertDescription>
+                                <AlertTitle>AI Summary</AlertTitle>
+                                <AlertDescription>{editableResult.analysisSummary}</AlertDescription>
                             </Alert>
                             
                             <div className="p-4 bg-background rounded-lg">
-                                <h4 className="font-bold mb-2">Extracted Data:</h4>
-                                {renderExtractedData()}
+                                <h4 className="font-bold mb-4 flex items-center gap-2"><Edit /> Review & Edit Extracted Data</h4>
+                                 <div className="space-y-3 text-sm">
+                                    {editableResult.extractedVitals && Object.entries(editableResult.extractedVitals).map(([key, value]) => (
+                                        <div key={key} className="flex items-center justify-between gap-4">
+                                            <Label htmlFor={key} className="capitalize text-muted-foreground">{key.replace(/([A-Z])/g, ' $1')}</Label>
+                                            <Input
+                                                id={key}
+                                                value={value || ''}
+                                                onChange={(e) => handleFieldChange('vitals', key, e.target.value)}
+                                                className="h-8 max-w-[150px]"
+                                            />
+                                        </div>
+                                    ))}
+                                    {editableResult.extractedTestStrip && Object.entries(editableResult.extractedTestStrip).map(([key, value]) => (
+                                        <div key={key} className="flex items-center justify-between gap-4">
+                                            <Label htmlFor={key} className="capitalize text-muted-foreground">{key}</Label>
+                                            <Input
+                                                id={key}
+                                                value={value || ''}
+                                                onChange={(e) => handleFieldChange('strips', key, e.target.value)}
+                                                className="h-8 max-w-[150px]"
+                                            />
+                                        </div>
+                                    ))}
+                                    {editableResult.otherData && editableResult.otherData.length > 0 && (
+                                        <Separator className="my-2"/>
+                                    )}
+                                    {editableResult.otherData?.map((metric, index) => (
+                                        <div key={index} className="flex items-center justify-between gap-4">
+                                            <Label htmlFor={`other-${index}`} className="capitalize text-muted-foreground">{metric.metricName.replace(/([A-Z])/g, ' $1')}</Label>
+                                            <Input
+                                                id={`other-${index}`}
+                                                value={metric.metricValue}
+                                                onChange={(e) => handleFieldChange('other', index, e.target.value)}
+                                                className="h-8 max-w-[150px]"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </CardContent>
                         <CardFooter className="flex justify-end gap-2">
