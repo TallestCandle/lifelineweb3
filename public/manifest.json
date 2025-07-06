@@ -1,0 +1,22 @@
+
+{
+  "short_name": "Lifeline",
+  "name": "Lifeline AI",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#1E1E2F",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#1BB9A8"
+}
