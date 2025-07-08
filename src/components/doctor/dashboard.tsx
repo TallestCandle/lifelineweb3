@@ -41,6 +41,7 @@ interface Investigation {
   userId: string;
   userName: string;
   status: InvestigationStatus;
+  type: 'admission' | 'clinic';
   createdAt: string;
   steps: InvestigationStep[];
   doctorPlan?: {
@@ -198,6 +199,17 @@ export function DoctorDashboard() {
     };
 
     handleUpdateInvestigation(selectedCase.id, 'awaiting_nurse_visit', { doctorPlan: planToSubmit });
+  };
+  
+  const handleSendPlanToPatient = () => {
+    if (!selectedCase || !editablePlan) return;
+    
+    const cleanedPlan = {
+        suggestedLabTests: editablePlan.suggestedLabTests.filter(t => t.trim() !== ''),
+        preliminaryMedications: editablePlan.preliminaryMedications.filter(m => m.trim() !== ''),
+    };
+
+    handleUpdateInvestigation(selectedCase.id, 'awaiting_lab_results', { doctorPlan: cleanedPlan });
   };
 
   const handleCompleteCase = () => {
@@ -390,9 +402,12 @@ export function DoctorDashboard() {
             <p className="text-sm text-muted-foreground">
                 Submitted {formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}
             </p>
-            <Badge className={cn("mt-2 text-white", UrgencyConfig[urgency]?.color || "bg-gray-500")}>
-                Urgency: {urgency}
-            </Badge>
+            <div className="flex items-center gap-2 mt-2">
+                <Badge className={cn("text-white", UrgencyConfig[urgency]?.color || "bg-gray-500")}>
+                    Urgency: {urgency}
+                </Badge>
+                <Badge variant="secondary" className="capitalize">{c.type}</Badge>
+            </div>
             </div>
             <Button onClick={() => openReviewDialog(c)}>Review Case <ArrowRight className="ml-2"/></Button>
         </div>
@@ -444,7 +459,11 @@ export function DoctorDashboard() {
                 ) : <div />}
                 <div className="flex gap-2">
                     <Button variant="destructive" onClick={() => { setIsCompleting(true); setDoctorNote('Investigation closed.'); }}><X className="mr-2"/>Close/Complete</Button>
-                    <Button onClick={handleDispatchNurse}><Send className="mr-2"/>Dispatch Nurse</Button>
+                    {selectedCase.type === 'admission' ? (
+                        <Button onClick={handleDispatchNurse}><Send className="mr-2"/>Dispatch Nurse</Button>
+                    ) : (
+                        <Button onClick={handleSendPlanToPatient}><Send className="mr-2"/>Send Plan to Patient</Button>
+                    )}
                 </div>
             </div>
         )
@@ -636,7 +655,7 @@ export function DoctorDashboard() {
                         </Card>
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-base m-0">{isCompleting ? 'Final Plan / Note' : 'Next Steps & Nurse Instructions'}</CardTitle>
+                                <CardTitle className="text-base m-0">{isCompleting ? 'Final Plan / Note' : 'Next Steps & Instructions'}</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 {isCompleting ? (
@@ -693,32 +712,34 @@ export function DoctorDashboard() {
                                             </div>
                                         )}
                                         
-                                        <div className="pt-4 border-t">
-                                            <Label className="font-bold text-base">Instructions for Nurse</Label>
-                                            <Textarea 
-                                                value={nurseNote}
-                                                onChange={(e) => setNurseNote(e.target.value)}
-                                                placeholder="e.g., Please check for swelling in the lower limbs and record blood pressure on both arms."
-                                                className="mt-2"
-                                            />
-                                            <div className="mt-4">
-                                                <Label className="font-bold">Required Feedback from Nurse:</Label>
-                                                <div className="flex items-center space-x-4 mt-2">
-                                                    <div className="flex items-center space-x-2">
-                                                        <Checkbox id="feedback-text" onCheckedChange={() => handleFeedbackCheckbox('text', setRequiredFeedback)} checked={requiredFeedback.includes('text')} />
-                                                        <Label htmlFor="feedback-text" className="font-normal flex items-center gap-1"><FileText size={16}/> Text Report</Label>
-                                                    </div>
-                                                    <div className="flex items-center space-x-2">
-                                                        <Checkbox id="feedback-pictures" onCheckedChange={() => handleFeedbackCheckbox('pictures', setRequiredFeedback)} checked={requiredFeedback.includes('pictures')} />
-                                                        <Label htmlFor="feedback-pictures" className="font-normal flex items-center gap-1"><Camera size={16}/> Pictures</Label>
-                                                    </div>
-                                                    <div className="flex items-center space-x-2">
-                                                        <Checkbox id="feedback-videos" onCheckedChange={() => handleFeedbackCheckbox('videos', setRequiredFeedback)} checked={requiredFeedback.includes('videos')} />
-                                                        <Label htmlFor="feedback-videos" className="font-normal flex items-center gap-1"><Video size={16}/> Videos</Label>
+                                        {selectedCase.type === 'admission' && (
+                                            <div className="pt-4 border-t">
+                                                <Label className="font-bold text-base">Instructions for Nurse</Label>
+                                                <Textarea 
+                                                    value={nurseNote}
+                                                    onChange={(e) => setNurseNote(e.target.value)}
+                                                    placeholder="e.g., Please check for swelling in the lower limbs and record blood pressure on both arms."
+                                                    className="mt-2"
+                                                />
+                                                <div className="mt-4">
+                                                    <Label className="font-bold">Required Feedback from Nurse:</Label>
+                                                    <div className="flex items-center space-x-4 mt-2">
+                                                        <div className="flex items-center space-x-2">
+                                                            <Checkbox id="feedback-text" onCheckedChange={() => handleFeedbackCheckbox('text', setRequiredFeedback)} checked={requiredFeedback.includes('text')} />
+                                                            <Label htmlFor="feedback-text" className="font-normal flex items-center gap-1"><FileText size={16}/> Text Report</Label>
+                                                        </div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <Checkbox id="feedback-pictures" onCheckedChange={() => handleFeedbackCheckbox('pictures', setRequiredFeedback)} checked={requiredFeedback.includes('pictures')} />
+                                                            <Label htmlFor="feedback-pictures" className="font-normal flex items-center gap-1"><Camera size={16}/> Pictures</Label>
+                                                        </div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <Checkbox id="feedback-videos" onCheckedChange={() => handleFeedbackCheckbox('videos', setRequiredFeedback)} checked={requiredFeedback.includes('videos')} />
+                                                            <Label htmlFor="feedback-videos" className="font-normal flex items-center gap-1"><Video size={16}/> Videos</Label>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
                                 )}
                             </CardContent>

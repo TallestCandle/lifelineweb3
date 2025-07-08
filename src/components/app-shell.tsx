@@ -32,7 +32,8 @@ import {
   Search,
   Camera,
   ClipboardCheck,
-  UserCircle
+  UserCircle,
+  Building2
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,7 @@ const menuItems: { href: string; label: string; icon: LucideIcon; color: string 
   { href: "/log", label: "AI Logger", icon: Camera, color: "text-yellow-400" },
   { href: "/deep-dive", label: "Deep Dive", icon: BrainCircuit, color: "text-sky-400" },
   { href: "/investigation", label: "Admission", icon: ClipboardCheck, color: "text-purple-400" },
+  { href: "/clinic", label: "Clinic", icon: Building2, color: "text-teal-400" },
   { href: "/dietician", label: "AI Dietician", icon: Salad, color: "text-green-400" },
   { href: "/report", label: "Health Report", icon: FileText, color: "text-orange-400" },
   { href: "/reminders", label: "Medication", icon: Pill, color: "text-pink-400" },

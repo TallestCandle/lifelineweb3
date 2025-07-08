@@ -221,7 +221,7 @@ function CaseChat({ investigationId, doctorName }: { investigationId: string, do
 }
 
 
-export function Admission() {
+export function HealthClinic() {
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -271,14 +271,14 @@ export function Admission() {
     }
   }, [messages]);
 
-  const startNewAdmission = () => {
-      setMessages([{ role: 'model', content: "Hello! I'm your AI Admission Assistant. To start your virtual admission, please briefly describe your main health concern." }]);
+  const startNewClinicVisit = () => {
+      setMessages([{ role: 'model', content: "Hello! I'm your AI Clinic Assistant. To start your virtual visit, please briefly describe your main health concern." }]);
       setInterviewState('in_progress');
       setActiveView('chat');
       setImageDataUri(null);
   };
 
-  const cancelAdmission = () => {
+  const cancelVisit = () => {
     setMessages([]);
     setInterviewState('not_started');
     setActiveView('list');
@@ -326,12 +326,12 @@ export function Admission() {
             userName: user.displayName || "User",
             chatTranscript,
             imageDataUri: imageDataUri || undefined,
-            type: 'admission',
+            type: 'clinic',
         });
 
         if (result.success) {
             toast({ title: 'Case Submitted for Review', description: 'A doctor will review your case and prescribe the next steps shortly.' });
-            cancelAdmission();
+            cancelVisit();
         } else {
              throw new Error("Submission failed on the server.");
         }
@@ -414,10 +414,10 @@ export function Admission() {
     <Card>
         <CardHeader className="flex flex-row items-center justify-between">
             <div>
-                <CardTitle className="flex items-center gap-2"><Bot/> New Admission Interview</CardTitle>
+                <CardTitle className="flex items-center gap-2"><Bot/> New Clinic Visit</CardTitle>
                 <CardDescription>The AI will ask 15 questions to gather details for the doctor.</CardDescription>
             </div>
-            <Button variant="ghost" onClick={cancelAdmission} size="sm"><X className="mr-2 h-4 w-4"/> Cancel</Button>
+            <Button variant="ghost" onClick={cancelVisit} size="sm"><X className="mr-2 h-4 w-4"/> Cancel</Button>
         </CardHeader>
         <CardContent className="p-0">
             <ScrollArea className="h-[50vh] p-4" ref={scrollAreaRef}>
@@ -481,16 +481,16 @@ export function Admission() {
         <CardHeader className="flex-row items-center justify-between">
             <div>
                 <CardTitle>My Clinic Cases</CardTitle>
-                <CardDescription>Review your ongoing and past virtual admissions.</CardDescription>
+                <CardDescription>Review your ongoing and past virtual clinic visits.</CardDescription>
             </div>
-            <Button onClick={startNewAdmission}>
-                <PlusCircle className="mr-2"/> New Admission
+            <Button onClick={startNewClinicVisit}>
+                <PlusCircle className="mr-2"/> New Clinic Visit
             </Button>
         </CardHeader>
         <CardContent>
             {isLoadingHistory ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : investigations.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full" defaultValue={investigations.find(c => c.type === 'admission')?.id}>
-                    {investigations.filter(c => c.type === 'admission').map(c => (
+                <Accordion type="single" collapsible className="w-full" defaultValue={investigations.find(c => c.type === 'clinic')?.id}>
+                    {investigations.filter(c => c.type === 'clinic').map(c => (
                         <AccordionItem value={c.id} key={c.id}>
                             <AccordionTrigger className="text-left hover:no-underline">
                                 <div className="flex justify-between items-center w-full pr-4 gap-2">
@@ -513,7 +513,7 @@ export function Admission() {
                                             <div className="absolute left-3 top-2 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2"></div>
                                             
                                             <p className="font-bold text-sm mb-1">
-                                                {step.type === 'initial_submission' ? 'Initial Admission' : 'Follow-up Submission'}
+                                                {step.type === 'initial_submission' ? 'Initial Visit' : 'Follow-up Submission'}
                                             </p>
                                             <p className="text-xs text-muted-foreground mb-2">
                                                 {format(parseISO(step.timestamp), 'MMM d, yyyy, h:mm a')}
@@ -642,7 +642,11 @@ export function Admission() {
                                                 {c.doctorPlan?.suggestedLabTests?.length > 0 && (
                                                     <div>
                                                         <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
-                                                        <p className="text-sm text-muted-foreground mb-2">{c.status === 'awaiting_nurse_visit' ? 'A nurse has been dispatched to your location to collect samples for these tests.' : 'Please get these tests done and upload the results below.'}</p>
+                                                        <p className="text-sm text-muted-foreground mb-2">
+                                                            {c.type === 'admission' 
+                                                                ? 'A nurse has been dispatched to your location to collect samples for these tests.' 
+                                                                : 'Please get these tests done at a local facility and upload the results below.'}
+                                                        </p>
                                                          <ul className="list-disc list-inside pl-4 text-muted-foreground text-sm">
                                                             {c.doctorPlan.suggestedLabTests.map((test, i) => <li key={i}>{test}</li>)}
                                                         </ul>
@@ -717,7 +721,7 @@ export function Admission() {
                 <div className="text-center py-12 text-muted-foreground">
                     <MessageSquare className="mx-auto h-12 w-12" />
                     <h3 className="mt-4 text-lg font-semibold">No Cases Yet</h3>
-                    <p className="mt-1 text-sm">Start a new admission to begin your health journey.</p>
+                    <p className="mt-1 text-sm">Start a new clinic visit to begin your health journey.</p>
                 </div>
             )}
         </CardContent>
