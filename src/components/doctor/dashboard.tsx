@@ -306,27 +306,32 @@ export function DoctorDashboard() {
   const handlePlanChange = (type: 'suggestedLabTests' | 'preliminaryMedications', index: number, value: string) => {
     setEditablePlan(prev => {
         if (!prev) return null;
-        const newPlan = { ...prev };
-        newPlan[type][index] = value;
-        return newPlan;
+        const newItems = [...prev[type]];
+        newItems[index] = value;
+        return {
+            ...prev,
+            [type]: newItems,
+        };
     });
   };
 
   const addPlanItem = (type: 'suggestedLabTests' | 'preliminaryMedications') => {
       setEditablePlan(prev => {
           if (!prev) return null;
-          const newPlan = { ...prev };
-          newPlan[type].push('');
-          return newPlan;
+          return {
+              ...prev,
+              [type]: [...prev[type], ''],
+          };
       });
   };
 
   const removePlanItem = (type: 'suggestedLabTests' | 'preliminaryMedications', index: number) => {
       setEditablePlan(prev => {
           if (!prev) return null;
-          const newPlan = { ...prev };
-          newPlan[type].splice(index, 1);
-          return newPlan;
+          return {
+              ...prev,
+              [type]: prev[type].filter((_, i) => i !== index),
+          };
       });
   };
 
@@ -677,7 +682,7 @@ export function DoctorDashboard() {
                                                     <Label className="font-bold">Suggested Lab Tests</Label>
                                                     <div className="space-y-2 mt-2">
                                                         {editablePlan.suggestedLabTests.map((test, index) => (
-                                                            <div key={`test-${index}`} className="flex items-center gap-2">
+                                                            <div key={index} className="flex items-center gap-2">
                                                                 <Input 
                                                                     value={test} 
                                                                     placeholder="e.g., Complete Blood Count"
@@ -695,7 +700,7 @@ export function DoctorDashboard() {
                                                     <Label className="font-bold">Preliminary Medications</Label>
                                                     <div className="space-y-2 mt-2">
                                                         {editablePlan.preliminaryMedications.map((med, index) => (
-                                                            <div key={`med-${index}`} className="flex items-center gap-2">
+                                                            <div key={index} className="flex items-center gap-2">
                                                                 <Input 
                                                                     value={med}
                                                                     placeholder="e.g., Ibuprofen 200mg" 
