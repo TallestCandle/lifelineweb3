@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { Loader2, User, Check, X, Pencil, ArrowRight, TestTube, Pill, ClipboardCheck, ClipboardList, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown, RefreshCw, Home, Phone, Sparkles } from 'lucide-react';
+import { Loader2, User, Check, X, Pencil, ArrowRight, TestTube, Pill, ClipboardCheck, ClipboardList, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown, RefreshCw, Home, Phone, Sparkles, Repeat } from 'lucide-react';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
@@ -33,7 +33,7 @@ import { ChartConfig } from 'recharts';
 import { performComprehensiveCaseReview, type ComprehensiveCaseReviewOutput } from '@/ai/flows/comprehensive-case-review-flow';
 
 
-type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
+type InvestigationStatus = 'pending_review' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
 
 interface Investigation {
   id: string;
@@ -45,6 +45,10 @@ interface Investigation {
   doctorPlan?: {
       preliminaryMedications: string[];
       suggestedLabTests: string[];
+  };
+  followUpRequest?: {
+    note: string;
+    suggestedLabTests: string[];
   };
   finalTreatmentPlan?: any;
   finalDiagnosis?: any;
@@ -58,10 +62,6 @@ interface InvestigationStep {
     timestamp: string;
     userInput: any;
     aiAnalysis: any;
-    doctorRequest?: {
-      note: string;
-      requiredFeedback: string[];
-    };
 }
 
 interface Patient {
@@ -96,7 +96,10 @@ export function DoctorDashboard() {
 
   // State for case review dialog
   const [editablePlan, setEditablePlan] = useState<{ preliminaryMedications: string[]; suggestedLabTests: string[]; } | null>(null);
+  const [followUpTests, setFollowUpTests] = useState<string[]>([]);
+  const [followUpNote, setFollowUpNote] = useState('');
   const [modifiedPlan, setModifiedPlan] = useState('');
+  const [viewMode, setViewMode] = useState<'initial_review' | 'follow_up_request' | 'final_review'>('initial_review');
   const [isCompleting, setIsCompleting] = useState(false);
   const [doctorNote, setDoctorNote] = useState('');
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -178,6 +181,20 @@ export function DoctorDashboard() {
 
     handleUpdateInvestigation(selectedCase.id, 'awaiting_lab_results', { doctorPlan: cleanedPlan });
   };
+  
+   const handleRequestFollowUp = () => {
+        if (!selectedCase || followUpTests.length === 0 || !followUpNote.trim()) {
+            toast({ variant: 'destructive', title: 'Missing Information', description: 'Please add at least one test and a reason for the follow-up request.' });
+            return;
+        }
+
+        const followUpRequest = {
+            note: followUpNote,
+            suggestedLabTests: followUpTests.filter(t => t.trim() !== ''),
+        };
+
+        handleUpdateInvestigation(selectedCase.id, 'awaiting_follow_up_visit', { followUpRequest });
+    };
 
   const handleCompleteCase = () => {
       if (!selectedCase || !doctorNote) {
@@ -209,6 +226,7 @@ export function DoctorDashboard() {
 
   const openReviewDialog = (investigation: Investigation) => {
     setSelectedCase(investigation);
+    setViewMode('initial_review');
     const latestStep = investigation.steps[investigation.steps.length - 1];
     const planToModify = latestStep.aiAnalysis.suggestedNextSteps;
     
@@ -230,6 +248,8 @@ export function DoctorDashboard() {
         suggestedLabTests: planToModify?.suggestedLabTests || [],
     });
 
+    setFollowUpTests(['']);
+    setFollowUpNote('');
     setEvaluationResult(null);
     setIsCompleting(false);
     setDoctorNote('');
@@ -243,6 +263,14 @@ export function DoctorDashboard() {
           return newPlan;
       });
   };
+  
+    const handleFollowUpTestChange = (index: number, value: string) => {
+        setFollowUpTests(prev => {
+            const newTests = [...prev];
+            newTests[index] = value;
+            return newTests;
+        });
+    };
 
   const addPlanItem = (type: 'suggestedLabTests' | 'preliminaryMedications') => {
       setEditablePlan(prev => {
@@ -253,6 +281,10 @@ export function DoctorDashboard() {
           };
       });
   };
+    const addFollowUpTest = () => {
+        setFollowUpTests(prev => [...prev, '']);
+    };
+
 
   const removePlanItem = (type: 'suggestedLabTests' | 'preliminaryMedications', index: number) => {
       setEditablePlan(prev => {
@@ -263,6 +295,10 @@ export function DoctorDashboard() {
           };
       });
   };
+  
+  const removeFollowUpTest = (index: number) => {
+        setFollowUpTests(prev => prev.filter((_, i) => i !== index));
+    };
 
   const handleEvaluateAll = async () => {
     if (!selectedCase) return;
@@ -282,7 +318,7 @@ export function DoctorDashboard() {
           };
           setModifiedPlan(JSON.stringify(finalPlanSuggestion, null, 2));
           setDoctorNote(result.holisticSummary);
-          setIsCompleting(true);
+          setViewMode('final_review');
       }
 
     } catch (error) {
@@ -367,32 +403,40 @@ export function DoctorDashboard() {
   const renderReviewDialog = () => {
     if (!selectedCase) return null;
     const latestStep = selectedCase.steps[selectedCase.steps.length - 1];
-    const isFinalStepSuggested = latestStep.aiAnalysis.isFinalDiagnosisPossible;
-
+    
     const ActionButtons = () => {
-        if (isCompleting) {
+        if (viewMode === 'final_review') {
             return (
                 <>
-                    <Button variant="ghost" onClick={() => setIsCompleting(false)}>Cancel</Button>
+                    <Button variant="ghost" onClick={() => setViewMode('initial_review')}>Cancel</Button>
                     <Button variant="secondary" onClick={handleCloseCase}>Close Case with Note</Button>
                     <Button onClick={handleCompleteCase}>Complete Investigation</Button>
                 </>
             );
         }
+        if (viewMode === 'follow_up_request') {
+             return (
+                <>
+                    <Button variant="ghost" onClick={() => setViewMode('initial_review')}>Back</Button>
+                    <Button onClick={handleRequestFollowUp}><Send className="mr-2"/>Request Follow-up</Button>
+                </>
+            );
+        }
         
-        const hasMultipleSteps = selectedCase.steps.length > 1;
+        const isInitialReview = selectedCase.status === 'pending_review';
 
         return (
             <div className="flex w-full justify-between items-center">
-                 {hasMultipleSteps ? (
+                 {isInitialReview ? <div/> : (
                     <Button variant="outline" onClick={handleEvaluateAll} disabled={isEvaluating}>
                         {isEvaluating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Sparkles className="mr-2 h-4 w-4" />}
                         Evaluate All
                     </Button>
-                ) : <div />}
+                )}
                 <div className="flex gap-2">
-                    <Button variant="destructive" onClick={() => { setIsCompleting(true); setDoctorNote('Investigation closed.'); }}><X className="mr-2"/>Close/Complete</Button>
-                    <Button onClick={handleSendPlanToPatient}><Send className="mr-2"/>Send Plan to Patient</Button>
+                    <Button variant="destructive" onClick={() => setViewMode('final_review')}><X className="mr-2"/>Finalize</Button>
+                    {!isInitialReview && <Button variant="secondary" onClick={() => setViewMode('follow_up_request')}><Repeat className="mr-2"/>Request More Tests</Button>}
+                    {isInitialReview && <Button onClick={handleSendPlanToPatient}><Send className="mr-2"/>Send Initial Plan</Button>}
                 </div>
             </div>
         )
@@ -417,24 +461,6 @@ export function DoctorDashboard() {
                                             <CardDescription>{format(parseISO(step.timestamp), 'MMM d, yyyy, h:mm a')}</CardDescription>
                                         </CardHeader>
                                         <CardContent className="space-y-4">
-                                            {step.doctorRequest && (
-                                                <Alert variant="default" className="border-primary/50 mb-4">
-                                                    <ClipboardList className="h-4 w-4" />
-                                                    <AlertTitle>Your Request for this Visit</AlertTitle>
-                                                    <AlertDescription className="mt-2 space-y-2">
-                                                       {step.doctorRequest.note && <p className="text-sm">{step.doctorRequest.note}</p>}
-                                                        {step.doctorRequest.requiredFeedback?.length > 0 && (
-                                                            <div>
-                                                                <p className="font-semibold text-sm">Requested Feedback:</p>
-                                                                <div className="flex flex-wrap gap-2 mt-1">
-                                                                    {step.doctorRequest.requiredFeedback.map((fb: string, i: number) => <Badge key={i} variant="secondary" className="capitalize">{fb}</Badge>)}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </AlertDescription>
-                                                </Alert>
-                                            )}
-
                                             {step.type === 'initial_submission' && (
                                                 <>
                                                     <Collapsible>
@@ -472,34 +498,6 @@ export function DoctorDashboard() {
                                                                             <Image src={res.imageDataUri} alt={res.testName} width={150} height={150} className="rounded-md border"/>
                                                                         </button>
                                                                     </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {step.userInput.nurseReport?.pictures?.length > 0 && (
-                                                        <div>
-                                                            <p className="text-sm font-semibold">Pictures from Nurse</p>
-                                                            <div className="grid grid-cols-2 gap-2 mt-1">
-                                                                {step.userInput.nurseReport.pictures.map((pic: string, i: number) => (
-                                                                    <div key={`pic-${i}`}>
-                                                                        <button onClick={() => setSelectedImage(pic)} className="transition-transform hover:scale-105 mt-1">
-                                                                            <Image src={pic} alt={`Nurse picture ${i+1}`} width={150} height={150} className="rounded-md border"/>
-                                                                        </button>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    
-                                                    {step.userInput.nurseReport?.videos?.length > 0 && (
-                                                        <div>
-                                                            <p className="text-sm font-semibold">Videos from Nurse</p>
-                                                            <div className="flex flex-wrap gap-2 mt-1">
-                                                                {step.userInput.nurseReport.videos.map((vid: string, i: number) => (
-                                                                    <Badge key={`vid-${i}`} variant="secondary" className="flex items-center gap-1">
-                                                                        <Video className="w-3 h-3"/> Video {i+1}
-                                                                    </Badge>
                                                                 ))}
                                                             </div>
                                                         </div>
@@ -565,13 +563,7 @@ export function DoctorDashboard() {
                             <AlertTitle>AI Summary & Justification</AlertTitle>
                             <AlertDescription>{latestStep.aiAnalysis.analysisSummary || latestStep.aiAnalysis.refinedAnalysis} <br/><br/> <strong>Justification:</strong> {latestStep.aiAnalysis.justification}</AlertDescription>
                         </Alert>
-                        {isFinalStepSuggested && !isCompleting && (
-                            <Alert variant="default" className="border-primary">
-                                <ClipboardCheck className="h-4 w-4" />
-                                <AlertTitle>Ready for Final Diagnosis</AlertTitle>
-                                <AlertDescription>The AI believes enough data exists to complete this investigation. You can modify the suggested final plan below and click "Close/Complete".</AlertDescription>
-                            </Alert>
-                        )}
+                        
                         <Card>
                             <CardHeader><CardTitle className="text-base">Potential Conditions</CardTitle></CardHeader>
                             <CardContent>
@@ -582,68 +574,54 @@ export function DoctorDashboard() {
                                 </ul>
                             </CardContent>
                         </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base m-0">{isCompleting ? 'Final Plan / Note' : 'Next Steps & Instructions'}</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {isCompleting ? (
-                                    <div className="space-y-4">
-                                        <div>
-                                            <Label className="font-bold text-sm">Final Plan (JSON format)</Label>
-                                            <Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[150px] font-mono text-xs"/>
-                                        </div>
-                                        <div>
-                                            <Label className="font-bold text-sm">Note for Patient</Label>
-                                            <Textarea value={doctorNote} onChange={(e) => setDoctorNote(e.target.value)} placeholder="e.g., Your results are normal. Please continue monitoring your symptoms."/>
-                                        </div>
+                        
+                        {viewMode === 'final_review' && (
+                             <Card><CardHeader><CardTitle className="text-base m-0">Final Plan / Note</CardTitle></CardHeader><CardContent className="space-y-4">
+                                <div><Label className="font-bold text-sm">Final Plan (JSON format)</Label><Textarea value={modifiedPlan} onChange={(e) => setModifiedPlan(e.target.value)} className="min-h-[150px] font-mono text-xs"/></div>
+                                <div><Label className="font-bold text-sm">Note for Patient</Label><Textarea value={doctorNote} onChange={(e) => setDoctorNote(e.target.value)} placeholder="e.g., Your results are normal. Please continue monitoring your symptoms."/></div>
+                             </CardContent></Card>
+                        )}
+
+                        {viewMode === 'initial_review' && editablePlan && (
+                            <Card><CardHeader><CardTitle className="text-base m-0">Initial Plan</CardTitle></CardHeader><CardContent className="space-y-4">
+                                <div>
+                                    <Label className="font-bold">Suggested Lab Tests</Label>
+                                    <div className="space-y-2 mt-2">
+                                        {editablePlan.suggestedLabTests.map((test, index) => (
+                                            <div key={index} className="flex items-center gap-2"><Input value={test} placeholder="e.g., Complete Blood Count" onChange={(e) => handlePlanChange('suggestedLabTests', index, e.target.value)} /><Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('suggestedLabTests', index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>
+                                        ))}
                                     </div>
-                                ) : (
-                                    <div className="space-y-6">
-                                        {editablePlan && (
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <Label className="font-bold">Suggested Lab Tests</Label>
-                                                    <div className="space-y-2 mt-2">
-                                                        {editablePlan.suggestedLabTests.map((test, index) => (
-                                                            <div key={index} className="flex items-center gap-2">
-                                                                <Input 
-                                                                    value={test} 
-                                                                    placeholder="e.g., Complete Blood Count"
-                                                                    onChange={(e) => handlePlanChange('suggestedLabTests', index, e.target.value)} 
-                                                                />
-                                                                <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('suggestedLabTests', index)}>
-                                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                                </Button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('suggestedLabTests')}>Add Test</Button>
-                                                </div>
-                                                <div>
-                                                    <Label className="font-bold">Preliminary Medications</Label>
-                                                    <div className="space-y-2 mt-2">
-                                                        {editablePlan.preliminaryMedications.map((med, index) => (
-                                                            <div key={index} className="flex items-center gap-2">
-                                                                <Input 
-                                                                    value={med}
-                                                                    placeholder="e.g., Ibuprofen 200mg" 
-                                                                    onChange={(e) => handlePlanChange('preliminaryMedications', index, e.target.value)} 
-                                                                />
-                                                                <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('preliminaryMedications', index)}>
-                                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                                </Button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('preliminaryMedications')}>Add Medication</Button>
-                                                </div>
-                                            </div>
-                                        )}
+                                    <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('suggestedLabTests')}>Add Test</Button>
+                                </div>
+                                <div>
+                                    <Label className="font-bold">Preliminary Medications</Label>
+                                    <div className="space-y-2 mt-2">
+                                        {editablePlan.preliminaryMedications.map((med, index) => (
+                                            <div key={index} className="flex items-center gap-2"><Input value={med} placeholder="e.g., Ibuprofen 200mg" onChange={(e) => handlePlanChange('preliminaryMedications', index, e.target.value)} /><Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('preliminaryMedications', index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>
+                                        ))}
                                     </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                    <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('preliminaryMedications')}>Add Medication</Button>
+                                </div>
+                            </CardContent></Card>
+                        )}
+                        
+                        {viewMode === 'follow_up_request' && (
+                             <Card><CardHeader><CardTitle className="text-base m-0">Request Follow-up Tests</CardTitle></CardHeader><CardContent className="space-y-4">
+                                <div>
+                                    <Label className="font-bold">Reason for Request</Label>
+                                    <Textarea value={followUpNote} onChange={(e) => setFollowUpNote(e.target.value)} placeholder="e.g., Based on the high glucose levels, I want to order a follow-up HbA1c test for a better long-term view."/>
+                                </div>
+                                <div>
+                                    <Label className="font-bold">Additional Lab Tests</Label>
+                                    <div className="space-y-2 mt-2">
+                                        {followUpTests.map((test, index) => (
+                                            <div key={index} className="flex items-center gap-2"><Input value={test} placeholder="e.g., HbA1c Test" onChange={(e) => handleFollowUpTestChange(index, e.target.value)} /><Button variant="ghost" size="icon" className="shrink-0" onClick={() => removeFollowUpTest(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>
+                                        ))}
+                                    </div>
+                                    <Button variant="outline" size="sm" className="mt-2" onClick={addFollowUpTest}>Add Test</Button>
+                                </div>
+                            </CardContent></Card>
+                        )}
                     </div>
                 </div>
                 <DialogFooter>

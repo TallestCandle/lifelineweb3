@@ -40,8 +40,7 @@ interface Message {
   content: string;
 }
 
-type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
-type RequiredFeedback = 'pictures' | 'videos' | 'text';
+type InvestigationStatus = 'pending_review' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
 
 interface Investigation {
   id: string;
@@ -51,7 +50,10 @@ interface Investigation {
   doctorPlan?: {
       preliminaryMedications: string[];
       suggestedLabTests: string[];
-      nurseNote?: string;
+  };
+  followUpRequest?: {
+      note: string;
+      suggestedLabTests: string[];
   };
   finalTreatmentPlan?: any;
   finalDiagnosis?: any;
@@ -65,10 +67,6 @@ interface InvestigationStep {
     timestamp: string;
     userInput: any;
     aiAnalysis: any;
-    doctorRequest?: {
-        note: string;
-        requiredFeedback: RequiredFeedback[];
-    };
 }
 
 interface ChatMessage {
@@ -84,12 +82,11 @@ interface ChatMessage {
 
 const statusConfig: Record<InvestigationStatus, { text: string; color: string }> = {
   pending_review: { text: 'Awaiting Doctor Review', color: 'bg-yellow-500' },
-  awaiting_nurse_visit: { text: 'Nurse Visit Pending', color: 'bg-cyan-500' },
   awaiting_lab_results: { text: 'Awaiting Lab Results', color: 'bg-blue-500' },
   pending_final_review: { text: 'Doctor Reviewing Results', color: 'bg-yellow-500' },
   completed: { text: 'Case Complete', color: 'bg-green-500' },
   rejected: { text: 'Case Closed', color: 'bg-red-500' },
-  awaiting_follow_up_visit: { text: 'Follow-up Visit Pending', color: 'bg-cyan-500' },
+  awaiting_follow_up_visit: { text: 'Further Tests Requested', color: 'bg-cyan-500' },
 };
 
 function CaseChat({ investigationId, doctorName }: { investigationId: string, doctorName: string }) {
@@ -351,19 +348,18 @@ export function HealthClinic() {
     }
   };
 
-  const handleSubmitLabResults = async (investigation: Investigation) => {
-    if (!user || !investigation.doctorPlan?.suggestedLabTests) return;
+  const handleSubmitLabResults = async (investigation: Investigation, testsToSubmit: string[]) => {
+    if (!user) return;
 
-    const requiredTests = investigation.doctorPlan.suggestedLabTests;
     const uploadedTests = Object.keys(labResultUploads);
-    if (requiredTests.some(test => !uploadedTests.includes(test))) {
+    if (testsToSubmit.some(test => !uploadedTests.includes(test))) {
         toast({ variant: 'destructive', title: 'Missing Results', description: 'Please upload all required lab test results.' });
         return;
     }
     
     setIsSubmittingLabs(true);
     try {
-        const labResults = requiredTests.map(testName => ({ testName, imageDataUri: labResultUploads[testName] }));
+        const labResults = testsToSubmit.map(testName => ({ testName, imageDataUri: labResultUploads[testName] }));
         await continueInvestigation({ userId: user.uid, investigationId: investigation.id, labResults });
         toast({ title: "Lab Results Submitted", description: "Your results have been sent for final analysis." });
         setLabResultUploads({});
@@ -518,24 +514,6 @@ export function HealthClinic() {
                                             </p>
 
                                             <div className="p-4 bg-secondary/50 rounded-lg space-y-4">
-                                                {step.doctorRequest && (
-                                                    <Alert variant="default" className="border-primary/50">
-                                                        <ClipboardList className="h-4 w-4" />
-                                                        <AlertTitle>Doctor's Request for This Visit</AlertTitle>
-                                                        <AlertDescription className="mt-2 space-y-2">
-                                                            {step.doctorRequest.note && <p>{step.doctorRequest.note}</p>}
-                                                            {step.doctorRequest.requiredFeedback?.length > 0 && (
-                                                                <div>
-                                                                    <p className="font-semibold">Requested Feedback:</p>
-                                                                    <div className="flex flex-wrap gap-2 mt-1">
-                                                                        {step.doctorRequest.requiredFeedback.map((fb: string, i: number) => <Badge key={i} variant="secondary" className="capitalize">{fb}</Badge>)}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </AlertDescription>
-                                                    </Alert>
-                                                )}
-
                                                 {step.type === 'initial_submission' && (
                                                     <div>
                                                         <Collapsible>
@@ -622,7 +600,7 @@ export function HealthClinic() {
                                 <Separator />
 
                                 <div className="px-4">
-                                    {(c.status === 'awaiting_lab_results' || c.status === 'awaiting_nurse_visit') && c.doctorPlan && (
+                                    {c.status === 'awaiting_lab_results' && c.doctorPlan && (
                                         <Card className="bg-secondary/50">
                                             <CardHeader>
                                                 <CardTitle className="text-lg">Next Steps from Your Doctor</CardTitle>
@@ -643,28 +621,58 @@ export function HealthClinic() {
                                                         <p className="text-sm text-muted-foreground mb-2">
                                                             Please get these tests done at a local facility and upload the results below.
                                                         </p>
-                                                         <ul className="list-disc list-inside pl-4 text-muted-foreground text-sm">
-                                                            {c.doctorPlan.suggestedLabTests.map((test, i) => <li key={i}>{test}</li>)}
-                                                        </ul>
-                                                        {c.status === 'awaiting_lab_results' && (
-                                                            <div className="space-y-4 mt-4">
-                                                                {c.doctorPlan.suggestedLabTests.map((test, i) => (
-                                                                    <div key={i} className="p-3 border rounded-md">
-                                                                        <label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label>
-                                                                        <div className="flex items-center gap-4 mt-2">
-                                                                            <Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />
-                                                                            {labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}
-                                                                        </div>
+                                                        <div className="space-y-4 mt-4">
+                                                            {c.doctorPlan.suggestedLabTests.map((test, i) => (
+                                                                <div key={i} className="p-3 border rounded-md">
+                                                                    <label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label>
+                                                                    <div className="flex items-center gap-4 mt-2">
+                                                                        <Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />
+                                                                        {labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}
                                                                     </div>
-                                                                ))}
-                                                                <Button onClick={() => handleSubmitLabResults(c)} disabled={isSubmittingLabs}>
-                                                                    {isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}
-                                                                    Submit Lab Results
-                                                                </Button>
-                                                            </div>
-                                                        )}
+                                                                </div>
+                                                            ))}
+                                                            <Button onClick={() => handleSubmitLabResults(c, c.doctorPlan!.suggestedLabTests)} disabled={isSubmittingLabs}>
+                                                                {isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}
+                                                                Submit Lab Results
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 )}
+                                            </CardContent>
+                                        </Card>
+                                    )}
+                                    {c.status === 'awaiting_follow_up_visit' && c.followUpRequest && (
+                                        <Card className="bg-cyan-500/10 border-cyan-500/50">
+                                            <CardHeader>
+                                                <CardTitle className="text-lg text-cyan-800 dark:text-cyan-300">Follow-up Tests Required</CardTitle>
+                                                {c.reviewedByName && c.reviewedByUid && (<CardDescription className="text-cyan-700 dark:text-cyan-400">Requested by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold hover:underline">{c.reviewedByName}</Link></CardDescription>)}
+                                            </CardHeader>
+                                            <CardContent className="space-y-4">
+                                                <AlertDescription>
+                                                    <p className="font-bold">Doctor's Note:</p>
+                                                    <p className="italic">"{c.followUpRequest.note}"</p>
+                                                </AlertDescription>
+                                                <div>
+                                                    <h3 className="font-bold flex items-center gap-2"><TestTube/> Additional Lab Tests</h3>
+                                                    <p className="text-sm text-muted-foreground mb-2">
+                                                        Please get these additional tests done and upload the results below.
+                                                    </p>
+                                                     <div className="space-y-4 mt-4">
+                                                        {c.followUpRequest.suggestedLabTests.map((test, i) => (
+                                                            <div key={i} className="p-3 border rounded-md bg-background/50">
+                                                                <label htmlFor={`followup-lab-upload-${i}`} className="font-semibold">{test}</label>
+                                                                <div className="flex items-center gap-4 mt-2">
+                                                                    <Input id={`followup-lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />
+                                                                    {labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                        <Button onClick={() => handleSubmitLabResults(c, c.followUpRequest!.suggestedLabTests)} disabled={isSubmittingLabs}>
+                                                            {isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}
+                                                            Submit Follow-up Results
+                                                        </Button>
+                                                    </div>
+                                                </div>
                                             </CardContent>
                                         </Card>
                                     )}
