@@ -50,7 +50,6 @@ const SubmitInvestigationClientInputSchema = z.object({
     userName: z.string(),
     chatTranscript: z.string(),
     imageDataUri: z.string().optional(),
-    type: z.enum(['admission', 'clinic']),
 });
 export type SubmitInvestigationClientInput = z.infer<typeof SubmitInvestigationClientInputSchema>;
 
@@ -60,7 +59,7 @@ export type SubmitInvestigationClientInput = z.infer<typeof SubmitInvestigationC
  * It fetches data, runs AI analysis, and saves the results for a doctor to review.
  */
 export async function startInvestigation(input: SubmitInvestigationClientInput): Promise<{ success: boolean, investigationId: string }> {
-    const { userId, userName, chatTranscript, imageDataUri, type } = input;
+    const { userId, userName, chatTranscript, imageDataUri } = input;
 
     // Step 1: Fetch user's historical data from Firestore.
     const basePath = `users/${userId}`;
@@ -99,7 +98,6 @@ export async function startInvestigation(input: SubmitInvestigationClientInput):
     const newInvestigation = {
         userId,
         userName,
-        type,
         status: 'pending_review' as const,
         createdAt: new Date().toISOString(),
         steps: [{

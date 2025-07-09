@@ -46,7 +46,6 @@ type RequiredFeedback = 'pictures' | 'videos' | 'text';
 interface Investigation {
   id: string;
   status: InvestigationStatus;
-  type: 'admission' | 'clinic';
   createdAt: string;
   steps: InvestigationStep[];
   doctorPlan?: {
@@ -326,7 +325,6 @@ export function HealthClinic() {
             userName: user.displayName || "User",
             chatTranscript,
             imageDataUri: imageDataUri || undefined,
-            type: 'clinic',
         });
 
         if (result.success) {
@@ -489,8 +487,8 @@ export function HealthClinic() {
         </CardHeader>
         <CardContent>
             {isLoadingHistory ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : investigations.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full" defaultValue={investigations.find(c => c.type === 'clinic')?.id}>
-                    {investigations.filter(c => c.type === 'clinic').map(c => (
+                <Accordion type="single" collapsible className="w-full" defaultValue={investigations[0]?.id}>
+                    {investigations.map(c => (
                         <AccordionItem value={c.id} key={c.id}>
                             <AccordionTrigger className="text-left hover:no-underline">
                                 <div className="flex justify-between items-center w-full pr-4 gap-2">
@@ -643,9 +641,7 @@ export function HealthClinic() {
                                                     <div>
                                                         <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
                                                         <p className="text-sm text-muted-foreground mb-2">
-                                                            {c.type === 'admission' 
-                                                                ? 'A nurse has been dispatched to your location to collect samples for these tests.' 
-                                                                : 'Please get these tests done at a local facility and upload the results below.'}
+                                                            Please get these tests done at a local facility and upload the results below.
                                                         </p>
                                                          <ul className="list-disc list-inside pl-4 text-muted-foreground text-sm">
                                                             {c.doctorPlan.suggestedLabTests.map((test, i) => <li key={i}>{test}</li>)}

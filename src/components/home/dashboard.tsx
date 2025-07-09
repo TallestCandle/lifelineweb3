@@ -8,14 +8,12 @@ import {
   FileText,
   Salad,
   ClipboardCheck,
-  ArrowRight
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 interface DashboardCardProps {
   href: string;
@@ -82,18 +80,6 @@ export function Dashboard() {
         <p className="text-lg text-muted-foreground">Let's check on your health today.</p>
       </div>
 
-      <Card className="bg-primary/10 border-primary/20">
-        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
-                <CardTitle className="flex items-center gap-2"><ClipboardCheck /> Virtual Admission</CardTitle>
-                <CardDescription className="mt-1">Feeling unwell? Start a virtual admission to get a diagnosis and treatment plan.</CardDescription>
-            </div>
-            <Button size="lg" className="w-full md:w-auto" asChild>
-                <Link href="/investigation">Start Admission <ArrowRight className="ml-2"/></Link>
-            </Button>
-        </CardHeader>
-      </Card>
-      
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-3">
           <Card>

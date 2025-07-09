@@ -34,25 +34,17 @@ import { performComprehensiveCaseReview, type ComprehensiveCaseReviewOutput } fr
 
 
 type InvestigationStatus = 'pending_review' | 'awaiting_nurse_visit' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
-type RequiredFeedback = 'pictures' | 'videos' | 'text';
 
 interface Investigation {
   id: string;
   userId: string;
   userName: string;
   status: InvestigationStatus;
-  type: 'admission' | 'clinic';
   createdAt: string;
   steps: InvestigationStep[];
   doctorPlan?: {
       preliminaryMedications: string[];
       suggestedLabTests: string[];
-      nurseNote?: string;
-      requiredFeedback?: RequiredFeedback[];
-  };
-  followUpRequest?: {
-      note: string;
-      requiredFeedback: RequiredFeedback[];
   };
   finalTreatmentPlan?: any;
   finalDiagnosis?: any;
@@ -68,7 +60,7 @@ interface InvestigationStep {
     aiAnalysis: any;
     doctorRequest?: {
       note: string;
-      requiredFeedback: RequiredFeedback[];
+      requiredFeedback: string[];
     };
 }
 
@@ -107,15 +99,8 @@ export function DoctorDashboard() {
   const [modifiedPlan, setModifiedPlan] = useState('');
   const [isCompleting, setIsCompleting] = useState(false);
   const [doctorNote, setDoctorNote] = useState('');
-  const [nurseNote, setNurseNote] = useState('');
-  const [requiredFeedback, setRequiredFeedback] = useState<RequiredFeedback[]>([]);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<ComprehensiveCaseReviewOutput | null>(null);
-
-  // State for follow-up dialog
-  const [followUpPatient, setFollowUpPatient] = useState<Patient | null>(null);
-  const [followUpNote, setFollowUpNote] = useState('');
-  const [followUpFeedback, setFollowUpFeedback] = useState<RequiredFeedback[]>([]);
 
   const [analyticsPatient, setAnalyticsPatient] = useState<Patient | null>(null);
   const [vitals, setVitals] = useState<any[]>([]);
@@ -160,7 +145,6 @@ export function DoctorDashboard() {
   }, [investigations, user]);
   
   const investigationQueue = useMemo(() => investigations.filter(inv => inv.status === 'pending_review'), [investigations]);
-  const dispatchedCases = useMemo(() => investigations.filter(inv => inv.status === 'awaiting_nurse_visit' || inv.status === 'awaiting_lab_results'), [investigations]);
   const patientUpdates = useMemo(() => investigations.filter(inv => inv.status === 'pending_final_review' && inv.reviewedByUid === user?.uid), [investigations, user]);
 
 
@@ -182,23 +166,6 @@ export function DoctorDashboard() {
         console.error("Error updating status:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to update investigation status.' });
       }
-  };
-
-  const handleDispatchNurse = () => {
-    if (!selectedCase || !editablePlan) return;
-    
-    const cleanedPlan = {
-        suggestedLabTests: editablePlan.suggestedLabTests.filter(t => t.trim() !== ''),
-        preliminaryMedications: editablePlan.preliminaryMedications.filter(m => m.trim() !== ''),
-    };
-    
-    const planToSubmit = {
-        ...cleanedPlan,
-        nurseNote: nurseNote,
-        requiredFeedback: requiredFeedback,
-    };
-
-    handleUpdateInvestigation(selectedCase.id, 'awaiting_nurse_visit', { doctorPlan: planToSubmit });
   };
   
   const handleSendPlanToPatient = () => {
@@ -240,31 +207,6 @@ export function DoctorDashboard() {
     handleUpdateInvestigation(selectedCase.id, 'rejected', { doctorNote });
   };
 
-  const handleRequestFollowUp = async () => {
-    if (!followUpPatient) return;
-
-    const latestInvestigation = investigations
-        .filter(inv => inv.userId === followUpPatient.id)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-    
-    if (!latestInvestigation) {
-        toast({ variant: "destructive", title: "No Case Found", description: "Cannot request follow-up as no prior case exists for this patient."});
-        return;
-    }
-
-    const payload = {
-        followUpRequest: {
-            note: followUpNote,
-            requiredFeedback: followUpFeedback,
-        }
-    };
-    
-    await handleUpdateInvestigation(latestInvestigation.id, 'awaiting_follow_up_visit', payload);
-    setFollowUpPatient(null);
-    setFollowUpNote('');
-    setFollowUpFeedback([]);
-  };
-
   const openReviewDialog = (investigation: Investigation) => {
     setSelectedCase(investigation);
     const latestStep = investigation.steps[investigation.steps.length - 1];
@@ -291,28 +233,15 @@ export function DoctorDashboard() {
     setEvaluationResult(null);
     setIsCompleting(false);
     setDoctorNote('');
-    setNurseNote('');
-    setRequiredFeedback([]);
   };
 
-  const handleFeedbackCheckbox = (feedbackType: RequiredFeedback, setFeedback: React.Dispatch<React.SetStateAction<RequiredFeedback[]>>) => {
-    setFeedback(prev => 
-        prev.includes(feedbackType) 
-        ? prev.filter(item => item !== feedbackType)
-        : [...prev, feedbackType]
-    );
-  };
-  
   const handlePlanChange = (type: 'suggestedLabTests' | 'preliminaryMedications', index: number, value: string) => {
-    setEditablePlan(prev => {
-        if (!prev) return null;
-        const newItems = [...prev[type]];
-        newItems[index] = value;
-        return {
-            ...prev,
-            [type]: newItems,
-        };
-    });
+      setEditablePlan(prev => {
+          if (!prev) return null;
+          const newPlan = { ...prev };
+          newPlan[type][index] = value;
+          return newPlan;
+      });
   };
 
   const addPlanItem = (type: 'suggestedLabTests' | 'preliminaryMedications') => {
@@ -411,7 +340,6 @@ export function DoctorDashboard() {
                 <Badge className={cn("text-white", UrgencyConfig[urgency]?.color || "bg-gray-500")}>
                     Urgency: {urgency}
                 </Badge>
-                <Badge variant="secondary" className="capitalize">{c.type}</Badge>
             </div>
             </div>
             <Button onClick={() => openReviewDialog(c)}>Review Case <ArrowRight className="ml-2"/></Button>
@@ -464,11 +392,7 @@ export function DoctorDashboard() {
                 ) : <div />}
                 <div className="flex gap-2">
                     <Button variant="destructive" onClick={() => { setIsCompleting(true); setDoctorNote('Investigation closed.'); }}><X className="mr-2"/>Close/Complete</Button>
-                    {selectedCase.type === 'admission' ? (
-                        <Button onClick={handleDispatchNurse}><Send className="mr-2"/>Dispatch Nurse</Button>
-                    ) : (
-                        <Button onClick={handleSendPlanToPatient}><Send className="mr-2"/>Send Plan to Patient</Button>
-                    )}
+                    <Button onClick={handleSendPlanToPatient}><Send className="mr-2"/>Send Plan to Patient</Button>
                 </div>
             </div>
         )
@@ -716,35 +640,6 @@ export function DoctorDashboard() {
                                                 </div>
                                             </div>
                                         )}
-                                        
-                                        {selectedCase.type === 'admission' && (
-                                            <div className="pt-4 border-t">
-                                                <Label className="font-bold text-base">Instructions for Nurse</Label>
-                                                <Textarea 
-                                                    value={nurseNote}
-                                                    onChange={(e) => setNurseNote(e.target.value)}
-                                                    placeholder="e.g., Please check for swelling in the lower limbs and record blood pressure on both arms."
-                                                    className="mt-2"
-                                                />
-                                                <div className="mt-4">
-                                                    <Label className="font-bold">Required Feedback from Nurse:</Label>
-                                                    <div className="flex items-center space-x-4 mt-2">
-                                                        <div className="flex items-center space-x-2">
-                                                            <Checkbox id="feedback-text" onCheckedChange={() => handleFeedbackCheckbox('text', setRequiredFeedback)} checked={requiredFeedback.includes('text')} />
-                                                            <Label htmlFor="feedback-text" className="font-normal flex items-center gap-1"><FileText size={16}/> Text Report</Label>
-                                                        </div>
-                                                        <div className="flex items-center space-x-2">
-                                                            <Checkbox id="feedback-pictures" onCheckedChange={() => handleFeedbackCheckbox('pictures', setRequiredFeedback)} checked={requiredFeedback.includes('pictures')} />
-                                                            <Label htmlFor="feedback-pictures" className="font-normal flex items-center gap-1"><Camera size={16}/> Pictures</Label>
-                                                        </div>
-                                                        <div className="flex items-center space-x-2">
-                                                            <Checkbox id="feedback-videos" onCheckedChange={() => handleFeedbackCheckbox('videos', setRequiredFeedback)} checked={requiredFeedback.includes('videos')} />
-                                                            <Label htmlFor="feedback-videos" className="font-normal flex items-center gap-1"><Video size={16}/> Videos</Label>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 )}
                             </CardContent>
@@ -774,10 +669,9 @@ export function DoctorDashboard() {
             </CardHeader>
             <CardContent>
                 <Tabs defaultValue="queue">
-                    <TabsList className="grid w-full grid-cols-3">
+                    <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="queue">Review Queue ({investigationQueue.length})</TabsTrigger>
                         <TabsTrigger value="updates">Patient Updates ({patientUpdates.length})</TabsTrigger>
-                        <TabsTrigger value="dispatched">Dispatched ({dispatchedCases.length})</TabsTrigger>
                     </TabsList>
                     <TabsContent value="queue">
                         {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
@@ -801,21 +695,7 @@ export function DoctorDashboard() {
                                 <div className="text-center text-muted-foreground py-12">
                                     <User className="mx-auto w-12 h-12 text-gray-400" />
                                     <h3 className="mt-2 text-lg font-semibold">No Patient Updates</h3>
-                                    <p>New results from dispatched nurses will appear here.</p>
-                                </div>
-                            }
-                            </div>
-                        )}
-                    </TabsContent>
-                     <TabsContent value="dispatched">
-                        {isLoading ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : (
-                            <div className="space-y-4 pt-4">
-                            {dispatchedCases.length > 0 ? 
-                                dispatchedCases.map(c => renderCaseCard(c)) : 
-                                <div className="text-center text-muted-foreground py-12">
-                                    <Send className="mx-auto w-12 h-12 text-gray-400" />
-                                    <h3 className="mt-2 text-lg font-semibold">No Active Dispatches</h3>
-                                    <p>Dispatch a nurse from the review queue to see cases here.</p>
+                                    <p>New results from patients will appear here.</p>
                                 </div>
                             }
                             </div>
@@ -829,7 +709,7 @@ export function DoctorDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>My Patients ({myPatients.length})</CardTitle>
-              <CardDescription>Select a patient to view analytics or request a follow-up visit.</CardDescription>
+              <CardDescription>Select a patient to view their analytics.</CardDescription>
             </CardHeader>
             <CardContent>
                <div className="space-y-4">
@@ -841,7 +721,6 @@ export function DoctorDashboard() {
                         </div>
                         <div className="flex gap-2">
                              <Button size="sm" variant="outline" onClick={() => handleOpenAnalytics(patient)}>Analytics</Button>
-                             <Button size="sm" onClick={() => setFollowUpPatient(patient)}>Follow-up</Button>
                         </div>
                     </div>
                 )) : (
@@ -906,47 +785,6 @@ export function DoctorDashboard() {
         </DialogContent>
       </Dialog>
       
-      <Dialog open={!!followUpPatient} onOpenChange={() => setFollowUpPatient(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Request Follow-up for {followUpPatient?.name}</DialogTitle>
-            <DialogDescription>Dispatch a nurse for a follow-up visit with specific instructions.</DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            <div>
-              <Label className="font-bold">Note for Nurse</Label>
-              <Textarea 
-                value={followUpNote}
-                onChange={(e) => setFollowUpNote(e.target.value)}
-                placeholder="e.g., Please re-check blood pressure and ask about symptom changes."
-                className="mt-2"
-              />
-            </div>
-            <div>
-              <Label className="font-bold">Required Feedback:</Label>
-              <div className="flex items-center space-x-4 mt-2">
-                  <div className="flex items-center space-x-2">
-                      <Checkbox id="followup-text" onCheckedChange={() => handleFeedbackCheckbox('text', setFollowUpFeedback)} checked={followUpFeedback.includes('text')} />
-                      <Label htmlFor="followup-text" className="font-normal flex items-center gap-1"><FileText size={16}/> Text Report</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                      <Checkbox id="followup-pictures" onCheckedChange={() => handleFeedbackCheckbox('pictures', setFollowUpFeedback)} checked={followUpFeedback.includes('pictures')} />
-                      <Label htmlFor="followup-pictures" className="font-normal flex items-center gap-1"><Camera size={16}/> Pictures</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                      <Checkbox id="followup-videos" onCheckedChange={() => handleFeedbackCheckbox('videos', setFollowUpFeedback)} checked={followUpFeedback.includes('videos')} />
-                      <Label htmlFor="followup-videos" className="font-normal flex items-center gap-1"><Video size={16}/> Videos</Label>
-                  </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setFollowUpPatient(null)}>Cancel</Button>
-            <Button onClick={handleRequestFollowUp}><RefreshCw className="mr-2"/> Dispatch Follow-up</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={!!selectedImage} onOpenChange={(isOpen) => !isOpen && setSelectedImage(null)}>
         <DialogContent className="max-w-3xl">
             <DialogHeader>
