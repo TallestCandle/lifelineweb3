@@ -1,9 +1,9 @@
 
 'use server';
 /**
- * @fileOverview An AI agent that generates a personalized daily diet plan.
+ * @fileOverview An AI agent that generates personalized dietary advice.
  *
- * - generateDietPlan - Creates a daily meal plan based on health data.
+ * - generateDietPlan - Creates dietary advice based on health data.
  * - GenerateDietPlanInput - The input type for the function.
  * - GenerateDietPlanOutput - The return type for the function.
  */
@@ -13,21 +13,20 @@ import { z } from 'zod';
 
 const GenerateDietPlanInputSchema = z.object({
   healthSummary: z.string().describe("A JSON string of recent health data including vitals (e.g., blood pressure, blood sugar), test strip results, and previous AI analyses."),
-  previousPlan: z.string().optional().describe("A JSON string of the previous diet plan, if any. The new plan should be different from this one."),
+  previousPlan: z.string().optional().describe("A JSON string of the previous dietary advice, if any. The new advice should be different from this one."),
 }).describe("A summary of the user's recent health data and optionally the previous plan to ensure variety.");
 
 export type GenerateDietPlanInput = z.infer<typeof GenerateDietPlanInputSchema>;
 
-const MealSchema = z.object({
-    meal: z.string().describe("The name of the recommended meal. Be specific, e.g., 'Jollof Rice with Grilled Chicken Breast' or 'Oatmeal with Berries and Nuts'."),
-    reason: z.string().describe("A brief, clear reason why this meal is recommended for the user based on their health data."),
+const FoodSuggestionSchema = z.object({
+    name: z.string().describe("The name of the food or food category. Be specific, e.g., 'Oily & Fried Foods', 'Sugary Drinks', 'Leafy Greens', 'Unripe Plantain'."),
+    reason: z.string().describe("A brief, clear reason why this is recommended or should be avoided based on the user's health data."),
 });
 
 const GenerateDietPlanOutputSchema = z.object({
-    breakfast: MealSchema,
-    lunch: MealSchema,
-    dinner: MealSchema,
-    generalAdvice: z.array(z.string()).describe("A list of 3-4 general, actionable dietary tips based on the user's health profile. For example: 'Avoid sugary drinks and processed snacks.' or 'Limit your intake of oily and fried foods to help manage blood pressure.'"),
+    foodsToAvoid: z.array(FoodSuggestionSchema).describe("A list of 3-5 foods or food categories the user should avoid."),
+    recommendedFoods: z.array(FoodSuggestionSchema).describe("A list of 3-5 foods or food categories that are beneficial for the user."),
+    generalAdvice: z.array(z.string()).describe("A list of 3-4 general, actionable dietary tips based on the user's health profile. For example: 'Drink at least 8 glasses of water daily.' or 'Practice portion control for all meals.'"),
 });
 
 export type GenerateDietPlanOutput = z.infer<typeof GenerateDietPlanOutputSchema>;
@@ -40,25 +39,24 @@ const prompt = ai.definePrompt({
     name: 'generateDietPlanPrompt',
     input: { schema: GenerateDietPlanInputSchema },
     output: { schema: GenerateDietPlanOutputSchema },
-    prompt: `You are an expert dietician and nutritionist from Lifeline AI, specializing in creating personalized daily meal plans based on an individual's health data. You have deep knowledge of both traditional Nigerian cuisine and general intercontinental dishes.
+    prompt: `You are an expert dietician and nutritionist from Lifeline AI, specializing in creating personalized dietary guidelines based on an individual's health data. You have deep knowledge of both traditional Nigerian cuisine and general intercontinental dishes.
 
-Your task is to analyze the user's recent health summary to create a one-day meal plan (breakfast, lunch, dinner) and provide some general dietary advice.
+Your task is to analyze the user's recent health summary to create a list of foods to avoid and a list of recommended foods, along with general advice. DO NOT create a full day meal plan (breakfast, lunch, dinner).
 
 **User Health Data:**
 - Health Summary: {{{healthSummary}}}
 {{#if previousPlan}}
 - Previous Plan: {{{previousPlan}}}
-  **Very Important:** The new plan you generate MUST be different from the previous plan provided. Offer new and creative meal suggestions to ensure variety for the user. Do not repeat meals from the previous plan.
+  **Very Important:** The new advice you generate MUST be different from the previous plan provided. Offer new and creative suggestions to ensure variety for the user. Do not repeat items from the previous plan.
 {{/if}}
 
 **Instructions:**
 1.  **Analyze the Data:** Carefully review the health summary. Look for indicators like high blood pressure, high blood sugar, elevated weight, or abnormal urine test results.
-2.  **Create Meal Plan:** Suggest one specific, healthy meal for breakfast, lunch, and dinner.
-    -   If the data suggests health issues (e.g., high blood pressure), recommend meals that help manage it (e.g., low-sodium, high-fiber meals). For instance, recommend 'Boiled Yam with Garden Egg Sauce' instead of fried foods.
-    -   If the data suggests good health, recommend a balanced, nutritious meal.
+2.  **Create Food Lists:**
+    -   **foodsToAvoid:** Create a list of 3-5 specific food types or categories the user should avoid. For each, provide a concise 'reason' explaining why it's detrimental based on their health data (e.g., for 'Sugary Drinks' the reason could be 'They can cause sharp spikes in your blood sugar levels.').
+    -   **recommendedFoods:** Create a list of 3-5 specific foods or food categories that would be beneficial. For each, provide a concise 'reason' explaining its health benefit (e.g., for 'Leafy Greens' the reason could be 'They are rich in vitamins and minerals and low in calories, which helps with weight management.').
     -   Incorporate a mix of Nigerian and intercontinental options where appropriate.
-    -   For each meal, provide a concise 'reason' explaining its benefit in relation to the user's health data.
-3.  **Provide General Advice:** Give 3-4 bullet points of clear, simple, and actionable dietary advice. Be direct, e.g., "Avoid oily foods," "Drink more water," or "Reduce your salt intake." If the health data shows significant issues (e.g., very high blood pressure, uncontrolled blood sugar), one of your 'generalAdvice' points MUST be to 'Discuss this dietary plan with a doctor. You can book an appointment in the app.'
+3.  **Provide General Advice:** Give 3-4 bullet points of clear, simple, and actionable dietary advice. Be direct, e.g., "Avoid oily foods," "Drink more water," or "Reduce your salt intake." If the health data shows significant issues (e.g., very high blood pressure, uncontrolled blood sugar), one of your 'generalAdvice' points MUST be to 'Discuss this dietary advice with a doctor. You can book an appointment in the app.'
 
 Generate the response in the required JSON format.`,
 });

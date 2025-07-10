@@ -12,7 +12,8 @@ import { db } from '@/lib/firebase';
 import { collection, doc, getDoc, setDoc, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { format, subDays } from 'date-fns';
 import { generateDietPlan, type GenerateDietPlanOutput, type GenerateDietPlanInput } from '@/ai/flows/generate-diet-plan-flow';
-import { CookingPot, Sunrise, Sun, Moon, Sparkles, AlertTriangle, Lightbulb } from 'lucide-react';
+import { CookingPot, Sparkles, AlertTriangle, Lightbulb, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Separator } from '../ui/separator';
 
 export function AiDietician() {
     const { user } = useAuth();
@@ -121,17 +122,17 @@ export function AiDietician() {
                         <span className="text-2xl">AI-Powered Dietician</span>
                     </CardTitle>
                     <CardDescription>
-                        Get a personalized daily meal plan based on your recent health data.
+                        Get personalized dietary advice based on your recent health data.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {!dietPlan && !isLoading && (
                         <div className="flex flex-col items-center justify-center text-center p-8 bg-secondary rounded-lg">
-                            <h3 className="text-lg font-bold">No plan for today yet.</h3>
-                            <p className="text-muted-foreground mb-4">Click the button to have our AI create one for you.</p>
+                            <h3 className="text-lg font-bold">No advice for today yet.</h3>
+                            <p className="text-muted-foreground mb-4">Click the button to have our AI create some for you.</p>
                             <Button onClick={handleGeneratePlan} disabled={isLoading}>
                                 <Sparkles className="mr-2 h-4 w-4" />
-                                Generate Today's Plan
+                                Generate Today's Advice
                             </Button>
                         </div>
                     )}
@@ -141,41 +142,43 @@ export function AiDietician() {
             {isLoading && (
                  <div className="flex flex-col items-center justify-center h-64 gap-4">
                     <Loader />
-                    <p className="text-muted-foreground">Our AI Dietician is crafting your personalized plan...</p>
+                    <p className="text-muted-foreground">Our AI Dietician is crafting your personalized advice...</p>
                 </div>
             )}
 
             {dietPlan && !isLoading && (
                 <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <Card>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card className="border-destructive/50">
                             <CardHeader className="flex-row items-center gap-3 space-y-0">
-                                <Sunrise className="w-6 h-6 text-orange-400" />
-                                <CardTitle>Breakfast</CardTitle>
+                                <ThumbsDown className="w-6 h-6 text-destructive" />
+                                <CardTitle>Foods to Avoid</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className="font-bold text-lg">{dietPlan.breakfast.meal}</p>
-                                <p className="text-sm text-muted-foreground mt-1">{dietPlan.breakfast.reason}</p>
+                                <ul className="space-y-3">
+                                    {dietPlan.foodsToAvoid.map((item, index) => (
+                                        <li key={index}>
+                                            <p className="font-bold">{item.name}</p>
+                                            <p className="text-sm text-muted-foreground">{item.reason}</p>
+                                        </li>
+                                    ))}
+                                </ul>
                             </CardContent>
                         </Card>
-                         <Card>
-                            <CardHeader className="flex-row items-center gap-3 space-y-0">
-                                <Sun className="w-6 h-6 text-yellow-400" />
-                                <CardTitle>Lunch</CardTitle>
+                        <Card className="border-primary/50">
+                             <CardHeader className="flex-row items-center gap-3 space-y-0">
+                                <ThumbsUp className="w-6 h-6 text-primary" />
+                                <CardTitle>Recommended Foods</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className="font-bold text-lg">{dietPlan.lunch.meal}</p>
-                                <p className="text-sm text-muted-foreground mt-1">{dietPlan.lunch.reason}</p>
-                            </CardContent>
-                        </Card>
-                         <Card>
-                            <CardHeader className="flex-row items-center gap-3 space-y-0">
-                                <Moon className="w-6 h-6 text-indigo-400" />
-                                <CardTitle>Dinner</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="font-bold text-lg">{dietPlan.dinner.meal}</p>
-                                <p className="text-sm text-muted-foreground mt-1">{dietPlan.dinner.reason}</p>
+                               <ul className="space-y-3">
+                                    {dietPlan.recommendedFoods.map((item, index) => (
+                                        <li key={index}>
+                                            <p className="font-bold">{item.name}</p>
+                                            <p className="text-sm text-muted-foreground">{item.reason}</p>
+                                        </li>
+                                    ))}
+                                </ul>
                             </CardContent>
                         </Card>
                     </div>
@@ -205,7 +208,7 @@ export function AiDietician() {
                      <div className="text-center">
                         <Button onClick={handleGeneratePlan} variant="outline" disabled={isLoading}>
                              <Sparkles className="mr-2 h-4 w-4" />
-                             Regenerate Plan
+                             Regenerate Advice
                         </Button>
                     </div>
                 </div>
