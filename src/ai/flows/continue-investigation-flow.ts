@@ -105,6 +105,8 @@ export async function continueInvestigation(input: ContinueInvestigationClientIn
     const updatedInvestigation = {
         status: 'pending_final_review' as const,
         steps: [...currentSteps, newStep],
+        lastMessageTimestamp: serverTimestamp(),
+        lastMessageContent: "New lab results uploaded."
     };
     
     await updateDoc(investigationDocRef, updatedInvestigation);
@@ -118,11 +120,6 @@ export async function continueInvestigation(input: ContinueInvestigationClientIn
         timestamp: new Date().toISOString(),
         authorId: 'system',
         authorName: 'Lifeline System',
-    });
-
-    await updateDoc(investigationDocRef, {
-        lastMessageTimestamp: serverTimestamp(),
-        lastMessageContent: "New lab results uploaded."
     });
     
     return { success: true };

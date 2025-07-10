@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, addDoc, doc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow, parseISO, isAfter } from 'date-fns';
 import Image from 'next/image';
@@ -101,7 +101,7 @@ function CaseChat({ investigationId, doctorName }: { investigationId: string, do
   const [editingMessage, setEditingMessage] = useState<{id: string, content: string} | null>(null);
 
   useEffect(() => {
-    const messagesCol = collection(db, `investigations/${investigationId}/messages`);
+    const messagesCol = collection(db, 'investigations', investigationId, 'messages');
     const q = query(messagesCol, orderBy("timestamp", "asc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -124,7 +124,7 @@ function CaseChat({ investigationId, doctorName }: { investigationId: string, do
     if (!newMessage.trim() || !user) return;
 
     const timestamp = new Date().toISOString();
-    const messagesCol = collection(db, `investigations/${investigationId}/messages`);
+    const messagesCol = collection(db, 'investigations', investigationId, 'messages');
     await addDoc(messagesCol, {
       role: 'user',
       content: newMessage,
@@ -153,7 +153,7 @@ function CaseChat({ investigationId, doctorName }: { investigationId: string, do
   const handleSaveEdit = async () => {
       if (!editingMessage || !user) return;
   
-      const messageRef = doc(db, `investigations/${investigationId}/messages`, editingMessage.id);
+      const messageRef = doc(db, 'investigations', investigationId, 'messages', editingMessage.id);
       await updateDoc(messageRef, {
           content: editingMessage.content,
           edited: true,
@@ -227,6 +227,134 @@ function CaseChat({ investigationId, doctorName }: { investigationId: string, do
   );
 }
 
+function CaseDetails({ investigation, onImageClick }: { investigation: Investigation; onImageClick: (url: string) => void; }) {
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const [labResultUploads, setLabResultUploads] = useState<Record<string, string>>({});
+    const [isSubmittingLabs, setIsSubmittingLabs] = useState(false);
+
+    const handleLabResultUpload = (testName: string, event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setLabResultUploads(prev => ({ ...prev, [testName]: reader.result as string }));
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSubmitLabResults = async (testsToSubmit: string[]) => {
+        if (!user) return;
+
+        const uploadedTests = Object.keys(labResultUploads);
+        if (testsToSubmit.some(test => !uploadedTests.includes(test))) {
+            toast({ variant: 'destructive', title: 'Missing Results', description: 'Please upload all required lab test results.' });
+            return;
+        }
+
+        setIsSubmittingLabs(true);
+        try {
+            const labResults = testsToSubmit.map(testName => ({ testName, imageDataUri: labResultUploads[testName] }));
+            await continueInvestigation({ userId: user.uid, investigationId: investigation.id, labResults });
+            toast({ title: "Lab Results Submitted", description: "Your results have been sent for final analysis." });
+            setLabResultUploads({});
+        } catch (error) {
+            console.error("Error submitting lab results:", error);
+            toast({ variant: 'destructive', title: "Submission Failed", description: "Could not submit your lab results." });
+        } finally {
+            setIsSubmittingLabs(false);
+        }
+    };
+
+    return (
+        <AccordionContent className="space-y-6 pt-4">
+            {investigation.steps.map((step, index) => (
+                <div key={index} className="relative pl-8">
+                    <div className="absolute left-3 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
+                    <div className="absolute left-3 top-2 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2"></div>
+                    <p className="font-bold text-sm mb-1">{step.type === 'initial_submission' ? 'Initial Visit' : 'Follow-up Submission'}</p>
+                    <p className="text-xs text-muted-foreground mb-2">{format(parseISO(step.timestamp), 'MMM d, yyyy, h:mm a')}</p>
+                    <div className="p-4 bg-secondary/50 rounded-lg space-y-4">
+                        {step.type === 'initial_submission' && (
+                            <div>
+                                <Collapsible>
+                                    <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md p-2 text-left text-sm font-semibold hover:bg-secondary">
+                                        <span>Your Symptoms & Interview</span><ChevronsUpDown className="h-4 w-4" />
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent className="pt-2">
+                                        <p className="text-sm whitespace-pre-line rounded-md bg-background/50 p-2 text-muted-foreground">{step.userInput.chatTranscript}</p>
+                                    </CollapsibleContent>
+                                </Collapsible>
+                                {step.userInput.imageDataUri && (
+                                    <div className="mt-4">
+                                        <h4 className="font-semibold text-sm mb-1">Image Submitted</h4>
+                                        <button onClick={() => onImageClick(step.userInput.imageDataUri)} className="transition-transform hover:scale-105">
+                                            <Image src={step.userInput.imageDataUri} alt="Initial submission" width={100} height={100} className="rounded-md border"/>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {step.type === 'lab_result_submission' && (
+                            <div>
+                                {step.userInput.nurseReport?.text && <Alert className="mb-4"><FileText className="h-4 w-4"/><AlertTitle>Nurse's Report</AlertTitle><AlertDescription>{step.userInput.nurseReport.text}</AlertDescription></Alert>}
+                                {step.userInput.labResults?.length > 0 && (
+                                    <div>
+                                        <h4 className="font-semibold text-sm mb-2">Lab Test Results</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                            {step.userInput.labResults.map((res: any, i: number) => (
+                                                <div key={`lab-${i}`}>
+                                                    <p className="font-semibold text-xs truncate">{res.testName}</p>
+                                                    <button onClick={() => onImageClick(res.imageDataUri)} className="transition-transform hover:scale-105 mt-1">
+                                                        <Image src={res.imageDataUri} alt={res.testName} width={150} height={150} className="rounded-md border"/>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            ))}
+            <Separator />
+            <div className="px-4">
+                {investigation.status === 'awaiting_lab_results' && investigation.doctorPlan && (
+                    <Card className="bg-secondary/50">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Next Steps from Your Doctor</CardTitle>
+                            {investigation.reviewedByName && investigation.reviewedByUid && <CardDescription>Prescribed by <Link href={`/doctors?id=${investigation.reviewedByUid}`} className="font-bold text-primary hover:underline">{investigation.reviewedByName}</Link></CardDescription>}
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            {investigation.doctorPlan.preliminaryMedications?.length > 0 && <div><h3 className="font-bold flex items-center gap-2"><Pill/> Preliminary Medications</h3><ul className="list-disc list-inside pl-4 mt-2 text-muted-foreground">{investigation.doctorPlan.preliminaryMedications.map((med, i) => <li key={i}>{med}</li>)}</ul></div>}
+                            {investigation.doctorPlan.suggestedLabTests?.length > 0 && <div><h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3><p className="text-sm text-muted-foreground mb-2">Please get these tests done at a local facility and upload the results below.</p><div className="space-y-4 mt-4">{investigation.doctorPlan.suggestedLabTests.map((test, i) => (<div key={i} className="p-3 border rounded-md"><label htmlFor={`lab-upload-${investigation.id}-${i}`} className="font-semibold">{test}</label><div className="flex items-center gap-4 mt-2"><Input id={`lab-upload-${investigation.id}-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />{labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}</div></div>))}
+                            <Button onClick={() => handleSubmitLabResults(investigation.doctorPlan!.suggestedLabTests)} disabled={isSubmittingLabs}>{isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>} Submit Lab Results</Button></div></div>}
+                        </CardContent>
+                    </Card>
+                )}
+                {investigation.status === 'awaiting_follow_up_visit' && investigation.followUpRequest && (
+                    <Card className="bg-cyan-500/10 border-cyan-500/50">
+                        <CardHeader>
+                            <CardTitle className="text-lg text-cyan-800 dark:text-cyan-300">Follow-up Tests Required</CardTitle>
+                            {investigation.reviewedByName && investigation.reviewedByUid && <CardDescription className="text-cyan-700 dark:text-cyan-400">Requested by <Link href={`/doctors?id=${investigation.reviewedByUid}`} className="font-bold hover:underline">{investigation.reviewedByName}</Link></CardDescription>}
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <AlertDescription><p className="font-bold">Doctor's Note:</p><p className="italic">"{investigation.followUpRequest.note}"</p></AlertDescription>
+                            <div><h3 className="font-bold flex items-center gap-2"><TestTube/> Additional Lab Tests</h3><p className="text-sm text-muted-foreground mb-2">Please get these additional tests done and upload the results below.</p><div className="space-y-4 mt-4">{investigation.followUpRequest.suggestedLabTests.map((test, i) => (<div key={i} className="p-3 border rounded-md bg-background/50"><label htmlFor={`followup-lab-upload-${investigation.id}-${i}`} className="font-semibold">{test}</label><div className="flex items-center gap-4 mt-2"><Input id={`followup-lab-upload-${investigation.id}-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />{labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}</div></div>))}
+                            <Button onClick={() => handleSubmitLabResults(investigation.followUpRequest!.suggestedLabTests)} disabled={isSubmittingLabs}>{isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>} Submit Follow-up Results</Button></div></div>
+                        </CardContent>
+                    </Card>
+                )}
+                {investigation.status === 'completed' && <Alert><ShieldCheck className="h-4 w-4" /><AlertTitle>Diagnosis &amp; Treatment Plan</AlertTitle>{investigation.reviewedByName && investigation.reviewedByUid && <p className="text-xs text-muted-foreground -mt-1 mb-2">Finalized by <Link href={`/doctors?id=${investigation.reviewedByUid}`} className="font-bold text-primary hover:underline">{investigation.reviewedByName}</Link></p>}<AlertDescription asChild><div className="space-y-4 mt-2">{investigation.finalDiagnosis?.map((diag: any, i: number) => <div key={i} className="pb-2 border-b last:border-b-0"><h4 className="font-bold text-foreground">Diagnosis: {diag.condition} ({diag.probability}%)</h4><p className="text-xs text-muted-foreground">{diag.reasoning}</p></div>)}{investigation.finalTreatmentPlan?.medications?.length > 0 && <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Pill size={16}/> Medications</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{investigation.finalTreatmentPlan.medications.map((med: string, i: number) => <li key={i}>{med}</li>)}</ul></div>}{investigation.finalTreatmentPlan?.lifestyleChanges?.length > 0 && <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Salad size={16}/> Lifestyle Changes</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{investigation.finalTreatmentPlan.lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}</ul></div>}</div></AlertDescription></Alert>}
+                {investigation.status === 'rejected' && <Alert variant="destructive"><X className="h-4 w-4"/><AlertTitle>Case Closed by Doctor</AlertTitle>{investigation.doctorNote && <AlertDescription>{investigation.doctorNote}{investigation.reviewedByName && investigation.reviewedByUid && <span className="italic">{' - '}<Link href={`/doctors?id=${investigation.reviewedByUid}`} className="font-bold hover:underline">{investigation.reviewedByName}</Link></span>}</AlertDescription>}</Alert>}
+                {(investigation.status === 'pending_review' || investigation.status === 'pending_final_review') && <Alert><Sparkles className="h-4 w-4"/><AlertTitle>Under Review</AlertTitle><AlertDescription>Your case is currently being reviewed by a doctor. You will be notified of the next steps.</AlertDescription></Alert>}
+                {investigation.reviewedByUid && (investigation.status !== 'rejected' && investigation.status !== 'completed') && <div className="pt-4 mt-4 border-t"><CaseChat investigationId={investigation.id} doctorName={investigation.reviewedByName || 'the Doctor'} /></div>}
+            </div>
+        </AccordionContent>
+    );
+}
 
 export function HealthClinic() {
   const { user } = useAuth();
@@ -236,22 +364,15 @@ export function HealthClinic() {
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   
-  // Chat state
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [interviewState, setInterviewState] = useState<'not_started' | 'in_progress' | 'awaiting_upload' | 'submitting'>('not_started');
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
-  
-  // Lab result upload state
-  const [labResultUploads, setLabResultUploads] = useState<Record<string, string>>({});
-  const [isSubmittingLabs, setIsSubmittingLabs] = useState(false);
 
-  // Image viewer state
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  // Fetch history of investigations
   useEffect(() => {
     if (!user) {
         setIsLoadingHistory(false);
@@ -276,7 +397,6 @@ export function HealthClinic() {
     return () => unsubscribe();
   }, [user, toast]);
 
-  // Scroll chat to bottom
   useEffect(() => {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.parentElement?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
@@ -299,13 +419,11 @@ export function HealthClinic() {
   
   const handleSendMessage = async (currentInput: string) => {
     if (!currentInput.trim() || isChatLoading) return;
-
     const newMessages: Message[] = [...messages, { role: 'user', content: currentInput }];
     setMessages(newMessages);
     setIsChatLoading(true);
-
     try {
-      setMessages([...newMessages, { role: 'model', content: '' }]); // Thinking indicator
+      setMessages([...newMessages, { role: 'model', content: '' }]);
       const result = await conductInterview({ chatHistory: newMessages });
       setMessages([...newMessages, { role: 'model', content: result.nextQuestion }]);
       if (result.isFinalQuestion) {
@@ -353,41 +471,8 @@ export function HealthClinic() {
       }
   };
 
-  const handleLabResultUpload = (testName: string, event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setLabResultUploads(prev => ({ ...prev, [testName]: reader.result as string }));
-        };
-        reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSubmitLabResults = async (investigation: Investigation, testsToSubmit: string[]) => {
-    if (!user) return;
-
-    const uploadedTests = Object.keys(labResultUploads);
-    if (testsToSubmit.some(test => !uploadedTests.includes(test))) {
-        toast({ variant: 'destructive', title: 'Missing Results', description: 'Please upload all required lab test results.' });
-        return;
-    }
-    
-    setIsSubmittingLabs(true);
-    try {
-        const labResults = testsToSubmit.map(testName => ({ testName, imageDataUri: labResultUploads[testName] }));
-        await continueInvestigation({ userId: user.uid, investigationId: investigation.id, labResults });
-        toast({ title: "Lab Results Submitted", description: "Your results have been sent for final analysis." });
-        setLabResultUploads({});
-    } catch (error) {
-        console.error("Error submitting lab results:", error);
-        toast({ variant: 'destructive', title: "Submission Failed", description: "Could not submit your lab results." });
-    } finally {
-        setIsSubmittingLabs(false);
-    }
-  };
-
   const handleMarkAsRead = async (investigationId: string) => {
+    if (!investigationId) return;
     const investigationDocRef = doc(db, 'investigations', investigationId);
     await updateDoc(investigationDocRef, {
         lastPatientReadTimestamp: serverTimestamp()
@@ -401,13 +486,8 @@ export function HealthClinic() {
         const response = await fetch(selectedImage);
         const blob = await response.blob();
         const file = new File([blob], 'lifeline-image.png', { type: blob.type });
-
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-                files: [file],
-                title: 'Health Image',
-                text: 'Image from Lifeline AI Case',
-            });
+            await navigator.share({ files: [file], title: 'Health Image', text: 'Image from Lifeline AI Case' });
         } else {
             const link = document.createElement('a');
             link.href = selectedImage;
@@ -419,13 +499,9 @@ export function HealthClinic() {
         }
     } catch (error) {
         console.error('Error sharing image:', error);
-        toast({
-            variant: 'destructive',
-            title: 'Share Failed',
-            description: 'Could not share the image.',
-        });
+        toast({ variant: 'destructive', title: 'Share Failed', description: 'Could not share the image.' });
     }
-};
+  };
 
   const ChatInterface = () => (
     <Card>
@@ -506,7 +582,7 @@ export function HealthClinic() {
         </CardHeader>
         <CardContent>
             {isLoadingHistory ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : investigations.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full" defaultValue={investigations[0]?.id} onValueChange={handleMarkAsRead}>
+                <Accordion type="single" collapsible className="w-full" onValueChange={handleMarkAsRead}>
                     {investigations.map(c => {
                         const hasUnread = c.lastMessageTimestamp && (!c.lastPatientReadTimestamp || isAfter(c.lastMessageTimestamp, c.lastPatientReadTimestamp));
                         return (
@@ -524,226 +600,7 @@ export function HealthClinic() {
                                         <Badge variant="outline" className="hidden sm:inline-flex">{statusConfig[c.status]?.text}</Badge>
                                     </div>
                                 </AccordionTrigger>
-                                 <AccordionContent className="space-y-6 pt-4">
-                                    
-                                    {c.steps.map((step, index) => {
-                                        return (
-                                            <div key={index} className="relative pl-8">
-                                                <div className="absolute left-3 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
-                                                <div className="absolute left-3 top-2 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2"></div>
-                                                
-                                                <p className="font-bold text-sm mb-1">
-                                                    {step.type === 'initial_submission' ? 'Initial Visit' : 'Follow-up Submission'}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground mb-2">
-                                                    {format(parseISO(step.timestamp), 'MMM d, yyyy, h:mm a')}
-                                                </p>
-    
-                                                <div className="p-4 bg-secondary/50 rounded-lg space-y-4">
-                                                    {step.type === 'initial_submission' && (
-                                                        <div>
-                                                            <Collapsible>
-                                                                <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md p-2 text-left text-sm font-semibold hover:bg-secondary">
-                                                                    <span>Your Symptoms & Interview</span>
-                                                                    <ChevronsUpDown className="h-4 w-4" />
-                                                                </CollapsibleTrigger>
-                                                                <CollapsibleContent className="pt-2">
-                                                                    <p className="text-sm whitespace-pre-line rounded-md bg-background/50 p-2 text-muted-foreground">{step.userInput.chatTranscript}</p>
-                                                                </CollapsibleContent>
-                                                            </Collapsible>
-                                                            
-                                                            {step.userInput.imageDataUri && (
-                                                                <div className="mt-4">
-                                                                    <h4 className="font-semibold text-sm mb-1">Image Submitted</h4>
-                                                                    <button onClick={() => setSelectedImage(step.userInput.imageDataUri)} className="transition-transform hover:scale-105">
-                                                                        <Image src={step.userInput.imageDataUri} alt="Initial submission" width={100} height={100} className="rounded-md border"/>
-                                                                    </button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                    
-                                                    {step.type === 'lab_result_submission' && (
-                                                        <div>
-                                                            {step.userInput.nurseReport?.text && (
-                                                                <Alert className="mb-4"><FileText className="h-4 w-4"/><AlertTitle>Nurse's Report</AlertTitle><AlertDescription>{step.userInput.nurseReport.text}</AlertDescription></Alert>
-                                                            )}
-    
-                                                            {(step.userInput.labResults?.length > 0 || step.userInput.nurseReport?.pictures?.length > 0 || step.userInput.nurseReport?.videos?.length > 0) && (
-                                                                <div className="space-y-4">
-                                                                    {step.userInput.labResults?.length > 0 && (
-                                                                        <div>
-                                                                            <h4 className="font-semibold text-sm mb-2">Lab Test Results</h4>
-                                                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                                                                {step.userInput.labResults.map((res: any, i: number) => (
-                                                                                    <div key={`lab-${i}`}>
-                                                                                        <p className="font-semibold text-xs truncate">{res.testName}</p>
-                                                                                        <button onClick={() => setSelectedImage(res.imageDataUri)} className="transition-transform hover:scale-105 mt-1">
-                                                                                            <Image src={res.imageDataUri} alt={res.testName} width={150} height={150} className="rounded-md border"/>
-                                                                                        </button>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                    
-                                                                    {step.userInput.nurseReport?.pictures?.length > 0 && (
-                                                                        <div>
-                                                                            <h4 className="font-semibold text-sm mb-2">Pictures from Nurse</h4>
-                                                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                                                                {step.userInput.nurseReport.pictures.map((pic: string, i: number) => (
-                                                                                    <div key={`pic-${i}`}>
-                                                                                        <button onClick={() => setSelectedImage(pic)} className="transition-transform hover:scale-105 mt-1">
-                                                                                            <Image src={pic} alt={`Nurse picture ${i+1}`} width={150} height={150} className="rounded-md border"/>
-                                                                                        </button>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-    
-                                                                    {step.userInput.nurseReport?.videos?.length > 0 && (
-                                                                        <div>
-                                                                            <h4 className="font-semibold text-sm mb-2">Videos from Nurse</h4>
-                                                                            <div className="flex flex-wrap gap-2">
-                                                                                {step.userInput.nurseReport.videos.map((vid: string, i: number) => (
-                                                                                    <Badge key={`vid-${i}`} variant="secondary" className="flex items-center gap-1">
-                                                                                        <Video className="w-3 h-3"/> Video {i+1}
-                                                                                    </Badge>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-    
-                                    <Separator />
-    
-                                    <div className="px-4">
-                                        {c.status === 'awaiting_lab_results' && c.doctorPlan && (
-                                            <Card className="bg-secondary/50">
-                                                <CardHeader>
-                                                    <CardTitle className="text-lg">Next Steps from Your Doctor</CardTitle>
-                                                    {c.reviewedByName && c.reviewedByUid && (<CardDescription>Prescribed by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></CardDescription>)}
-                                                </CardHeader>
-                                                <CardContent className="space-y-6">
-                                                    {c.doctorPlan?.preliminaryMedications?.length > 0 && (
-                                                        <div>
-                                                            <h3 className="font-bold flex items-center gap-2"><Pill/> Preliminary Medications</h3>
-                                                            <ul className="list-disc list-inside pl-4 mt-2 text-muted-foreground">
-                                                                {c.doctorPlan.preliminaryMedications.map((med, i) => <li key={i}>{med}</li>)}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                    {c.doctorPlan?.suggestedLabTests?.length > 0 && (
-                                                        <div>
-                                                            <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
-                                                            <p className="text-sm text-muted-foreground mb-2">
-                                                                Please get these tests done at a local facility and upload the results below.
-                                                            </p>
-                                                            <div className="space-y-4 mt-4">
-                                                                {c.doctorPlan.suggestedLabTests.map((test, i) => (
-                                                                    <div key={i} className="p-3 border rounded-md">
-                                                                        <label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label>
-                                                                        <div className="flex items-center gap-4 mt-2">
-                                                                            <Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />
-                                                                            {labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                                <Button onClick={() => handleSubmitLabResults(c, c.doctorPlan!.suggestedLabTests)} disabled={isSubmittingLabs}>
-                                                                    {isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}
-                                                                    Submit Lab Results
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </CardContent>
-                                            </Card>
-                                        )}
-                                        {c.status === 'awaiting_follow_up_visit' && c.followUpRequest && (
-                                            <Card className="bg-cyan-500/10 border-cyan-500/50">
-                                                <CardHeader>
-                                                    <CardTitle className="text-lg text-cyan-800 dark:text-cyan-300">Follow-up Tests Required</CardTitle>
-                                                    {c.reviewedByName && c.reviewedByUid && (<CardDescription className="text-cyan-700 dark:text-cyan-400">Requested by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold hover:underline">{c.reviewedByName}</Link></CardDescription>)}
-                                                </CardHeader>
-                                                <CardContent className="space-y-4">
-                                                    <AlertDescription>
-                                                        <p className="font-bold">Doctor's Note:</p>
-                                                        <p className="italic">"{c.followUpRequest.note}"</p>
-                                                    </AlertDescription>
-                                                    <div>
-                                                        <h3 className="font-bold flex items-center gap-2"><TestTube/> Additional Lab Tests</h3>
-                                                        <p className="text-sm text-muted-foreground mb-2">
-                                                            Please get these additional tests done and upload the results below.
-                                                        </p>
-                                                         <div className="space-y-4 mt-4">
-                                                            {c.followUpRequest.suggestedLabTests.map((test, i) => (
-                                                                <div key={i} className="p-3 border rounded-md bg-background/50">
-                                                                    <label htmlFor={`followup-lab-upload-${i}`} className="font-semibold">{test}</label>
-                                                                    <div className="flex items-center gap-4 mt-2">
-                                                                        <Input id={`followup-lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />
-                                                                        {labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                            <Button onClick={() => handleSubmitLabResults(c, c.followUpRequest!.suggestedLabTests)} disabled={isSubmittingLabs}>
-                                                                {isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}
-                                                                Submit Follow-up Results
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        )}
-                                        {c.status === 'completed' && (
-                                            <Alert>
-                                                <ShieldCheck className="h-4 w-4" />
-                                                <AlertTitle>Diagnosis &amp; Treatment Plan</AlertTitle>
-                                                {c.reviewedByName && c.reviewedByUid && (<p className="text-xs text-muted-foreground -mt-1 mb-2">Finalized by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></p>)}
-                                                <AlertDescription asChild>
-                                                    <div className="space-y-4 mt-2">
-                                                        {c.finalDiagnosis?.map((diag: any, i: number) => (
-                                                            <div key={i} className="pb-2 border-b last:border-b-0"><h4 className="font-bold text-foreground">Diagnosis: {diag.condition} ({diag.probability}%)</h4><p className="text-xs text-muted-foreground">{diag.reasoning}</p></div>
-                                                        ))}
-                                                        {c.finalTreatmentPlan?.medications?.length > 0 && (
-                                                            <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Pill size={16}/> Medications</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.medications.map((med: string, i: number) => <li key={i}>{med}</li>)}</ul></div>
-                                                        )}
-                                                        {c.finalTreatmentPlan?.lifestyleChanges?.length > 0 && (
-                                                            <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Salad size={16}/> Lifestyle Changes</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}</ul></div>
-                                                        )}
-                                                    </div>
-                                                </AlertDescription>
-                                            </Alert>
-                                        )}
-                                        {c.status === 'rejected' && (
-                                            <Alert variant="destructive">
-                                                <X className="h-4 w-4"/>
-                                                <AlertTitle>Case Closed by Doctor</AlertTitle>
-                                                {c.doctorNote && <AlertDescription>{c.doctorNote}{c.reviewedByName && c.reviewedByUid && (<span className="italic">{' - '}<Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold hover:underline">{c.reviewedByName}</Link></span>)}</AlertDescription>}
-                                            </Alert>
-                                        )}
-                                        {(c.status === 'pending_review' || c.status === 'pending_final_review') && (
-                                            <Alert>
-                                                <Sparkles className="h-4 w-4"/>
-                                                <AlertTitle>Under Review</AlertTitle>
-                                                <AlertDescription>Your case is currently being reviewed by a doctor. You will be notified of the next steps.</AlertDescription>
-                                            </Alert>
-                                        )}
-    
-                                        {c.reviewedByUid && (c.status !== 'rejected' && c.status !== 'completed') && (
-                                            <div className="pt-4 mt-4 border-t">
-                                                <CaseChat investigationId={c.id} doctorName={c.reviewedByName || 'the Doctor'} />
-                                            </div>
-                                        )}
-                                    </div>
-                                </AccordionContent>
+                                <CaseDetails investigation={c} onImageClick={setSelectedImage} />
                             </AccordionItem>
                         )
                     })}
