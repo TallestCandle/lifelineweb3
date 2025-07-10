@@ -180,3 +180,16 @@
   from { height: var(--radix-accordion-content-height); }
   to { height: 0; }
 }
+
+@keyframes pulse-line {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.animate-pulse-line {
+  animation: pulse-line 1.5s linear infinite;
+}
