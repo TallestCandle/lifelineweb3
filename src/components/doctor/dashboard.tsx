@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { Loader2, User, Check, X, Pencil, ArrowRight, TestTube, Pill, ClipboardCheck, ClipboardList, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown, RefreshCw, Home, Phone, Sparkles, Repeat } from 'lucide-react';
+import { Loader2, User, Check, X, Pencil, ArrowRight, TestTube, Pill, ClipboardCheck, ClipboardList, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown, RefreshCw, Home, Phone, Sparkles, Repeat, HeartPulse, Beaker, BrainCircuit } from 'lucide-react';
 import { formatDistanceToNow, parseISO, format, isAfter } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
@@ -272,7 +272,9 @@ export function DoctorDashboard() {
       setEditablePlan(prev => {
           if (!prev) return null;
           const newPlan = { ...prev };
-          newPlan[type][index] = value;
+          const list = [...newPlan[type]];
+          list[index] = value;
+          newPlan[type] = list;
           return newPlan;
       });
   };
@@ -302,9 +304,11 @@ export function DoctorDashboard() {
   const removePlanItem = (type: 'suggestedLabTests' | 'preliminaryMedications', index: number) => {
       setEditablePlan(prev => {
           if (!prev) return null;
+          const list = [...prev[type]];
+          list.splice(index, 1);
           return {
               ...prev,
-              [type]: prev[type].filter((_, i) => i !== index),
+              [type]: list,
           };
       });
   };
@@ -650,6 +654,124 @@ export function DoctorDashboard() {
     );
   }
 
+  const renderAnalyticsDialog = () => {
+    if (!analyticsPatient) return null;
+
+    const testStripHistory = strips.map(strip => {
+        const data = { ...strip };
+        delete data.date;
+        return {
+            date: format(parseISO(strip.date), 'MMM d, yyyy'),
+            results: Object.entries(data).map(([key, value]) => ({ key, value }))
+        };
+    });
+
+    return (
+        <Dialog open={!!analyticsPatient} onOpenChange={() => setAnalyticsPatient(null)}>
+            <DialogContent className="max-w-4xl">
+                <DialogHeader>
+                    <DialogTitle>Patient Analytics: {analyticsPatient.name}</DialogTitle>
+                </DialogHeader>
+                <div className="max-h-[70vh] overflow-y-auto p-1">
+                    <Tabs defaultValue="vitals">
+                        <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="vitals"><HeartPulse className="mr-2"/>Vitals</TabsTrigger>
+                            <TabsTrigger value="strips"><Beaker className="mr-2"/>Test Strips</TabsTrigger>
+                            <TabsTrigger value="analyses"><BrainCircuit className="mr-2"/>AI Analyses</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="vitals" className="mt-4">
+                             <Card>
+                                <CardHeader>
+                                    <CardTitle>Blood Pressure History (Last 30 entries)</CardTitle>
+                                    <CardDescription>Visual trend of systolic and diastolic pressure.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <ChartContainer config={vitalsChartConfig} className="w-full h-[300px]">
+                                        <BarChart accessibilityLayer data={vitals.slice(0, 30).reverse()}>
+                                            <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
+                                            <YAxis />
+                                            <ChartTooltip content={<ChartTooltipContent />} />
+                                            <Bar dataKey="systolic" fill="var(--color-systolic)" radius={4} />
+                                            <Bar dataKey="diastolic" fill="var(--color-diastolic)" radius={4} />
+                                        </BarChart>
+                                    </ChartContainer>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                        <TabsContent value="strips" className="mt-4">
+                           <Card>
+                                <CardHeader>
+                                    <CardTitle>Urine Test Strip History</CardTitle>
+                                    <CardDescription>Chronological log of submitted test strip results.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <ScrollArea className="h-[400px]">
+                                        <div className="space-y-4">
+                                            {testStripHistory.length > 0 ? testStripHistory.map((day, index) => (
+                                                <div key={index}>
+                                                    <p className="font-bold text-sm mb-2">{day.date}</p>
+                                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                                                        {day.results.map(res => (
+                                                            <div key={res.key} className="flex justify-between p-2 bg-secondary/50 rounded-md">
+                                                                <span className="capitalize text-muted-foreground">{res.key}</span>
+                                                                <span className="font-semibold">{String(res.value)}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )) : <p className="text-center text-muted-foreground pt-8">No test strip data found.</p>}
+                                        </div>
+                                    </ScrollArea>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                        <TabsContent value="analyses" className="mt-4">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>AI Analysis History</CardTitle>
+                                    <CardDescription>All AI-generated health analyses for this patient.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                     <ScrollArea className="h-[400px]">
+                                        <Accordion type="single" collapsible className="w-full">
+                                            {analyses.map(item => (
+                                                <AccordionItem value={item.id} key={item.id}>
+                                                    <AccordionTrigger>{format(parseISO(item.timestamp), 'MMM d, yyyy, h:mm a')}</AccordionTrigger>
+                                                    <AccordionContent className="space-y-3">
+                                                        <div>
+                                                            <h4 className="font-semibold">Summary</h4>
+                                                            <p className="text-sm text-muted-foreground">{item.analysisResult.summary}</p>
+                                                        </div>
+                                                         <div>
+                                                            <h4 className="font-semibold">Advice</h4>
+                                                            <p className="text-sm text-muted-foreground">{item.analysisResult.advice}</p>
+                                                        </div>
+                                                        {item.analysisResult.potentialConditions?.length > 0 && (
+                                                            <div>
+                                                                <h4 className="font-semibold">Potential Conditions</h4>
+                                                                <ul className="list-disc list-inside text-sm text-muted-foreground">
+                                                                    {item.analysisResult.potentialConditions.map((cond: any, i: number) => (
+                                                                        <li key={i}>{cond.condition} ({cond.probability}%)</li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        )}
+                                                    </AccordionContent>
+                                                </AccordionItem>
+                                            ))}
+                                            {analyses.length === 0 && <p className="text-center text-muted-foreground pt-8">No AI analysis data found.</p>}
+                                        </Accordion>
+                                    </ScrollArea>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    </Tabs>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+  }
+
   return (
     <div className="space-y-8">
       <div className="space-y-2">
@@ -734,52 +856,7 @@ export function DoctorDashboard() {
       
       {renderReviewDialog()}
       
-      <Dialog open={!!analyticsPatient} onOpenChange={() => setAnalyticsPatient(null)}>
-        <DialogContent className="max-w-4xl">
-            <DialogHeader>
-                <DialogTitle>Patient Analytics: {analyticsPatient?.name}</DialogTitle>
-            </DialogHeader>
-            <div className="grid md:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto p-4">
-                <Card>
-                    <CardHeader><CardTitle>Vitals History</CardTitle></CardHeader>
-                    <CardContent>
-                        <ChartContainer config={vitalsChartConfig} className="w-full h-[250px]">
-                            <BarChart data={vitals.slice().reverse()}>
-                                <XAxis dataKey="date"/>
-                                <YAxis />
-                                <ChartTooltip content={<ChartTooltipContent />} />
-                                <Bar dataKey="systolic" fill="var(--color-systolic)" radius={4} />
-                                <Bar dataKey="diastolic" fill="var(--color-diastolic)" radius={4} />
-                            </BarChart>
-                        </ChartContainer>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader><CardTitle>Test Strip History</CardTitle></CardHeader>
-                    <CardContent>
-                        <pre className="text-xs bg-muted p-2 rounded-md h-[250px] overflow-auto">{JSON.stringify(strips, null, 2)}</pre>
-                    </CardContent>
-                </Card>
-                 <Card className="md:col-span-2">
-                    <CardHeader><CardTitle>AI Analysis History</CardTitle></CardHeader>
-                    <CardContent>
-                         <Accordion type="single" collapsible className="w-full">
-                            {analyses.map(item => (
-                                <AccordionItem value={item.id} key={item.id}>
-                                    <AccordionTrigger>{format(parseISO(item.timestamp), 'MMM d, yyyy, h:mm a')}</AccordionTrigger>
-                                    <AccordionContent>
-                                        <pre className="text-xs bg-muted p-2 rounded-md h-[250px] overflow-auto">
-                                            {JSON.stringify(item.analysisResult, null, 2)}
-                                        </pre>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            ))}
-                        </Accordion>
-                    </CardContent>
-                </Card>
-            </div>
-        </DialogContent>
-      </Dialog>
+      {renderAnalyticsDialog()}
       
       <Dialog open={!!selectedImage} onOpenChange={(isOpen) => !isOpen && setSelectedImage(null)}>
         <DialogContent className="max-w-3xl">
