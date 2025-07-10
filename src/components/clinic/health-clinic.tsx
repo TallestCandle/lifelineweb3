@@ -268,7 +268,7 @@ function CaseDetails({ investigation, onImageClick }: { investigation: Investiga
     };
 
     return (
-        <AccordionContent className="space-y-6 pt-4">
+        <div className="space-y-6 pt-4">
             {investigation.steps.map((step, index) => (
                 <div key={index} className="relative pl-8">
                     <div className="absolute left-3 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
@@ -352,7 +352,7 @@ function CaseDetails({ investigation, onImageClick }: { investigation: Investiga
                 {(investigation.status === 'pending_review' || investigation.status === 'pending_final_review') && <Alert><Sparkles className="h-4 w-4"/><AlertTitle>Under Review</AlertTitle><AlertDescription>Your case is currently being reviewed by a doctor. You will be notified of the next steps.</AlertDescription></Alert>}
                 {investigation.reviewedByUid && (investigation.status !== 'rejected' && investigation.status !== 'completed') && <div className="pt-4 mt-4 border-t"><CaseChat investigationId={investigation.id} doctorName={investigation.reviewedByName || 'the Doctor'} /></div>}
             </div>
-        </AccordionContent>
+        </div>
     );
 }
 
@@ -472,7 +472,7 @@ export function HealthClinic() {
   };
 
   const handleMarkAsRead = async (investigationId: string) => {
-    if (!investigationId) return;
+    if (!investigationId || !user) return;
     const investigationDocRef = doc(db, 'investigations', investigationId);
     await updateDoc(investigationDocRef, {
         lastPatientReadTimestamp: serverTimestamp()
@@ -600,7 +600,9 @@ export function HealthClinic() {
                                         <Badge variant="outline" className="hidden sm:inline-flex">{statusConfig[c.status]?.text}</Badge>
                                     </div>
                                 </AccordionTrigger>
-                                <CaseDetails investigation={c} onImageClick={setSelectedImage} />
+                                <AccordionContent>
+                                    <CaseDetails investigation={c} onImageClick={setSelectedImage} />
+                                </AccordionContent>
                             </AccordionItem>
                         )
                     })}
