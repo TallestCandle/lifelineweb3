@@ -21,12 +21,13 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video, Share2, ChevronsUpDown, Pencil, ChevronDown } from 'lucide-react';
+import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video, Share2, ChevronsUpDown, Pencil } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
@@ -273,7 +274,7 @@ function CaseDetails({ investigation, onImageClick }: { investigation: Investiga
     };
 
     return (
-        <CardContent className="space-y-6 pt-6">
+        <div className="space-y-6 pt-6">
             {investigation.steps.map((step, index) => (
                 <div key={index} className="relative pl-8">
                     <div className="absolute left-3 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
@@ -342,7 +343,7 @@ function CaseDetails({ investigation, onImageClick }: { investigation: Investiga
                     <div className="pt-4 mt-4 border-t"><ChatPanel investigationId={investigation.id} doctorName={investigation.reviewedByName || 'the Doctor'} /></div>
                 )}
             </div>
-        </CardContent>
+        </div>
     );
 }
 
@@ -362,7 +363,6 @@ export function HealthClinic() {
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
   
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [expandedCaseId, setExpandedCaseId] = useState<string | null>(null);
 
   // Fetch history of investigations
   useEffect(() => {
@@ -471,21 +471,13 @@ export function HealthClinic() {
       }
   };
 
-  const markCaseAsRead = async (investigationId: string) => {
-    if (!user) return;
+  const markCaseAsRead = async (investigationId: string | null) => {
+    if (!user || !investigationId) return;
     const investigationDocRef = doc(db, 'investigations', investigationId);
     await updateDoc(investigationDocRef, {
         lastPatientReadTimestamp: serverTimestamp()
     });
   }
-  
-  const handleToggleCase = (caseId: string) => {
-    const newExpandedId = expandedCaseId === caseId ? null : caseId;
-    setExpandedCaseId(newExpandedId);
-    if (newExpandedId) {
-        markCaseAsRead(newExpandedId);
-    }
-  };
 
   const handleShareImage = async () => {
     if (!selectedImage) return;
@@ -599,45 +591,44 @@ export function HealthClinic() {
         </CardHeader>
         <CardContent>
             {isLoadingHistory ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : investigations.length > 0 ? (
-                <div className="space-y-4">
+                <Accordion type="single" collapsible className="w-full" onValueChange={(value) => markCaseAsRead(value)}>
                     {investigations.map(c => {
                         const hasUnread = c.lastMessageTimestamp && (!c.lastPatientReadTimestamp || isAfter(c.lastMessageTimestamp, c.lastPatientReadTimestamp));
                         const StatusIcon = statusConfig[c.status]?.icon || Sparkles;
-                        const isExpanded = expandedCaseId === c.id;
 
                         return (
-                            <Card key={c.id} className="overflow-hidden">
-                                <CardHeader 
-                                    className="flex-row items-center justify-between cursor-pointer hover:bg-secondary/50"
-                                    onClick={() => handleToggleCase(c.id)}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative">
-                                            <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", statusConfig[c.status]?.color)}>
-                                                <StatusIcon className="w-5 h-5 text-white" />
+                             <AccordionItem value={c.id} key={c.id} className="border-b-0">
+                                <Card className="overflow-hidden mb-4">
+                                    <AccordionTrigger className="p-4 hover:no-underline hover:bg-secondary/50 [&[data-state=open]]:bg-secondary/50">
+                                        <div className="flex justify-between items-center w-full">
+                                            <div className="flex items-center gap-3">
+                                                <div className="relative">
+                                                    <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", statusConfig[c.status]?.color)}>
+                                                        <StatusIcon className="w-5 h-5 text-white" />
+                                                    </div>
+                                                    {hasUnread && <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-destructive ring-2 ring-background animate-pulse" />}
+                                                </div>
+                                                <div className="min-w-0 text-left">
+                                                    <p className="font-bold truncate">Case from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
+                                                    <p className="text-xs text-muted-foreground">{formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}</p>
+                                                </div>
                                             </div>
-                                            {hasUnread && <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-destructive ring-2 ring-background animate-pulse" />}
+                                            <div className="flex items-center gap-4">
+                                                <Badge variant="outline" className="hidden sm:inline-flex">{statusConfig[c.status]?.text}</Badge>
+                                            </div>
                                         </div>
-                                        <div className="min-w-0">
-                                            <p className="font-bold truncate">Case from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
-                                            <p className="text-xs text-muted-foreground">{formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <Badge variant="outline" className="hidden sm:inline-flex">{statusConfig[c.status]?.text}</Badge>
-                                        <ChevronDown className={cn("transition-transform", isExpanded && "rotate-180")} />
-                                    </div>
-                                </CardHeader>
-                                {isExpanded && (
-                                     <CaseDetails 
-                                        investigation={c}
-                                        onImageClick={setSelectedImage}
-                                    />
-                                )}
-                            </Card>
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                        <CaseDetails 
+                                            investigation={c}
+                                            onImageClick={setSelectedImage}
+                                        />
+                                    </AccordionContent>
+                                </Card>
+                            </AccordionItem>
                         )
                     })}
-                </div>
+                </Accordion>
             ) : (
                 <div className="text-center py-12 text-muted-foreground">
                     <MessageSquare className="mx-auto h-12 w-12" />
@@ -662,5 +653,3 @@ export function HealthClinic() {
     </div>
   );
 }
-
-    
