@@ -29,7 +29,7 @@ import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, XAxis, YAxis } from 'recharts';
-import { ChartConfig } from 'recharts';
+import { type ChartConfig } from 'recharts';
 import { performComprehensiveCaseReview, type ComprehensiveCaseReviewOutput } from '@/ai/flows/comprehensive-case-review-flow';
 import { type ComprehensiveAnalysisOutput } from '@/ai/flows/comprehensive-analysis-flow';
 
@@ -56,9 +56,9 @@ interface Investigation {
   doctorNote?: string;
   reviewedByUid?: string;
   reviewedByName?: string;
-  lastPatientReadTimestamp?: any;
-  lastDoctorReadTimestamp?: any;
-  lastMessageTimestamp?: any;
+  lastPatientReadTimestamp?: Date;
+  lastDoctorReadTimestamp?: Date;
+  lastMessageTimestamp?: Date;
 }
 
 interface InvestigationStep {

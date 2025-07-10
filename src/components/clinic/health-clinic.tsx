@@ -60,9 +60,9 @@ interface Investigation {
   doctorNote?: string;
   reviewedByUid?: string;
   reviewedByName?: string;
-  lastPatientReadTimestamp?: any;
-  lastDoctorReadTimestamp?: any;
-  lastMessageTimestamp?: any;
+  lastPatientReadTimestamp?: Date;
+  lastDoctorReadTimestamp?: Date;
+  lastMessageTimestamp?: Date;
 }
 
 interface InvestigationStep {

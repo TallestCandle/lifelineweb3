@@ -25,8 +25,8 @@ interface Investigation {
   userName: string;
   reviewedByUid?: string;
   createdAt: string;
-  lastDoctorReadTimestamp?: any;
-  lastMessageTimestamp?: any;
+  lastDoctorReadTimestamp?: Date;
+  lastMessageTimestamp?: Date;
   lastMessageContent?: string;
 }
 
