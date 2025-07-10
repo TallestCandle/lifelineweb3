@@ -31,6 +31,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { Bar, BarChart, XAxis, YAxis } from 'recharts';
 import { ChartConfig } from 'recharts';
 import { performComprehensiveCaseReview, type ComprehensiveCaseReviewOutput } from '@/ai/flows/comprehensive-case-review-flow';
+import { type ComprehensiveAnalysisOutput } from '@/ai/flows/comprehensive-analysis-flow';
 
 
 type InvestigationStatus = 'pending_review' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
@@ -78,6 +79,7 @@ const UrgencyConfig: Record<string, { color: string; text: string }> = {
     'Medium': { color: 'bg-yellow-500', text: 'Medium' },
     'High': { color: 'bg-orange-500', text: 'High' },
     'Critical': { color: 'bg-red-600', text: 'Critical' },
+    'Mild': { color: 'bg-yellow-400', text: 'Mild' },
 };
 
 const vitalsChartConfig = {
@@ -111,7 +113,7 @@ export function DoctorDashboard() {
   const [analyticsPatient, setAnalyticsPatient] = useState<Patient | null>(null);
   const [vitals, setVitals] = useState<any[]>([]);
   const [strips, setStrips] = useState<any[]>([]);
-  const [analyses, setAnalyses] = useState<any[]>([]);
+  const [deepDives, setDeepDives] = useState<any[]>([]);
   
   // Fetch investigations
   useEffect(() => {
@@ -409,14 +411,14 @@ export function DoctorDashboard() {
         setAnalyticsPatient(patient);
         const fetchData = async () => {
             const basePath = `users/${patient.id}`;
-            const [vitalsSnap, stripsSnap, analysesSnap] = await Promise.all([
+            const [vitalsSnap, stripsSnap, deepDivesSnap] = await Promise.all([
                 getDocs(query(collection(db, `${basePath}/vitals`), orderBy('date', 'desc'), where('date', '!=', null))),
                 getDocs(query(collection(db, `${basePath}/test_strips`), orderBy('date', 'desc'))),
-                getDocs(query(collection(db, `${basePath}/health_analyses`), orderBy('timestamp', 'desc')))
+                getDocs(query(collection(db, `${basePath}/deep_dives`), orderBy('timestamp', 'desc')))
             ]);
             setVitals(vitalsSnap.docs.map(d => ({...d.data(), date: format(parseISO(d.data().date), 'MMM d')})));
             setStrips(stripsSnap.docs.map(d => d.data()));
-            setAnalyses(analysesSnap.docs.map(d => ({id: d.id, ...d.data()})));
+            setDeepDives(deepDivesSnap.docs.map(d => ({id: d.id, ...d.data()})));
         };
         fetchData();
     };
@@ -677,7 +679,7 @@ export function DoctorDashboard() {
                         <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="vitals"><HeartPulse className="mr-2"/>Vitals</TabsTrigger>
                             <TabsTrigger value="strips"><Beaker className="mr-2"/>Test Strips</TabsTrigger>
-                            <TabsTrigger value="analyses"><BrainCircuit className="mr-2"/>AI Analyses</TabsTrigger>
+                            <TabsTrigger value="analyses"><BrainCircuit className="mr-2"/>Deep Dives</TabsTrigger>
                         </TabsList>
                         <TabsContent value="vitals" className="mt-4">
                              <Card>
@@ -728,38 +730,40 @@ export function DoctorDashboard() {
                         <TabsContent value="analyses" className="mt-4">
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>AI Analysis History</CardTitle>
-                                    <CardDescription>All AI-generated health analyses for this patient.</CardDescription>
+                                    <CardTitle>Deep Dive Analysis History</CardTitle>
+                                    <CardDescription>All AI-generated deep dive reports for this patient.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
                                      <ScrollArea className="h-[400px]">
                                         <Accordion type="single" collapsible className="w-full">
-                                            {analyses.map(item => (
+                                            {deepDives.map((item: { id: string; timestamp: string; analysisResult: ComprehensiveAnalysisOutput }) => (
                                                 <AccordionItem value={item.id} key={item.id}>
                                                     <AccordionTrigger>{format(parseISO(item.timestamp), 'MMM d, yyyy, h:mm a')}</AccordionTrigger>
                                                     <AccordionContent className="space-y-3">
                                                         <div>
-                                                            <h4 className="font-semibold">Summary</h4>
-                                                            <p className="text-sm text-muted-foreground">{item.analysisResult.summary}</p>
+                                                            <h4 className="font-semibold">Overall Assessment</h4>
+                                                            <p className="text-sm text-muted-foreground">{item.analysisResult.overallAssessment}</p>
                                                         </div>
-                                                         <div>
-                                                            <h4 className="font-semibold">Advice</h4>
-                                                            <p className="text-sm text-muted-foreground">{item.analysisResult.advice}</p>
+                                                        <div>
+                                                            <h4 className="font-semibold">Key Observations</h4>
+                                                            <ul className="list-disc list-inside text-sm text-muted-foreground">
+                                                                {item.analysisResult.keyObservations.map((obs: string, i: number) => (
+                                                                    <li key={i}>{obs}</li>
+                                                                ))}
+                                                            </ul>
                                                         </div>
-                                                        {item.analysisResult.potentialConditions?.length > 0 && (
-                                                            <div>
-                                                                <h4 className="font-semibold">Potential Conditions</h4>
-                                                                <ul className="list-disc list-inside text-sm text-muted-foreground">
-                                                                    {item.analysisResult.potentialConditions.map((cond: any, i: number) => (
-                                                                        <li key={i}>{cond.condition} ({cond.probability}%)</li>
-                                                                    ))}
-                                                                </ul>
-                                                            </div>
-                                                        )}
+                                                        <div>
+                                                            <h4 className="font-semibold">Deep Insights</h4>
+                                                            <ul className="list-disc list-inside text-sm text-muted-foreground">
+                                                                {item.analysisResult.deepInsights.map((insight, i: number) => (
+                                                                    <li key={i}>{insight.insight}</li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
                                                     </AccordionContent>
                                                 </AccordionItem>
                                             ))}
-                                            {analyses.length === 0 && <p className="text-center text-muted-foreground pt-8">No AI analysis data found.</p>}
+                                            {deepDives.length === 0 && <p className="text-center text-muted-foreground pt-8">No deep dive data found.</p>}
                                         </Accordion>
                                     </ScrollArea>
                                 </CardContent>

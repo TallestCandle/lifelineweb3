@@ -1,18 +1,17 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DateRange } from 'react-day-picker';
 import {
   performComprehensiveAnalysis,
-  type ComprehensiveAnalysisInput,
   type ComprehensiveAnalysisOutput,
 } from '@/ai/flows/comprehensive-analysis-flow';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, orderBy, where } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, where, addDoc } from 'firebase/firestore';
 import { useAuth } from '@/context/auth-provider';
 import { useToast } from '@/hooks/use-toast';
-import { addDays, format, startOfDay, subDays } from 'date-fns';
+import { addDays, format, startOfDay, subDays, parseISO } from 'date-fns';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,10 +20,17 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Lightbulb, BrainCircuit, Calendar as CalendarIcon, Zap } from 'lucide-react';
+import { Loader2, Lightbulb, BrainCircuit, Calendar as CalendarIcon, Zap, FileClock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from "@/components/ui/label";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 
+interface DeepDiveRecord {
+    id: string;
+    timestamp: string;
+    dateRange: { from: string, to: string };
+    analysisResult: ComprehensiveAnalysisOutput;
+}
 
 const UrgencyConfig: Record<string, { color: string; text: string }> = {
     'Mild': { color: 'bg-yellow-400', text: 'Mild' },
@@ -40,7 +46,26 @@ export function DeepDiveAnalyzer() {
     const [preset, setPreset] = useState('7d');
     const [isLoading, setIsLoading] = useState(false);
     const [analysisResult, setAnalysisResult] = useState<ComprehensiveAnalysisOutput | null>(null);
+    const [history, setHistory] = useState<DeepDiveRecord[]>([]);
+    const [isHistoryLoading, setIsHistoryLoading] = useState(true);
     const [datePickerMode, setDatePickerMode] = useState<'preset' | 'custom'>('preset');
+
+     useEffect(() => {
+        if (!user) {
+            setIsHistoryLoading(false);
+            return;
+        }
+
+        const fetchHistory = async () => {
+            setIsHistoryLoading(true);
+            const historyCollectionRef = collection(db, `users/${user.uid}/deep_dives`);
+            const q = query(historyCollectionRef, orderBy('timestamp', 'desc'));
+            const snapshot = await getDocs(q);
+            setHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DeepDiveRecord)));
+            setIsHistoryLoading(false);
+        };
+        fetchHistory();
+    }, [user]);
 
     const handlePresetChange = (value: string) => {
         setPreset(value);
@@ -75,13 +100,13 @@ export function DeepDiveAnalyzer() {
         setAnalysisResult(null);
 
         try {
-            const startDate = startOfDay(date.from).toISOString();
-            const endDate = startOfDay(addDays(date.to, 1)).toISOString(); // end of the selected day
+            const startDate = startOfDay(date.from);
+            const endDate = startOfDay(addDays(date.to, 1));
             const basePath = `users/${user.uid}`;
             
-            const vitalsQuery = query(collection(db, `${basePath}/vitals`), where('date', '>=', startDate), where('date', '<', endDate), orderBy('date', 'desc'));
-            const stripsQuery = query(collection(db, `${basePath}/test_strips`), where('date', '>=', startDate), where('date', '<', endDate), orderBy('date', 'desc'));
-            const analysesQuery = query(collection(db, `${basePath}/health_analyses`), where('timestamp', '>=', startDate), where('timestamp', '<', endDate), orderBy('timestamp', 'desc'));
+            const vitalsQuery = query(collection(db, `${basePath}/vitals`), where('date', '>=', startDate.toISOString()), where('date', '<', endDate.toISOString()), orderBy('date', 'desc'));
+            const stripsQuery = query(collection(db, `${basePath}/test_strips`), where('date', '>=', startDate.toISOString()), where('date', '<', endDate.toISOString()), orderBy('date', 'desc'));
+            const analysesQuery = query(collection(db, `${basePath}/health_analyses`), where('timestamp', '>=', startDate.toISOString()), where('timestamp', '<', endDate.toISOString()), orderBy('timestamp', 'desc'));
             
             const [vitalsSnap, stripsSnap, analysesSnap] = await Promise.all([
                 getDocs(vitalsQuery),
@@ -89,7 +114,7 @@ export function DeepDiveAnalyzer() {
                 getDocs(analysesQuery),
             ]);
 
-            const input: ComprehensiveAnalysisInput = {
+            const input = {
                 vitalsHistory: JSON.stringify(vitalsSnap.docs.map(d => d.data())),
                 testStripHistory: JSON.stringify(stripsSnap.docs.map(d => d.data())),
                 previousAnalyses: JSON.stringify(analysesSnap.docs.map(d => d.data().analysisResult)),
@@ -104,6 +129,17 @@ export function DeepDiveAnalyzer() {
             const result = await performComprehensiveAnalysis(input);
             setAnalysisResult(result);
 
+            // Save the result to history
+            const newRecord: Omit<DeepDiveRecord, 'id'> = {
+                timestamp: new Date().toISOString(),
+                dateRange: { from: startDate.toISOString(), to: date.to.toISOString() },
+                analysisResult: result
+            };
+            const historyCollectionRef = collection(db, `users/${user.uid}/deep_dives`);
+            const docRef = await addDoc(historyCollectionRef, newRecord);
+            setHistory(prev => [{ ...newRecord, id: docRef.id }, ...prev]);
+            toast({ title: "Analysis Complete", description: "Your deep dive report has been generated and saved." });
+
         } catch (error) {
             console.error("Comprehensive analysis failed:", error);
             toast({
@@ -114,6 +150,38 @@ export function DeepDiveAnalyzer() {
             setIsLoading(false);
         }
     };
+
+    const renderResult = (result: ComprehensiveAnalysisOutput | null) => {
+        if (!result) return null;
+        return (
+            <div className="space-y-6">
+                <div>
+                    <h3 className="text-lg font-bold mb-2">Overall Assessment</h3>
+                    <p className="text-sm text-muted-foreground">{result.overallAssessment}</p>
+                </div>
+                <div>
+                    <h3 className="text-lg font-bold mb-2">Key Observations</h3>
+                    <ul className="list-disc list-inside space-y-1 text-sm">
+                        {result.keyObservations.map((obs, i) => <li key={i}>{obs}</li>)}
+                    </ul>
+                </div>
+                <div>
+                    <h3 className="text-lg font-bold mb-2">Deep Insights</h3>
+                    <div className="space-y-3">
+                        {result.deepInsights.map((insight, i) => (
+                            <Alert key={i} className="bg-background/50">
+                                <Lightbulb className="h-4 w-4" />
+                                <AlertTitle>{insight.insight}</AlertTitle>
+                                <AlertDescription>
+                                    <span className="font-bold">Supporting Data:</span> {insight.supportingData}
+                                </AlertDescription>
+                            </Alert>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="space-y-8">
@@ -216,45 +284,60 @@ export function DeepDiveAnalyzer() {
                 <Card className="bg-secondary/50">
                     <CardHeader>
                         <CardTitle className="flex items-center justify-between">
-                            <span className="flex items-center gap-2"><BrainCircuit className="text-primary"/> Analysis Results</span>
+                            <span className="flex items-center gap-2"><BrainCircuit className="text-primary"/> Latest Analysis Results</span>
                              <Badge className={cn("text-white", UrgencyConfig[analysisResult.urgency]?.color)}>
                                 {UrgencyConfig[analysisResult.urgency]?.text}
                             </Badge>
                         </CardTitle>
                         <CardDescription>
-                            A summary of insights found in your health data from the selected period.
+                            A summary of insights found in your health data for the selected period. This has been saved to your history.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <div>
-                            <h3 className="text-lg font-bold mb-2">Overall Assessment</h3>
-                            <p className="text-sm text-muted-foreground">{analysisResult.overallAssessment}</p>
-                        </div>
-
-                        <div>
-                            <h3 className="text-lg font-bold mb-2">Key Observations</h3>
-                            <ul className="list-disc list-inside space-y-1 text-sm">
-                                {analysisResult.keyObservations.map((obs, i) => <li key={i}>{obs}</li>)}
-                            </ul>
-                        </div>
-                        
-                        <div>
-                            <h3 className="text-lg font-bold mb-2">Deep Insights</h3>
-                            <div className="space-y-3">
-                                {analysisResult.deepInsights.map((insight, i) => (
-                                    <Alert key={i} className="bg-background/50">
-                                        <Lightbulb className="h-4 w-4" />
-                                        <AlertTitle>{insight.insight}</AlertTitle>
-                                        <AlertDescription>
-                                            <span className="font-bold">Supporting Data:</span> {insight.supportingData}
-                                        </AlertDescription>
-                                    </Alert>
-                                ))}
-                            </div>
-                        </div>
+                       {renderResult(analysisResult)}
                     </CardContent>
                 </Card>
             )}
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <FileClock className="w-6 h-6"/>
+                        <span>Past Deep Dives</span>
+                    </CardTitle>
+                    <CardDescription>Review your previously generated deep dive reports.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {isHistoryLoading ? (
+                        <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div>
+                    ) : history.length > 0 ? (
+                        <Accordion type="single" collapsible className="w-full">
+                            {history.map(item => (
+                                <AccordionItem value={item.id} key={item.id}>
+                                    <AccordionTrigger>
+                                        <div className="flex justify-between items-center w-full pr-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className={cn("w-3 h-3 rounded-full", UrgencyConfig[item.analysisResult.urgency]?.color)} />
+                                                <span>{format(parseISO(item.timestamp), 'MMM d, yyyy, h:mm a')}</span>
+                                            </div>
+                                            <Badge variant="outline">{item.analysisResult.urgency}</Badge>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="space-y-4 pt-2">
+                                         <p className="text-xs text-muted-foreground">
+                                            Report for period: {format(parseISO(item.dateRange.from), 'LLL d, y')} - {format(parseISO(item.dateRange.to), 'LLL d, y')}
+                                        </p>
+                                        {renderResult(item.analysisResult)}
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
+                     ) : (
+                        <p className="text-muted-foreground text-center py-4">No reports generated yet.</p>
+                     )}
+                </CardContent>
+            </Card>
+
         </div>
     );
 }
