@@ -63,7 +63,7 @@ function ChatPanel({ investigationId, patientName, onBack }: ChatPanelProps) {
     }
     
     setIsChatLoading(true);
-    const messagesCol = collection(db, `investigations/${investigationId}/messages`);
+    const messagesCol = collection(db, 'investigations', investigationId, 'messages');
     const q = query(messagesCol, orderBy("timestamp", "asc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -87,7 +87,7 @@ function ChatPanel({ investigationId, patientName, onBack }: ChatPanelProps) {
     if (!newMessage.trim() || !user || !investigationId) return;
 
     const timestamp = new Date().toISOString();
-    const messagesCol = collection(db, `investigations/${investigationId}/messages`);
+    const messagesCol = collection(db, 'investigations', investigationId, 'messages');
     await addDoc(messagesCol, {
       role: 'doctor',
       content: newMessage,
@@ -116,7 +116,7 @@ function ChatPanel({ investigationId, patientName, onBack }: ChatPanelProps) {
   const handleSaveEdit = async () => {
       if (!editingMessage || !user || !investigationId) return;
   
-      const messageRef = doc(db, `investigations/${investigationId}/messages`, editingMessage.id);
+      const messageRef = doc(db, 'investigations', investigationId, 'messages', editingMessage.id);
       await updateDoc(messageRef, {
           content: editingMessage.content,
           edited: true,
