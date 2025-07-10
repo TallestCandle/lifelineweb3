@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from "@/context/auth-provider";
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy, onSnapshot, getDoc, addDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, orderBy, onSnapshot, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../ui/card";
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -12,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
 import { Loader2, User, Check, X, Pencil, ArrowRight, TestTube, Pill, ClipboardCheck, ClipboardList, Send, Camera, Video, FileText, Trash2, Share2, ChevronsUpDown, RefreshCw, Home, Phone, Sparkles, Repeat } from 'lucide-react';
-import { formatDistanceToNow, parseISO, format } from 'date-fns';
+import { formatDistanceToNow, parseISO, format, isAfter } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
@@ -55,6 +55,9 @@ interface Investigation {
   doctorNote?: string;
   reviewedByUid?: string;
   reviewedByName?: string;
+  lastPatientReadTimestamp?: any;
+  lastDoctorReadTimestamp?: any;
+  lastMessageTimestamp?: any;
 }
 
 interface InvestigationStep {
@@ -118,7 +121,12 @@ export function DoctorDashboard() {
         orderBy("createdAt", "desc")
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-        const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investigation));
+        const fetched = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            lastDoctorReadTimestamp: doc.data().lastDoctorReadTimestamp?.toDate(),
+            lastMessageTimestamp: doc.data().lastMessageTimestamp?.toDate(),
+        } as Investigation));
         setInvestigations(fetched);
         setIsLoading(false);
     }, (error) => {
@@ -162,7 +170,6 @@ export function DoctorDashboard() {
               ...payload,
           };
           await updateDoc(investigationRef, updateData);
-          setInvestigations(prev => prev.map(inv => inv.id === investigationId ? {...inv, status, ...payload} : inv));
           setSelectedCase(null);
           toast({ title: 'Case Updated', description: `The investigation has been updated.` });
       } catch (error) {
@@ -224,7 +231,7 @@ export function DoctorDashboard() {
     handleUpdateInvestigation(selectedCase.id, 'rejected', { doctorNote });
   };
 
-  const openReviewDialog = (investigation: Investigation) => {
+  const openReviewDialog = async (investigation: Investigation) => {
     setSelectedCase(investigation);
     setViewMode('initial_review');
     const latestStep = investigation.steps[investigation.steps.length - 1];
@@ -253,6 +260,12 @@ export function DoctorDashboard() {
     setEvaluationResult(null);
     setIsCompleting(false);
     setDoctorNote('');
+
+    // Mark as read
+    const investigationDocRef = doc(db, 'investigations', investigation.id);
+    await updateDoc(investigationDocRef, {
+        lastDoctorReadTimestamp: serverTimestamp()
+    });
   };
 
   const handlePlanChange = (type: 'suggestedLabTests' | 'preliminaryMedications', index: number, value: string) => {
@@ -365,10 +378,15 @@ export function DoctorDashboard() {
   const renderCaseCard = (c: Investigation) => {
     const latestStep = c.steps[c.steps.length-1];
     const urgency = latestStep.aiAnalysis.urgency || 'Medium';
+    const hasUnread = c.lastMessageTimestamp && (!c.lastDoctorReadTimestamp || isAfter(c.lastMessageTimestamp, c.lastDoctorReadTimestamp));
+
     return (
         <div key={c.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg hover:bg-secondary/50 transition-colors">
             <div className="mb-4 sm:mb-0">
-            <p className="font-bold text-lg">Case for: {c.userName || 'Anonymous User'}</p>
+            <div className="flex items-center gap-2">
+                {hasUnread && <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></div>}
+                <p className="font-bold text-lg">Case for: {c.userName || 'Anonymous User'}</p>
+            </div>
             <p className="text-sm text-muted-foreground">
                 Submitted {formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}
             </p>

@@ -3,7 +3,6 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from '@/context/auth-provider';
 import { AuthGuard } from '@/components/auth/auth-guard';
-import { NotificationPermissionHandler } from '@/components/auth/notification-permission-handler';
 
 export const metadata: Metadata = {
   title: 'Lifeline AI',
@@ -29,7 +28,6 @@ export default function RootLayout({
           <AuthGuard>
             {children}
           </AuthGuard>
-          <NotificationPermissionHandler />
         </AuthProvider>
         <Toaster />
       </body>

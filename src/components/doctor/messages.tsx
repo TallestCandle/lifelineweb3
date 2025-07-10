@@ -4,13 +4,13 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from "@/context/auth-provider";
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, User, Send, Bot, ArrowLeft, Pencil } from 'lucide-react';
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import { formatDistanceToNow, parseISO, isAfter } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,9 @@ interface Investigation {
   userName: string;
   reviewedByUid?: string;
   createdAt: string;
+  lastDoctorReadTimestamp?: any;
+  lastMessageTimestamp?: any;
+  lastMessageContent?: string;
 }
 
 interface ChatMessage {
@@ -83,14 +86,22 @@ function ChatPanel({ investigationId, patientName, onBack }: ChatPanelProps) {
     e.preventDefault();
     if (!newMessage.trim() || !user || !investigationId) return;
 
+    const timestamp = new Date().toISOString();
     const messagesCol = collection(db, `investigations/${investigationId}/messages`);
     await addDoc(messagesCol, {
       role: 'doctor',
       content: newMessage,
-      timestamp: new Date().toISOString(),
+      timestamp,
       authorId: user.uid,
       authorName: user.displayName || 'Doctor',
     });
+    
+    const investigationDocRef = doc(db, 'investigations', investigationId);
+    await updateDoc(investigationDocRef, {
+        lastMessageTimestamp: serverTimestamp(),
+        lastMessageContent: newMessage,
+    });
+
     setNewMessage("");
   };
   
@@ -215,10 +226,15 @@ export function MessagesDashboard() {
     const q = query(
         collection(db, "investigations"), 
         where("reviewedByUid", "==", user.uid),
-        orderBy("createdAt", "desc")
+        orderBy("lastMessageTimestamp", "desc")
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-        const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investigation));
+        const fetched = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            lastDoctorReadTimestamp: doc.data().lastDoctorReadTimestamp?.toDate(),
+            lastMessageTimestamp: doc.data().lastMessageTimestamp?.toDate(),
+        } as Investigation));
         setInvestigations(fetched);
         if (!isMobile && !selectedInvestigationId && fetched.length > 0) {
             setSelectedInvestigationId(fetched[0].id);
@@ -231,6 +247,14 @@ export function MessagesDashboard() {
 
     return () => unsubscribe();
   }, [user, isMobile, selectedInvestigationId]);
+  
+  const handleSelectInvestigation = async (id: string) => {
+    setSelectedInvestigationId(id);
+    const investigationDocRef = doc(db, 'investigations', id);
+    await updateDoc(investigationDocRef, {
+        lastDoctorReadTimestamp: serverTimestamp()
+    });
+  };
 
   const selectedInvestigation = useMemo(() => {
       return investigations.find(inv => inv.id === selectedInvestigationId);
@@ -259,24 +283,30 @@ export function MessagesDashboard() {
                         {investigations.length === 0 && (
                              <p className="text-center text-sm text-muted-foreground pt-4">You have no active patient conversations.</p>
                         )}
-                        {investigations.map(inv => (
-                            <button 
-                                key={inv.id} 
-                                className={cn(
-                                    "w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors",
-                                    selectedInvestigationId === inv.id ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
-                                )}
-                                onClick={() => setSelectedInvestigationId(inv.id)}
-                            >
-                                <Avatar><AvatarFallback>{inv.userName.charAt(0)}</AvatarFallback></Avatar>
-                                <div>
-                                    <p className="font-bold">{inv.userName}</p>
-                                    <p className={cn("text-xs", selectedInvestigationId === inv.id ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                                        Case started {formatDistanceToNow(parseISO(inv.createdAt), { addSuffix: true })}
-                                    </p>
-                                </div>
-                            </button>
-                        ))}
+                        {investigations.map(inv => {
+                            const hasUnread = inv.lastMessageTimestamp && (!inv.lastDoctorReadTimestamp || isAfter(inv.lastMessageTimestamp, inv.lastDoctorReadTimestamp));
+                            return (
+                                <button 
+                                    key={inv.id} 
+                                    className={cn(
+                                        "w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors",
+                                        selectedInvestigationId === inv.id ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
+                                    )}
+                                    onClick={() => handleSelectInvestigation(inv.id)}
+                                >
+                                    <div className="relative">
+                                        <Avatar><AvatarFallback>{inv.userName.charAt(0)}</AvatarFallback></Avatar>
+                                        {hasUnread && <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-destructive ring-2 ring-background"/>}
+                                    </div>
+                                    <div className="flex-grow min-w-0">
+                                        <p className="font-bold">{inv.userName}</p>
+                                        <p className={cn("text-xs truncate", selectedInvestigationId === inv.id ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                                            {inv.lastMessageContent || `Case started ${formatDistanceToNow(parseISO(inv.createdAt), { addSuffix: true })}`}
+                                        </p>
+                                    </div>
+                                </button>
+                            )
+                        })}
                     </div>
                 </ScrollArea>
             </div>

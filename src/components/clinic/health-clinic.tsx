@@ -4,9 +4,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, addDoc, doc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { format, formatDistanceToNow, parseISO } from 'date-fns';
+import { format, formatDistanceToNow, parseISO, isAfter } from 'date-fns';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -60,6 +60,9 @@ interface Investigation {
   doctorNote?: string;
   reviewedByUid?: string;
   reviewedByName?: string;
+  lastPatientReadTimestamp?: any;
+  lastDoctorReadTimestamp?: any;
+  lastMessageTimestamp?: any;
 }
 
 interface InvestigationStep {
@@ -120,14 +123,22 @@ function CaseChat({ investigationId, doctorName }: { investigationId: string, do
     e.preventDefault();
     if (!newMessage.trim() || !user) return;
 
+    const timestamp = new Date().toISOString();
     const messagesCol = collection(db, `investigations/${investigationId}/messages`);
     await addDoc(messagesCol, {
       role: 'user',
       content: newMessage,
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp,
       authorId: user.uid,
       authorName: user.displayName || 'Patient',
     });
+    
+    // Update last message timestamp on investigation for notification tracking
+    const investigationDocRef = doc(db, 'investigations', investigationId);
+    await updateDoc(investigationDocRef, {
+        lastMessageTimestamp: serverTimestamp()
+    });
+
     setNewMessage("");
   };
 
@@ -249,7 +260,12 @@ export function HealthClinic() {
 
     const q = query(collection(db, "investigations"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-        setInvestigations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investigation)));
+        setInvestigations(snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            lastPatientReadTimestamp: doc.data().lastPatientReadTimestamp?.toDate(),
+            lastMessageTimestamp: doc.data().lastMessageTimestamp?.toDate(),
+        } as Investigation)));
         setIsLoadingHistory(false);
     }, (err) => {
         console.error("Error fetching investigations: ", err);
@@ -371,6 +387,13 @@ export function HealthClinic() {
     }
   };
 
+  const handleMarkAsRead = async (investigationId: string) => {
+    const investigationDocRef = doc(db, 'investigations', investigationId);
+    await updateDoc(investigationDocRef, {
+        lastPatientReadTimestamp: serverTimestamp()
+    });
+  };
+
   const handleShareImage = async () => {
     if (!selectedImage) return;
 
@@ -483,243 +506,247 @@ export function HealthClinic() {
         </CardHeader>
         <CardContent>
             {isLoadingHistory ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : investigations.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full" defaultValue={investigations[0]?.id}>
-                    {investigations.map(c => (
-                        <AccordionItem value={c.id} key={c.id}>
-                            <AccordionTrigger className="text-left hover:no-underline">
-                                <div className="flex justify-between items-center w-full pr-4 gap-2">
-                                    <div className="flex items-center gap-3">
-                                        <span className={cn("w-3 h-3 rounded-full flex-shrink-0", statusConfig[c.status]?.color || 'bg-gray-400')} />
-                                        <div className="min-w-0">
-                                            <p className="font-bold truncate">Case from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
-                                            <p className="text-xs text-muted-foreground">{formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}</p>
-                                        </div>
-                                    </div>
-                                    <Badge variant="outline" className="hidden sm:inline-flex">{statusConfig[c.status]?.text}</Badge>
-                                </div>
-                            </AccordionTrigger>
-                             <AccordionContent className="space-y-6 pt-4">
-                                
-                                {c.steps.map((step, index) => {
-                                    return (
-                                        <div key={index} className="relative pl-8">
-                                            <div className="absolute left-3 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
-                                            <div className="absolute left-3 top-2 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2"></div>
-                                            
-                                            <p className="font-bold text-sm mb-1">
-                                                {step.type === 'initial_submission' ? 'Initial Visit' : 'Follow-up Submission'}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground mb-2">
-                                                {format(parseISO(step.timestamp), 'MMM d, yyyy, h:mm a')}
-                                            </p>
-
-                                            <div className="p-4 bg-secondary/50 rounded-lg space-y-4">
-                                                {step.type === 'initial_submission' && (
-                                                    <div>
-                                                        <Collapsible>
-                                                            <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md p-2 text-left text-sm font-semibold hover:bg-secondary">
-                                                                <span>Your Symptoms & Interview</span>
-                                                                <ChevronsUpDown className="h-4 w-4" />
-                                                            </CollapsibleTrigger>
-                                                            <CollapsibleContent className="pt-2">
-                                                                <p className="text-sm whitespace-pre-line rounded-md bg-background/50 p-2 text-muted-foreground">{step.userInput.chatTranscript}</p>
-                                                            </CollapsibleContent>
-                                                        </Collapsible>
-                                                        
-                                                        {step.userInput.imageDataUri && (
-                                                            <div className="mt-4">
-                                                                <h4 className="font-semibold text-sm mb-1">Image Submitted</h4>
-                                                                <button onClick={() => setSelectedImage(step.userInput.imageDataUri)} className="transition-transform hover:scale-105">
-                                                                    <Image src={step.userInput.imageDataUri} alt="Initial submission" width={100} height={100} className="rounded-md border"/>
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                                
-                                                {step.type === 'lab_result_submission' && (
-                                                    <div>
-                                                        {step.userInput.nurseReport?.text && (
-                                                            <Alert className="mb-4"><FileText className="h-4 w-4"/><AlertTitle>Nurse's Report</AlertTitle><AlertDescription>{step.userInput.nurseReport.text}</AlertDescription></Alert>
-                                                        )}
-
-                                                        {(step.userInput.labResults?.length > 0 || step.userInput.nurseReport?.pictures?.length > 0 || step.userInput.nurseReport?.videos?.length > 0) && (
-                                                            <div className="space-y-4">
-                                                                {step.userInput.labResults?.length > 0 && (
-                                                                    <div>
-                                                                        <h4 className="font-semibold text-sm mb-2">Lab Test Results</h4>
-                                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                                                            {step.userInput.labResults.map((res: any, i: number) => (
-                                                                                <div key={`lab-${i}`}>
-                                                                                    <p className="font-semibold text-xs truncate">{res.testName}</p>
-                                                                                    <button onClick={() => setSelectedImage(res.imageDataUri)} className="transition-transform hover:scale-105 mt-1">
-                                                                                        <Image src={res.imageDataUri} alt={res.testName} width={150} height={150} className="rounded-md border"/>
-                                                                                    </button>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                                
-                                                                {step.userInput.nurseReport?.pictures?.length > 0 && (
-                                                                    <div>
-                                                                        <h4 className="font-semibold text-sm mb-2">Pictures from Nurse</h4>
-                                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                                                            {step.userInput.nurseReport.pictures.map((pic: string, i: number) => (
-                                                                                <div key={`pic-${i}`}>
-                                                                                    <button onClick={() => setSelectedImage(pic)} className="transition-transform hover:scale-105 mt-1">
-                                                                                        <Image src={pic} alt={`Nurse picture ${i+1}`} width={150} height={150} className="rounded-md border"/>
-                                                                                    </button>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-
-                                                                {step.userInput.nurseReport?.videos?.length > 0 && (
-                                                                    <div>
-                                                                        <h4 className="font-semibold text-sm mb-2">Videos from Nurse</h4>
-                                                                        <div className="flex flex-wrap gap-2">
-                                                                            {step.userInput.nurseReport.videos.map((vid: string, i: number) => (
-                                                                                <Badge key={`vid-${i}`} variant="secondary" className="flex items-center gap-1">
-                                                                                    <Video className="w-3 h-3"/> Video {i+1}
-                                                                                </Badge>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
+                <Accordion type="single" collapsible className="w-full" defaultValue={investigations[0]?.id} onValueChange={handleMarkAsRead}>
+                    {investigations.map(c => {
+                        const hasUnread = c.lastMessageTimestamp && (!c.lastPatientReadTimestamp || isAfter(c.lastMessageTimestamp, c.lastPatientReadTimestamp));
+                        return (
+                            <AccordionItem value={c.id} key={c.id}>
+                                <AccordionTrigger className="text-left hover:no-underline">
+                                    <div className="flex justify-between items-center w-full pr-4 gap-2">
+                                        <div className="flex items-center gap-3">
+                                            {hasUnread && <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></div>}
+                                            <span className={cn("w-3 h-3 rounded-full flex-shrink-0", statusConfig[c.status]?.color || 'bg-gray-400', hasUnread && 'ml-[-22px]')} />
+                                            <div className="min-w-0">
+                                                <p className="font-bold truncate">Case from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
+                                                <p className="text-xs text-muted-foreground">{formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}</p>
                                             </div>
                                         </div>
-                                    )
-                                })}
-
-                                <Separator />
-
-                                <div className="px-4">
-                                    {c.status === 'awaiting_lab_results' && c.doctorPlan && (
-                                        <Card className="bg-secondary/50">
-                                            <CardHeader>
-                                                <CardTitle className="text-lg">Next Steps from Your Doctor</CardTitle>
-                                                {c.reviewedByName && c.reviewedByUid && (<CardDescription>Prescribed by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></CardDescription>)}
-                                            </CardHeader>
-                                            <CardContent className="space-y-6">
-                                                {c.doctorPlan?.preliminaryMedications?.length > 0 && (
+                                        <Badge variant="outline" className="hidden sm:inline-flex">{statusConfig[c.status]?.text}</Badge>
+                                    </div>
+                                </AccordionTrigger>
+                                 <AccordionContent className="space-y-6 pt-4">
+                                    
+                                    {c.steps.map((step, index) => {
+                                        return (
+                                            <div key={index} className="relative pl-8">
+                                                <div className="absolute left-3 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
+                                                <div className="absolute left-3 top-2 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2"></div>
+                                                
+                                                <p className="font-bold text-sm mb-1">
+                                                    {step.type === 'initial_submission' ? 'Initial Visit' : 'Follow-up Submission'}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground mb-2">
+                                                    {format(parseISO(step.timestamp), 'MMM d, yyyy, h:mm a')}
+                                                </p>
+    
+                                                <div className="p-4 bg-secondary/50 rounded-lg space-y-4">
+                                                    {step.type === 'initial_submission' && (
+                                                        <div>
+                                                            <Collapsible>
+                                                                <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md p-2 text-left text-sm font-semibold hover:bg-secondary">
+                                                                    <span>Your Symptoms & Interview</span>
+                                                                    <ChevronsUpDown className="h-4 w-4" />
+                                                                </CollapsibleTrigger>
+                                                                <CollapsibleContent className="pt-2">
+                                                                    <p className="text-sm whitespace-pre-line rounded-md bg-background/50 p-2 text-muted-foreground">{step.userInput.chatTranscript}</p>
+                                                                </CollapsibleContent>
+                                                            </Collapsible>
+                                                            
+                                                            {step.userInput.imageDataUri && (
+                                                                <div className="mt-4">
+                                                                    <h4 className="font-semibold text-sm mb-1">Image Submitted</h4>
+                                                                    <button onClick={() => setSelectedImage(step.userInput.imageDataUri)} className="transition-transform hover:scale-105">
+                                                                        <Image src={step.userInput.imageDataUri} alt="Initial submission" width={100} height={100} className="rounded-md border"/>
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {step.type === 'lab_result_submission' && (
+                                                        <div>
+                                                            {step.userInput.nurseReport?.text && (
+                                                                <Alert className="mb-4"><FileText className="h-4 w-4"/><AlertTitle>Nurse's Report</AlertTitle><AlertDescription>{step.userInput.nurseReport.text}</AlertDescription></Alert>
+                                                            )}
+    
+                                                            {(step.userInput.labResults?.length > 0 || step.userInput.nurseReport?.pictures?.length > 0 || step.userInput.nurseReport?.videos?.length > 0) && (
+                                                                <div className="space-y-4">
+                                                                    {step.userInput.labResults?.length > 0 && (
+                                                                        <div>
+                                                                            <h4 className="font-semibold text-sm mb-2">Lab Test Results</h4>
+                                                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                                                                {step.userInput.labResults.map((res: any, i: number) => (
+                                                                                    <div key={`lab-${i}`}>
+                                                                                        <p className="font-semibold text-xs truncate">{res.testName}</p>
+                                                                                        <button onClick={() => setSelectedImage(res.imageDataUri)} className="transition-transform hover:scale-105 mt-1">
+                                                                                            <Image src={res.imageDataUri} alt={res.testName} width={150} height={150} className="rounded-md border"/>
+                                                                                        </button>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    
+                                                                    {step.userInput.nurseReport?.pictures?.length > 0 && (
+                                                                        <div>
+                                                                            <h4 className="font-semibold text-sm mb-2">Pictures from Nurse</h4>
+                                                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                                                                {step.userInput.nurseReport.pictures.map((pic: string, i: number) => (
+                                                                                    <div key={`pic-${i}`}>
+                                                                                        <button onClick={() => setSelectedImage(pic)} className="transition-transform hover:scale-105 mt-1">
+                                                                                            <Image src={pic} alt={`Nurse picture ${i+1}`} width={150} height={150} className="rounded-md border"/>
+                                                                                        </button>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+    
+                                                                    {step.userInput.nurseReport?.videos?.length > 0 && (
+                                                                        <div>
+                                                                            <h4 className="font-semibold text-sm mb-2">Videos from Nurse</h4>
+                                                                            <div className="flex flex-wrap gap-2">
+                                                                                {step.userInput.nurseReport.videos.map((vid: string, i: number) => (
+                                                                                    <Badge key={`vid-${i}`} variant="secondary" className="flex items-center gap-1">
+                                                                                        <Video className="w-3 h-3"/> Video {i+1}
+                                                                                    </Badge>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+    
+                                    <Separator />
+    
+                                    <div className="px-4">
+                                        {c.status === 'awaiting_lab_results' && c.doctorPlan && (
+                                            <Card className="bg-secondary/50">
+                                                <CardHeader>
+                                                    <CardTitle className="text-lg">Next Steps from Your Doctor</CardTitle>
+                                                    {c.reviewedByName && c.reviewedByUid && (<CardDescription>Prescribed by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></CardDescription>)}
+                                                </CardHeader>
+                                                <CardContent className="space-y-6">
+                                                    {c.doctorPlan?.preliminaryMedications?.length > 0 && (
+                                                        <div>
+                                                            <h3 className="font-bold flex items-center gap-2"><Pill/> Preliminary Medications</h3>
+                                                            <ul className="list-disc list-inside pl-4 mt-2 text-muted-foreground">
+                                                                {c.doctorPlan.preliminaryMedications.map((med, i) => <li key={i}>{med}</li>)}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                    {c.doctorPlan?.suggestedLabTests?.length > 0 && (
+                                                        <div>
+                                                            <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
+                                                            <p className="text-sm text-muted-foreground mb-2">
+                                                                Please get these tests done at a local facility and upload the results below.
+                                                            </p>
+                                                            <div className="space-y-4 mt-4">
+                                                                {c.doctorPlan.suggestedLabTests.map((test, i) => (
+                                                                    <div key={i} className="p-3 border rounded-md">
+                                                                        <label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label>
+                                                                        <div className="flex items-center gap-4 mt-2">
+                                                                            <Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />
+                                                                            {labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                                <Button onClick={() => handleSubmitLabResults(c, c.doctorPlan!.suggestedLabTests)} disabled={isSubmittingLabs}>
+                                                                    {isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}
+                                                                    Submit Lab Results
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </CardContent>
+                                            </Card>
+                                        )}
+                                        {c.status === 'awaiting_follow_up_visit' && c.followUpRequest && (
+                                            <Card className="bg-cyan-500/10 border-cyan-500/50">
+                                                <CardHeader>
+                                                    <CardTitle className="text-lg text-cyan-800 dark:text-cyan-300">Follow-up Tests Required</CardTitle>
+                                                    {c.reviewedByName && c.reviewedByUid && (<CardDescription className="text-cyan-700 dark:text-cyan-400">Requested by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold hover:underline">{c.reviewedByName}</Link></CardDescription>)}
+                                                </CardHeader>
+                                                <CardContent className="space-y-4">
+                                                    <AlertDescription>
+                                                        <p className="font-bold">Doctor's Note:</p>
+                                                        <p className="italic">"{c.followUpRequest.note}"</p>
+                                                    </AlertDescription>
                                                     <div>
-                                                        <h3 className="font-bold flex items-center gap-2"><Pill/> Preliminary Medications</h3>
-                                                        <ul className="list-disc list-inside pl-4 mt-2 text-muted-foreground">
-                                                            {c.doctorPlan.preliminaryMedications.map((med, i) => <li key={i}>{med}</li>)}
-                                                        </ul>
-                                                    </div>
-                                                )}
-                                                {c.doctorPlan?.suggestedLabTests?.length > 0 && (
-                                                    <div>
-                                                        <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
+                                                        <h3 className="font-bold flex items-center gap-2"><TestTube/> Additional Lab Tests</h3>
                                                         <p className="text-sm text-muted-foreground mb-2">
-                                                            Please get these tests done at a local facility and upload the results below.
+                                                            Please get these additional tests done and upload the results below.
                                                         </p>
-                                                        <div className="space-y-4 mt-4">
-                                                            {c.doctorPlan.suggestedLabTests.map((test, i) => (
-                                                                <div key={i} className="p-3 border rounded-md">
-                                                                    <label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label>
+                                                         <div className="space-y-4 mt-4">
+                                                            {c.followUpRequest.suggestedLabTests.map((test, i) => (
+                                                                <div key={i} className="p-3 border rounded-md bg-background/50">
+                                                                    <label htmlFor={`followup-lab-upload-${i}`} className="font-semibold">{test}</label>
                                                                     <div className="flex items-center gap-4 mt-2">
-                                                                        <Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />
+                                                                        <Input id={`followup-lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />
                                                                         {labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}
                                                                     </div>
                                                                 </div>
                                                             ))}
-                                                            <Button onClick={() => handleSubmitLabResults(c, c.doctorPlan!.suggestedLabTests)} disabled={isSubmittingLabs}>
+                                                            <Button onClick={() => handleSubmitLabResults(c, c.followUpRequest!.suggestedLabTests)} disabled={isSubmittingLabs}>
                                                                 {isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}
-                                                                Submit Lab Results
+                                                                Submit Follow-up Results
                                                             </Button>
                                                         </div>
                                                     </div>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-                                    )}
-                                    {c.status === 'awaiting_follow_up_visit' && c.followUpRequest && (
-                                        <Card className="bg-cyan-500/10 border-cyan-500/50">
-                                            <CardHeader>
-                                                <CardTitle className="text-lg text-cyan-800 dark:text-cyan-300">Follow-up Tests Required</CardTitle>
-                                                {c.reviewedByName && c.reviewedByUid && (<CardDescription className="text-cyan-700 dark:text-cyan-400">Requested by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold hover:underline">{c.reviewedByName}</Link></CardDescription>)}
-                                            </CardHeader>
-                                            <CardContent className="space-y-4">
-                                                <AlertDescription>
-                                                    <p className="font-bold">Doctor's Note:</p>
-                                                    <p className="italic">"{c.followUpRequest.note}"</p>
-                                                </AlertDescription>
-                                                <div>
-                                                    <h3 className="font-bold flex items-center gap-2"><TestTube/> Additional Lab Tests</h3>
-                                                    <p className="text-sm text-muted-foreground mb-2">
-                                                        Please get these additional tests done and upload the results below.
-                                                    </p>
-                                                     <div className="space-y-4 mt-4">
-                                                        {c.followUpRequest.suggestedLabTests.map((test, i) => (
-                                                            <div key={i} className="p-3 border rounded-md bg-background/50">
-                                                                <label htmlFor={`followup-lab-upload-${i}`} className="font-semibold">{test}</label>
-                                                                <div className="flex items-center gap-4 mt-2">
-                                                                    <Input id={`followup-lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />
-                                                                    {labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}
-                                                                </div>
-                                                            </div>
+                                                </CardContent>
+                                            </Card>
+                                        )}
+                                        {c.status === 'completed' && (
+                                            <Alert>
+                                                <ShieldCheck className="h-4 w-4" />
+                                                <AlertTitle>Diagnosis &amp; Treatment Plan</AlertTitle>
+                                                {c.reviewedByName && c.reviewedByUid && (<p className="text-xs text-muted-foreground -mt-1 mb-2">Finalized by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></p>)}
+                                                <AlertDescription asChild>
+                                                    <div className="space-y-4 mt-2">
+                                                        {c.finalDiagnosis?.map((diag: any, i: number) => (
+                                                            <div key={i} className="pb-2 border-b last:border-b-0"><h4 className="font-bold text-foreground">Diagnosis: {diag.condition} ({diag.probability}%)</h4><p className="text-xs text-muted-foreground">{diag.reasoning}</p></div>
                                                         ))}
-                                                        <Button onClick={() => handleSubmitLabResults(c, c.followUpRequest!.suggestedLabTests)} disabled={isSubmittingLabs}>
-                                                            {isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}
-                                                            Submit Follow-up Results
-                                                        </Button>
+                                                        {c.finalTreatmentPlan?.medications?.length > 0 && (
+                                                            <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Pill size={16}/> Medications</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.medications.map((med: string, i: number) => <li key={i}>{med}</li>)}</ul></div>
+                                                        )}
+                                                        {c.finalTreatmentPlan?.lifestyleChanges?.length > 0 && (
+                                                            <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Salad size={16}/> Lifestyle Changes</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}</ul></div>
+                                                        )}
                                                     </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    )}
-                                    {c.status === 'completed' && (
-                                        <Alert>
-                                            <ShieldCheck className="h-4 w-4" />
-                                            <AlertTitle>Diagnosis &amp; Treatment Plan</AlertTitle>
-                                            {c.reviewedByName && c.reviewedByUid && (<p className="text-xs text-muted-foreground -mt-1 mb-2">Finalized by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></p>)}
-                                            <AlertDescription asChild>
-                                                <div className="space-y-4 mt-2">
-                                                    {c.finalDiagnosis?.map((diag: any, i: number) => (
-                                                        <div key={i} className="pb-2 border-b last:border-b-0"><h4 className="font-bold text-foreground">Diagnosis: {diag.condition} ({diag.probability}%)</h4><p className="text-xs text-muted-foreground">{diag.reasoning}</p></div>
-                                                    ))}
-                                                    {c.finalTreatmentPlan?.medications?.length > 0 && (
-                                                        <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Pill size={16}/> Medications</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.medications.map((med: string, i: number) => <li key={i}>{med}</li>)}</ul></div>
-                                                    )}
-                                                    {c.finalTreatmentPlan?.lifestyleChanges?.length > 0 && (
-                                                        <div><h4 className="font-bold flex items-center gap-2 text-foreground"><Salad size={16}/> Lifestyle Changes</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}</ul></div>
-                                                    )}
-                                                </div>
-                                            </AlertDescription>
-                                        </Alert>
-                                    )}
-                                    {c.status === 'rejected' && (
-                                        <Alert variant="destructive">
-                                            <X className="h-4 w-4"/>
-                                            <AlertTitle>Case Closed by Doctor</AlertTitle>
-                                            {c.doctorNote && <AlertDescription>{c.doctorNote}{c.reviewedByName && c.reviewedByUid && (<span className="italic">{' - '}<Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold hover:underline">{c.reviewedByName}</Link></span>)}</AlertDescription>}
-                                        </Alert>
-                                    )}
-                                    {(c.status === 'pending_review' || c.status === 'pending_final_review') && (
-                                        <Alert>
-                                            <Sparkles className="h-4 w-4"/>
-                                            <AlertTitle>Under Review</AlertTitle>
-                                            <AlertDescription>Your case is currently being reviewed by a doctor. You will be notified of the next steps.</AlertDescription>
-                                        </Alert>
-                                    )}
-
-                                    {c.reviewedByUid && (c.status !== 'rejected' && c.status !== 'completed') && (
-                                        <div className="pt-4 mt-4 border-t">
-                                            <CaseChat investigationId={c.id} doctorName={c.reviewedByName || 'the Doctor'} />
-                                        </div>
-                                    )}
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    ))}
+                                                </AlertDescription>
+                                            </Alert>
+                                        )}
+                                        {c.status === 'rejected' && (
+                                            <Alert variant="destructive">
+                                                <X className="h-4 w-4"/>
+                                                <AlertTitle>Case Closed by Doctor</AlertTitle>
+                                                {c.doctorNote && <AlertDescription>{c.doctorNote}{c.reviewedByName && c.reviewedByUid && (<span className="italic">{' - '}<Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold hover:underline">{c.reviewedByName}</Link></span>)}</AlertDescription>}
+                                            </Alert>
+                                        )}
+                                        {(c.status === 'pending_review' || c.status === 'pending_final_review') && (
+                                            <Alert>
+                                                <Sparkles className="h-4 w-4"/>
+                                                <AlertTitle>Under Review</AlertTitle>
+                                                <AlertDescription>Your case is currently being reviewed by a doctor. You will be notified of the next steps.</AlertDescription>
+                                            </Alert>
+                                        )}
+    
+                                        {c.reviewedByUid && (c.status !== 'rejected' && c.status !== 'completed') && (
+                                            <div className="pt-4 mt-4 border-t">
+                                                <CaseChat investigationId={c.id} doctorName={c.reviewedByName || 'the Doctor'} />
+                                            </div>
+                                        )}
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        )
+                    })}
                 </Accordion>
             ) : (
                 <div className="text-center py-12 text-muted-foreground">
