@@ -21,7 +21,6 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   Collapsible,
   CollapsibleContent,
@@ -33,6 +32,8 @@ import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '../ui/textarea';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
 
 // Types
 interface Message {
@@ -228,6 +229,127 @@ function ChatPanel({ investigationId, doctorName }: { investigationId: string, d
   );
 }
 
+function CaseDetails({ investigation, onMarkAsRead, onImageClick }: { investigation: Investigation, onMarkAsRead: (id: string) => void, onImageClick: (url: string) => void }) {
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const [labResultUploads, setLabResultUploads] = useState<Record<string, string>>({});
+    const [isSubmittingLabs, setIsSubmittingLabs] = useState(false);
+
+    useEffect(() => {
+        onMarkAsRead(investigation.id);
+    }, [investigation.id, onMarkAsRead]);
+
+    const handleLabResultUpload = (testName: string, event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setLabResultUploads(prev => ({ ...prev, [testName]: reader.result as string }));
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSubmitLabResults = async (investigation: Investigation) => {
+        if (!user) return;
+
+        const plan = investigation.doctorPlan || investigation.followUpRequest;
+        if (!plan) return;
+
+        const requiredTests = plan.suggestedLabTests;
+        const uploadedTests = Object.keys(labResultUploads);
+        if (requiredTests.some((test: string) => !uploadedTests.includes(test))) {
+            toast({ variant: 'destructive', title: 'Missing Results', description: 'Please upload all required lab test results.' });
+            return;
+        }
+
+        setIsSubmittingLabs(true);
+        try {
+            const labResults = requiredTests.map((testName: string) => ({ testName, imageDataUri: labResultUploads[testName] }));
+            await continueInvestigation({ userId: user.uid, investigationId: investigation.id, labResults });
+            toast({ title: "Lab Results Submitted", description: "Your results have been sent for final analysis." });
+            setLabResultUploads({});
+        } catch (error) {
+            console.error("Error submitting lab results:", error);
+            toast({ variant: 'destructive', title: "Submission Failed", description: "Could not submit your lab results." });
+        } finally {
+            setIsSubmittingLabs(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6 pt-4">
+            {investigation.steps.map((step, index) => (
+                <div key={index} className="relative pl-8">
+                    <div className="absolute left-3 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
+                    <div className="absolute left-3 top-2 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2"></div>
+                    <p className="font-bold text-sm mb-1">{step.type === 'initial_submission' ? 'Initial Case Submission' : 'Follow-up'}</p>
+                    <p className="text-xs text-muted-foreground mb-2">{format(parseISO(step.timestamp), 'MMM d, yyyy, h:mm a')}</p>
+                    <div className="p-4 bg-secondary/50 rounded-lg space-y-4">
+                        {step.doctorRequest && (
+                            <Alert variant="default" className="border-primary/50">
+                                <ClipboardList className="h-4 w-4" />
+                                <AlertTitle>Doctor's Request</AlertTitle>
+                                <AlertDescription className="mt-2">{step.doctorRequest.note}</AlertDescription>
+                            </Alert>
+                        )}
+                        {step.type === 'initial_submission' && (
+                            <Collapsible>
+                                <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md p-2 text-left text-sm font-semibold hover:bg-secondary"><span>Your Symptoms & Interview</span><ChevronsUpDown className="h-4 w-4" /></CollapsibleTrigger>
+                                <CollapsibleContent className="pt-2"><p className="text-sm whitespace-pre-line rounded-md bg-background/50 p-2 text-muted-foreground">{step.userInput.chatTranscript}</p></CollapsibleContent>
+                            </Collapsible>
+                        )}
+                        {step.userInput.imageDataUri && (
+                            <div className="mt-4"><h4 className="font-semibold text-sm mb-1">Image Submitted</h4><button onClick={() => onImageClick(step.userInput.imageDataUri)} className="transition-transform hover:scale-105"><Image src={step.userInput.imageDataUri} alt="User submission" width={100} height={100} className="rounded-md border"/></button></div>
+                        )}
+                    </div>
+                </div>
+            ))}
+
+            <Separator />
+
+            <div className="px-4">
+                {(investigation.status === 'awaiting_lab_results' || investigation.status === 'awaiting_follow_up_visit') && (
+                    <Card className="bg-secondary/50">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Next Steps from Your Doctor</CardTitle>
+                            {investigation.reviewedByName && investigation.reviewedByUid && (<CardDescription>Prescribed by <Link href={`/doctors?id=${investigation.reviewedByUid}`} className="font-bold text-primary hover:underline">{investigation.reviewedByName}</Link></CardDescription>)}
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            {(investigation.doctorPlan?.preliminaryMedications || investigation.followUpRequest?.preliminaryMedications)?.length > 0 && (
+                                <div><h3 className="font-bold flex items-center gap-2"><Pill/> Preliminary Medications</h3><ul className="list-disc list-inside pl-4 mt-2 text-muted-foreground">{(investigation.doctorPlan?.preliminaryMedications || investigation.followUpRequest?.preliminaryMedications).map((med: string, i: number) => <li key={i}>{med}</li>)}</ul></div>
+                            )}
+                            {(investigation.doctorPlan?.suggestedLabTests || investigation.followUpRequest?.suggestedLabTests)?.length > 0 && (
+                                <div>
+                                    <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
+                                    <div className="space-y-4 mt-4">
+                                        {(investigation.doctorPlan?.suggestedLabTests || investigation.followUpRequest?.suggestedLabTests).map((test: string, i: number) => (
+                                            <div key={i} className="p-3 border rounded-md"><label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label><div className="flex items-center gap-4 mt-2"><Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />{labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}</div></div>
+                                        ))}
+                                        <Button onClick={() => handleSubmitLabResults(investigation)} disabled={isSubmittingLabs}>{isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}Submit Lab Results</Button>
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+                {investigation.status === 'completed' && (
+                    <Alert><ShieldCheck className="h-4 w-4" /><AlertTitle>Diagnosis &amp; Treatment Plan</AlertTitle>{investigation.reviewedByName && investigation.reviewedByUid && (<p className="text-xs text-muted-foreground -mt-1 mb-2">Finalized by <Link href={`/doctors?id=${investigation.reviewedByUid}`} className="font-bold text-primary hover:underline">{investigation.reviewedByName}</Link></p>)}<AlertDescription asChild><div className="space-y-4 mt-2">{investigation.finalDiagnosis?.map((diag: any, i: number) => (<div key={i} className="pb-2 border-b last:border-b-0"><h4 className="font-bold text-foreground">Diagnosis: {diag.condition} ({diag.probability}%)</h4><p className="text-xs text-muted-foreground">{diag.reasoning}</p></div>))}{investigation.finalTreatmentPlan?.medications?.length > 0 && (<div><h4 className="font-bold flex items-center gap-2 text-foreground"><Pill size={16}/> Medications</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{investigation.finalTreatmentPlan.medications.map((med: string, i: number) => <li key={i}>{med}</li>)}</ul></div>)}{investigation.finalTreatmentPlan?.lifestyleChanges?.length > 0 && (<div><h4 className="font-bold flex items-center gap-2 text-foreground"><Salad size={16}/> Lifestyle Changes</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{investigation.finalTreatmentPlan.lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}</ul></div>)}</div></AlertDescription></Alert>
+                )}
+                {investigation.status === 'rejected' && (
+                    <Alert variant="destructive"><X className="h-4 w-4"/><AlertTitle>Case Closed by Doctor</AlertTitle>{investigation.doctorNote && <AlertDescription>{investigation.doctorNote}{investigation.reviewedByName && investigation.reviewedByUid && (<span className="italic">{' - '}<Link href={`/doctors?id=${investigation.reviewedByUid}`} className="font-bold hover:underline">{investigation.reviewedByName}</Link></span>)}</AlertDescription>}</Alert>
+                )}
+                {(investigation.status === 'pending_review' || investigation.status === 'pending_final_review') && (
+                    <Alert><Sparkles className="h-4 w-4"/><AlertTitle>Under Review</AlertTitle><AlertDescription>Your case is currently being reviewed by a doctor. You will be notified of the next steps.</AlertDescription></Alert>
+                )}
+
+                {investigation.reviewedByUid && (investigation.status !== 'rejected' && investigation.status !== 'completed') && (
+                    <div className="pt-4 mt-4 border-t"><ChatPanel investigationId={investigation.id} doctorName={investigation.reviewedByName || 'the Doctor'} /></div>
+                )}
+            </div>
+        </div>
+    );
+}
 
 export function HealthClinic() {
   const { user } = useAuth();
@@ -244,9 +366,6 @@ export function HealthClinic() {
   const [interviewState, setInterviewState] = useState<'not_started' | 'in_progress' | 'awaiting_upload' | 'submitting'>('not_started');
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
   
-  const [labResultUploads, setLabResultUploads] = useState<Record<string, string>>({});
-  const [isSubmittingLabs, setIsSubmittingLabs] = useState(false);
-
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Fetch history of investigations
@@ -356,44 +475,6 @@ export function HealthClinic() {
       }
   };
 
-  const handleLabResultUpload = (testName: string, event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setLabResultUploads(prev => ({ ...prev, [testName]: reader.result as string }));
-        };
-        reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSubmitLabResults = async (investigation: Investigation) => {
-    if (!user) return;
-
-    const plan = investigation.doctorPlan || investigation.followUpRequest;
-    if(!plan) return;
-
-    const requiredTests = plan.suggestedLabTests;
-    const uploadedTests = Object.keys(labResultUploads);
-    if (requiredTests.some((test:string) => !uploadedTests.includes(test))) {
-        toast({ variant: 'destructive', title: 'Missing Results', description: 'Please upload all required lab test results.' });
-        return;
-    }
-    
-    setIsSubmittingLabs(true);
-    try {
-        const labResults = requiredTests.map((testName: string) => ({ testName, imageDataUri: labResultUploads[testName] }));
-        await continueInvestigation({ userId: user.uid, investigationId: investigation.id, labResults });
-        toast({ title: "Lab Results Submitted", description: "Your results have been sent for final analysis." });
-        setLabResultUploads({});
-    } catch (error) {
-        console.error("Error submitting lab results:", error);
-        toast({ variant: 'destructive', title: "Submission Failed", description: "Could not submit your lab results." });
-    } finally {
-        setIsSubmittingLabs(false);
-    }
-  };
-  
   const markCaseAsRead = async (investigationId: string) => {
     if (!user) return;
     const investigationDocRef = doc(db, 'investigations', investigationId);
@@ -514,101 +595,39 @@ export function HealthClinic() {
         </CardHeader>
         <CardContent>
             {isLoadingHistory ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : investigations.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full" onValueChange={markCaseAsRead}>
+                <Accordion type="single" collapsible className="w-full">
                     {investigations.map(c => {
                         const hasUnread = c.lastMessageTimestamp && (!c.lastPatientReadTimestamp || isAfter(c.lastMessageTimestamp, c.lastPatientReadTimestamp));
                         const StatusIcon = statusConfig[c.status]?.icon || Sparkles;
                         return (
-                        <AccordionItem value={c.id} key={c.id}>
-                            <AccordionTrigger className="text-left hover:no-underline">
-                                <div className="flex justify-between items-center w-full pr-4 gap-2">
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative">
-                                            <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", statusConfig[c.status]?.color)}>
-                                                <StatusIcon className="w-5 h-5 text-white" />
+                            <AccordionItem value={c.id} key={c.id}>
+                                <AccordionTrigger className="text-left hover:no-underline">
+                                    <div className="flex justify-between items-center w-full pr-4 gap-2">
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative">
+                                                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", statusConfig[c.status]?.color)}>
+                                                    <StatusIcon className="w-5 h-5 text-white" />
+                                                </div>
+                                                {hasUnread && <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-destructive ring-2 ring-background animate-pulse" />}
                                             </div>
-                                            {hasUnread && <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-destructive ring-2 ring-background animate-pulse" />}
+                                            <div className="min-w-0">
+                                                <p className="font-bold truncate">Case from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
+                                                <p className="text-xs text-muted-foreground">{formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}</p>
+                                            </div>
                                         </div>
-                                        <div className="min-w-0">
-                                            <p className="font-bold truncate">Case from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
-                                            <p className="text-xs text-muted-foreground">{formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}</p>
-                                        </div>
+                                        <Badge variant="outline" className="hidden sm:inline-flex">{statusConfig[c.status]?.text}</Badge>
                                     </div>
-                                    <Badge variant="outline" className="hidden sm:inline-flex">{statusConfig[c.status]?.text}</Badge>
-                                </div>
-                            </AccordionTrigger>
-                             <AccordionContent className="space-y-6 pt-4">
-                                {c.steps.map((step, index) => (
-                                    <div key={index} className="relative pl-8">
-                                        <div className="absolute left-3 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
-                                        <div className="absolute left-3 top-2 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2"></div>
-                                        <p className="font-bold text-sm mb-1">{step.type === 'initial_submission' ? 'Initial Case Submission' : 'Follow-up'}</p>
-                                        <p className="text-xs text-muted-foreground mb-2">{format(parseISO(step.timestamp), 'MMM d, yyyy, h:mm a')}</p>
-                                        <div className="p-4 bg-secondary/50 rounded-lg space-y-4">
-                                            {step.doctorRequest && (
-                                                <Alert variant="default" className="border-primary/50">
-                                                    <ClipboardList className="h-4 w-4" />
-                                                    <AlertTitle>Doctor's Request</AlertTitle>
-                                                    <AlertDescription className="mt-2">{step.doctorRequest.note}</AlertDescription>
-                                                </Alert>
-                                            )}
-                                            {step.type === 'initial_submission' && (
-                                                <Collapsible>
-                                                    <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md p-2 text-left text-sm font-semibold hover:bg-secondary"><span>Your Symptoms & Interview</span><ChevronsUpDown className="h-4 w-4" /></CollapsibleTrigger>
-                                                    <CollapsibleContent className="pt-2"><p className="text-sm whitespace-pre-line rounded-md bg-background/50 p-2 text-muted-foreground">{step.userInput.chatTranscript}</p></CollapsibleContent>
-                                                </Collapsible>
-                                            )}
-                                            {step.userInput.imageDataUri && (
-                                                <div className="mt-4"><h4 className="font-semibold text-sm mb-1">Image Submitted</h4><button onClick={() => setSelectedImage(step.userInput.imageDataUri)} className="transition-transform hover:scale-105"><Image src={step.userInput.imageDataUri} alt="User submission" width={100} height={100} className="rounded-md border"/></button></div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-
-                                <Separator />
-
-                                <div className="px-4">
-                                    {(c.status === 'awaiting_lab_results' || c.status === 'awaiting_follow_up_visit') && (
-                                        <Card className="bg-secondary/50">
-                                            <CardHeader>
-                                                <CardTitle className="text-lg">Next Steps from Your Doctor</CardTitle>
-                                                {c.reviewedByName && c.reviewedByUid && (<CardDescription>Prescribed by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></CardDescription>)}
-                                            </CardHeader>
-                                            <CardContent className="space-y-6">
-                                                {(c.doctorPlan?.preliminaryMedications || c.followUpRequest?.preliminaryMedications)?.length > 0 && (
-                                                    <div><h3 className="font-bold flex items-center gap-2"><Pill/> Preliminary Medications</h3><ul className="list-disc list-inside pl-4 mt-2 text-muted-foreground">{(c.doctorPlan?.preliminaryMedications || c.followUpRequest?.preliminaryMedications).map((med: string, i: number) => <li key={i}>{med}</li>)}</ul></div>
-                                                )}
-                                                {(c.doctorPlan?.suggestedLabTests || c.followUpRequest?.suggestedLabTests)?.length > 0 && (
-                                                    <div>
-                                                        <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
-                                                        <div className="space-y-4 mt-4">
-                                                            {(c.doctorPlan?.suggestedLabTests || c.followUpRequest?.suggestedLabTests).map((test: string, i: number) => (
-                                                                <div key={i} className="p-3 border rounded-md"><label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label><div className="flex items-center gap-4 mt-2"><Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />{labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}</div></div>
-                                                            ))}
-                                                            <Button onClick={() => handleSubmitLabResults(c)} disabled={isSubmittingLabs}>{isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}Submit Lab Results</Button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-                                    )}
-                                    {c.status === 'completed' && (
-                                        <Alert><ShieldCheck className="h-4 w-4" /><AlertTitle>Diagnosis &amp; Treatment Plan</AlertTitle>{c.reviewedByName && c.reviewedByUid && (<p className="text-xs text-muted-foreground -mt-1 mb-2">Finalized by <Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold text-primary hover:underline">{c.reviewedByName}</Link></p>)}<AlertDescription asChild><div className="space-y-4 mt-2">{c.finalDiagnosis?.map((diag: any, i: number) => (<div key={i} className="pb-2 border-b last:border-b-0"><h4 className="font-bold text-foreground">Diagnosis: {diag.condition} ({diag.probability}%)</h4><p className="text-xs text-muted-foreground">{diag.reasoning}</p></div>))}{c.finalTreatmentPlan?.medications?.length > 0 && (<div><h4 className="font-bold flex items-center gap-2 text-foreground"><Pill size={16}/> Medications</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.medications.map((med: string, i: number) => <li key={i}>{med}</li>)}</ul></div>)}{c.finalTreatmentPlan?.lifestyleChanges?.length > 0 && (<div><h4 className="font-bold flex items-center gap-2 text-foreground"><Salad size={16}/> Lifestyle Changes</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{c.finalTreatmentPlan.lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}</ul></div>)}</div></AlertDescription></Alert>
-                                    )}
-                                    {c.status === 'rejected' && (
-                                        <Alert variant="destructive"><X className="h-4 w-4"/><AlertTitle>Case Closed by Doctor</AlertTitle>{c.doctorNote && <AlertDescription>{c.doctorNote}{c.reviewedByName && c.reviewedByUid && (<span className="italic">{' - '}<Link href={`/doctors?id=${c.reviewedByUid}`} className="font-bold hover:underline">{c.reviewedByName}</Link></span>)}</AlertDescription>}</Alert>
-                                    )}
-                                    {(c.status === 'pending_review' || c.status === 'pending_final_review') && (
-                                        <Alert><Sparkles className="h-4 w-4"/><AlertTitle>Under Review</AlertTitle><AlertDescription>Your case is currently being reviewed by a doctor. You will be notified of the next steps.</AlertDescription></Alert>
-                                    )}
-
-                                    {c.reviewedByUid && (c.status !== 'rejected' && c.status !== 'completed') && (
-                                        <div className="pt-4 mt-4 border-t"><ChatPanel investigationId={c.id} doctorName={c.reviewedByName || 'the Doctor'} /></div>
-                                    )}
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    )})}
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <CaseDetails 
+                                        investigation={c}
+                                        onMarkAsRead={markCaseAsRead}
+                                        onImageClick={setSelectedImage}
+                                    />
+                                </AccordionContent>
+                            </AccordionItem>
+                        )
+                    })}
                 </Accordion>
             ) : (
                 <div className="text-center py-12 text-muted-foreground">
