@@ -9,7 +9,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const LabResultInputSchema = z.object({
     testName: z.string(),
@@ -108,6 +108,22 @@ export async function continueInvestigation(input: ContinueInvestigationClientIn
     };
     
     await updateDoc(investigationDocRef, updatedInvestigation);
+
+    // Add an automatic message to the chat
+    const messageContent = "The patient has uploaded new lab results. They are now awaiting your final review.";
+    const messagesCol = collection(db, 'investigations', investigationId, 'messages');
+    await addDoc(messagesCol, {
+        role: 'doctor',
+        content: messageContent,
+        timestamp: new Date().toISOString(),
+        authorId: 'system',
+        authorName: 'Lifeline System',
+    });
+
+    await updateDoc(investigationDocRef, {
+        lastMessageTimestamp: serverTimestamp(),
+        lastMessageContent: "New lab results uploaded."
+    });
     
     return { success: true };
 }
