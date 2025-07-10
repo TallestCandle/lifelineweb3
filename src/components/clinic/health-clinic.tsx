@@ -26,13 +26,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video, Share2, ChevronsUpDown, Pencil } from 'lucide-react';
+import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video, Share2, ChevronsUpDown, Pencil, ChevronDown } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '../ui/textarea';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 
 // Types
@@ -229,15 +228,11 @@ function ChatPanel({ investigationId, doctorName }: { investigationId: string, d
   );
 }
 
-function CaseDetails({ investigation, onMarkAsRead, onImageClick }: { investigation: Investigation, onMarkAsRead: (id: string) => void, onImageClick: (url: string) => void }) {
+function CaseDetails({ investigation, onImageClick }: { investigation: Investigation, onImageClick: (url: string) => void }) {
     const { user } = useAuth();
     const { toast } = useToast();
     const [labResultUploads, setLabResultUploads] = useState<Record<string, string>>({});
     const [isSubmittingLabs, setIsSubmittingLabs] = useState(false);
-
-    useEffect(() => {
-        onMarkAsRead(investigation.id);
-    }, [investigation.id, onMarkAsRead]);
 
     const handleLabResultUpload = (testName: string, event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -278,7 +273,7 @@ function CaseDetails({ investigation, onMarkAsRead, onImageClick }: { investigat
     };
 
     return (
-        <div className="space-y-6 pt-4">
+        <CardContent className="space-y-6 pt-6">
             {investigation.steps.map((step, index) => (
                 <div key={index} className="relative pl-8">
                     <div className="absolute left-3 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
@@ -347,7 +342,7 @@ function CaseDetails({ investigation, onMarkAsRead, onImageClick }: { investigat
                     <div className="pt-4 mt-4 border-t"><ChatPanel investigationId={investigation.id} doctorName={investigation.reviewedByName || 'the Doctor'} /></div>
                 )}
             </div>
-        </div>
+        </CardContent>
     );
 }
 
@@ -367,6 +362,7 @@ export function HealthClinic() {
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
   
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [expandedCaseId, setExpandedCaseId] = useState<string | null>(null);
 
   // Fetch history of investigations
   useEffect(() => {
@@ -482,6 +478,14 @@ export function HealthClinic() {
         lastPatientReadTimestamp: serverTimestamp()
     });
   }
+  
+  const handleToggleCase = (caseId: string) => {
+    const newExpandedId = expandedCaseId === caseId ? null : caseId;
+    setExpandedCaseId(newExpandedId);
+    if (newExpandedId) {
+        markCaseAsRead(newExpandedId);
+    }
+  };
 
   const handleShareImage = async () => {
     if (!selectedImage) return;
@@ -595,40 +599,45 @@ export function HealthClinic() {
         </CardHeader>
         <CardContent>
             {isLoadingHistory ? <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div> : investigations.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full">
+                <div className="space-y-4">
                     {investigations.map(c => {
                         const hasUnread = c.lastMessageTimestamp && (!c.lastPatientReadTimestamp || isAfter(c.lastMessageTimestamp, c.lastPatientReadTimestamp));
                         const StatusIcon = statusConfig[c.status]?.icon || Sparkles;
+                        const isExpanded = expandedCaseId === c.id;
+
                         return (
-                            <AccordionItem value={c.id} key={c.id}>
-                                <AccordionTrigger className="text-left hover:no-underline">
-                                    <div className="flex justify-between items-center w-full pr-4 gap-2">
-                                        <div className="flex items-center gap-3">
-                                            <div className="relative">
-                                                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", statusConfig[c.status]?.color)}>
-                                                    <StatusIcon className="w-5 h-5 text-white" />
-                                                </div>
-                                                {hasUnread && <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-destructive ring-2 ring-background animate-pulse" />}
+                            <Card key={c.id} className="overflow-hidden">
+                                <CardHeader 
+                                    className="flex-row items-center justify-between cursor-pointer hover:bg-secondary/50"
+                                    onClick={() => handleToggleCase(c.id)}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative">
+                                            <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", statusConfig[c.status]?.color)}>
+                                                <StatusIcon className="w-5 h-5 text-white" />
                                             </div>
-                                            <div className="min-w-0">
-                                                <p className="font-bold truncate">Case from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
-                                                <p className="text-xs text-muted-foreground">{formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}</p>
-                                            </div>
+                                            {hasUnread && <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-destructive ring-2 ring-background animate-pulse" />}
                                         </div>
-                                        <Badge variant="outline" className="hidden sm:inline-flex">{statusConfig[c.status]?.text}</Badge>
+                                        <div className="min-w-0">
+                                            <p className="font-bold truncate">Case from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
+                                            <p className="text-xs text-muted-foreground">{formatDistanceToNow(parseISO(c.createdAt), { addSuffix: true })}</p>
+                                        </div>
                                     </div>
-                                </AccordionTrigger>
-                                <AccordionContent>
-                                    <CaseDetails 
+                                    <div className="flex items-center gap-4">
+                                        <Badge variant="outline" className="hidden sm:inline-flex">{statusConfig[c.status]?.text}</Badge>
+                                        <ChevronDown className={cn("transition-transform", isExpanded && "rotate-180")} />
+                                    </div>
+                                </CardHeader>
+                                {isExpanded && (
+                                     <CaseDetails 
                                         investigation={c}
-                                        onMarkAsRead={markCaseAsRead}
                                         onImageClick={setSelectedImage}
                                     />
-                                </AccordionContent>
-                            </AccordionItem>
+                                )}
+                            </Card>
                         )
                     })}
-                </Accordion>
+                </div>
             ) : (
                 <div className="text-center py-12 text-muted-foreground">
                     <MessageSquare className="mx-auto h-12 w-12" />
@@ -653,3 +662,5 @@ export function HealthClinic() {
     </div>
   );
 }
+
+    
