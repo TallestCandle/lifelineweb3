@@ -56,7 +56,7 @@ Your task is to analyze the user's recent health summary to create a list of foo
     -   **foodsToAvoid:** Create a list of 3-5 specific food types or categories the user should avoid. For each, provide a concise 'reason' explaining why it's detrimental based on their health data (e.g., for 'Sugary Drinks' the reason could be 'They can cause sharp spikes in your blood sugar levels.').
     -   **recommendedFoods:** Create a list of 3-5 specific foods or food categories that would be beneficial. For each, provide a concise 'reason' explaining its health benefit (e.g., for 'Leafy Greens' the reason could be 'They are rich in vitamins and minerals and low in calories, which helps with weight management.').
     -   Incorporate a mix of Nigerian and intercontinental options where appropriate.
-3.  **Provide General Advice:** Give 3-4 bullet points of clear, simple, and actionable dietary advice. Be direct, e.g., "Avoid oily foods," "Drink more water," or "Reduce your salt intake." If the health data shows significant issues (e.g., very high blood pressure, uncontrolled blood sugar), one of your 'generalAdvice' points MUST be to 'Discuss this dietary advice with a doctor. You can create a case in the Clinic to start a consultation.'
+3.  **Provide General Advice:** Give 3-4 bullet points of clear, simple, and actionable dietary advice. Be direct, e.g., "Avoid oily foods," "Drink more water," or "Reduce your salt intake." If the health data shows significant issues (e.g., very high blood pressure, uncontrolled blood sugar), one of your 'generalAdvice' points MUST be to 'Discuss this dietary advice with a doctor. You can create a case in the Clinic to start an investigation.'
 
 Generate the response in the required JSON format.`,
 });

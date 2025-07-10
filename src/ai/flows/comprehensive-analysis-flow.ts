@@ -54,7 +54,7 @@ Your analysis MUST be deep and granular. Do not just summarize the data. Look fo
 - **Cyclical Patterns:** Are there patterns that repeat weekly or monthly?
 
 Based on your deep analysis, provide a response in the required JSON format with five fields:
-1.  'keyObservations': A bulleted list of the most important findings. If the final 'urgency' is 'Moderate' or 'Critical', you MUST add an observation to this list that strongly recommends creating a case in the Clinic for a consultation with a doctor.
+1.  'keyObservations': A bulleted list of the most important findings. If the final 'urgency' is 'Moderate' or 'Critical', you MUST add an observation to this list that strongly recommends creating a case in the Clinic to start an investigation.
 2.  'deepInsights': A list of non-obvious, granular insights. Each insight should be an object with the insight itself and the data that supports it.
 3.  'overallAssessment': A detailed paragraph summarizing the user's health trajectory and synthesizing your findings.
 4.  'criticalityScore': First, you MUST calculate a numerical score from 1 to 100 based on the severity and number of issues found. Use the following rubric:
