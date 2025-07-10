@@ -75,7 +75,7 @@ Health Data:
 
 Please provide a response in the required JSON format with four fields:
 1.  'summary': A short, readable summary of the user's overall health status.
-2.  'advice': Specific, actionable advice. If the 'urgency' level is 'Moderate' or 'Critical', your 'advice' MUST include a strong recommendation to book an appointment with a doctor for a consultation.
+2.  'advice': Specific, actionable advice. If the 'urgency' level is 'Moderate' or 'Critical', your 'advice' MUST include a strong recommendation to create a case in the Clinic for a consultation with a doctor.
 3.  'urgency': The urgency level ('Good', 'Mild', 'Moderate', or 'Critical').
 4.  'potentialConditions': An array of potential conditions. For each condition, give a 'condition' name, an estimated 'probability' (as a percentage from 0 to 100), and a brief 'explanation' linking your reasoning to the specific data points provided (e.g., "High probability due to elevated temperature and positive nitrite in urine test").`,
 });
