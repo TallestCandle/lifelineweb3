@@ -273,12 +273,12 @@ function CaseDetails({ investigation, onImageClick }: { investigation: Investiga
   return (
     <div className="space-y-6 pt-6">
       {investigation.steps.map((step, index) => (
-        <div key={index} className="relative pl-8">
+        <div key={index} className="relative pl-6 sm:pl-8">
           <div className="absolute left-3 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
           <div className="absolute left-3 top-2 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2"></div>
           <p className="font-bold text-sm mb-1">{step.type === 'initial_submission' ? 'Initial Case Submission' : 'Follow-up'}</p>
           <p className="text-xs text-muted-foreground mb-2">{format(parseISO(step.timestamp), 'MMM d, yyyy, h:mm a')}</p>
-          <div className="p-4 bg-secondary/50 rounded-lg space-y-4">
+          <div className="p-3 sm:p-4 bg-secondary/50 rounded-lg space-y-4">
             {step.doctorRequest && (
               <Alert variant="default" className="border-primary/50">
                 <ClipboardList className="h-4 w-4" />
@@ -301,7 +301,7 @@ function CaseDetails({ investigation, onImageClick }: { investigation: Investiga
 
       <Separator />
 
-      <div className="px-4">
+      <div className="px-2 sm:px-4">
         {(investigation.status === 'awaiting_lab_results' || investigation.status === 'awaiting_follow_up_visit') && (
           <Card className="bg-secondary/50">
             <CardHeader>
@@ -381,9 +381,6 @@ export function HealthClinic() {
         } as Investigation;
       });
       setInvestigations(newInvestigations);
-      if (newInvestigations.length > 0 && !openItemId) {
-        setOpenItemId(newInvestigations[0].id);
-      }
       setIsLoadingHistory(false);
     }, (err) => {
       console.error("Error fetching investigations: ", err);
@@ -392,7 +389,7 @@ export function HealthClinic() {
     });
 
     return () => unsubscribe();
-  }, [user, toast, openItemId]);
+  }, [user, toast]);
   
   // Scroll chat to bottom
   useEffect(() => {
@@ -462,6 +459,7 @@ export function HealthClinic() {
       if (result.success) {
         toast({ title: 'Case Submitted for Review', description: 'A doctor will review your case and prescribe the next steps shortly.' });
         cancelAdmission();
+        setOpenItemId(result.investigationId);
       } else {
         throw new Error("Submission failed on the server.");
       }
@@ -472,8 +470,8 @@ export function HealthClinic() {
     }
   };
 
-  const markCaseAsRead = async (investigationId: string | null) => {
-    if (!user || !investigationId) return;
+  const markCaseAsRead = async (investigationId: string) => {
+    if (!user) return;
     const investigationDocRef = doc(db, 'investigations', investigationId);
     await updateDoc(investigationDocRef, {
       lastPatientReadTimestamp: serverTimestamp()
@@ -523,7 +521,7 @@ export function HealthClinic() {
         <Button variant="ghost" onClick={cancelAdmission} size="sm"><X className="mr-2 h-4 w-4"/> Cancel</Button>
       </CardHeader>
       <CardContent className="p-0">
-        <ScrollArea className="h-[50vh]" viewportRef={scrollAreaRef}>
+        <ScrollArea className="h-[50vh]" viewportRef={scrollAreaRef} style={{scrollBehavior: 'smooth'}}>
           <div className="space-y-4 p-4">
             {messages.map((message, index) => (
               <div key={index} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -619,8 +617,8 @@ export function HealthClinic() {
                     <Card className="overflow-hidden">
                       <CollapsibleTrigger asChild>
                         <button className="p-4 w-full text-left hover:bg-secondary/50 [&[data-state=open]]:bg-secondary/50">
-                          <div className="flex justify-between items-center w-full">
-                            <div className="flex items-center gap-3">
+                          <div className="flex justify-between items-center w-full gap-2">
+                            <div className="flex items-center gap-3 min-w-0">
                               <div className="relative">
                                 <div
                                   className={cn(
@@ -643,7 +641,7 @@ export function HealthClinic() {
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-4 flex-shrink-0">
                               <Badge variant="outline" className="hidden sm:inline-flex">
                                 {statusConfig[c.status]?.text}
                               </Badge>
@@ -673,7 +671,7 @@ export function HealthClinic() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" style={{ scrollBehavior: 'smooth' }}>
       {activeView === 'list' ? <HistoryPanel /> : <ChatInterface />}
       <Dialog open={!!selectedImage} onOpenChange={(isOpen) => !isOpen && setSelectedImage(null)}>
         <DialogContent className="max-w-3xl">
@@ -685,5 +683,3 @@ export function HealthClinic() {
     </div>
   );
 }
-
-    
