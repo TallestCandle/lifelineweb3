@@ -295,6 +295,21 @@ function CaseDetails({ investigation, onImageClick }: { investigation: Investiga
             {step.userInput.imageDataUri && (
               <div className="mt-4"><h4 className="font-semibold text-sm mb-1">Image Submitted</h4><button onClick={() => onImageClick(step.userInput.imageDataUri)} className="transition-transform hover:scale-105"><Image src={step.userInput.imageDataUri} alt="User submission" width={100} height={100} className="rounded-md border"/></button></div>
             )}
+            {step.userInput.labResults && Array.isArray(step.userInput.labResults) && step.userInput.labResults.length > 0 && (
+                <div>
+                    <h4 className="font-semibold text-sm mb-2">Submitted Lab Results</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {step.userInput.labResults.map((res: any, i: number) => (
+                            <div key={`lab-${i}`}>
+                                <p className="font-semibold text-xs truncate">{res.testName}</p>
+                                <button onClick={() => onImageClick(res.imageDataUri)} className="transition-transform hover:scale-105 mt-1">
+                                    <Image src={res.imageDataUri} alt={res.testName} width={100} height={100} className="rounded-md border"/>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
           </div>
         </div>
       ))}
@@ -521,7 +536,7 @@ export function HealthClinic() {
         <Button variant="ghost" onClick={cancelAdmission} size="sm"><X className="mr-2 h-4 w-4"/> Cancel</Button>
       </CardHeader>
       <CardContent className="p-0">
-        <ScrollArea className="h-[50vh]" viewportRef={scrollAreaRef} style={{scrollBehavior: 'smooth'}}>
+        <ScrollArea className="h-[50vh]" viewportRef={scrollAreaRef}>
           <div className="space-y-4 p-4">
             {messages.map((message, index) => (
               <div key={index} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -683,3 +698,5 @@ export function HealthClinic() {
     </div>
   );
 }
+
+    
