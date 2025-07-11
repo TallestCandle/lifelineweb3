@@ -34,7 +34,10 @@ const StartInvestigationOutputSchema = z.object({
     reasoning: z.string().describe("A brief explanation of why this condition is considered, based on the chat transcript and historical data trends."),
   })).describe("A list of potential health conditions with their likelihood and reasoning, derived from a holistic view of the user's health."),
   suggestedNextSteps: z.object({
-    preliminaryMedications: z.array(z.string()).describe("A list of suggested medications ONLY for critical symptom relief (like pain management) while investigation is ongoing. This is NOT a definitive treatment."),
+    preliminaryMedications: z.array(z.object({
+        name: z.string().describe("The name of the suggested medication."),
+        dosage: z.string().describe("The suggested dosage plan for the medication (e.g., '1 tablet twice a day for 5 days', '20mg once daily').")
+    })).describe("A list of suggested medications ONLY for critical symptom relief (like pain management) while investigation is ongoing. This is NOT a definitive treatment."),
     suggestedLabTests: z.array(z.string()).describe("A list of suggested further diagnostic lab tests required to confirm a diagnosis."),
   }).describe("A comprehensive plan for the next steps in the investigation for the human doctor's review. You MUST suggest at least one lab test if there is any uncertainty."),
   justification: z.string().describe("A clear rationale for why the suggested next steps were chosen, correlating information from the chat with patterns from the user's health history."),
@@ -144,7 +147,7 @@ Based on ALL the provided information, generate the initial investigation steps 
 2.  **potentialConditions:** Identify potential conditions with probability and reasoning.
 3.  **suggestedNextSteps:** This is the most important field.
     - **suggestedLabTests:** Propose specific lab tests needed to confirm or rule out your potential conditions (e.g., 'Complete Blood Count', 'Liver Function Test', 'Urinalysis'). You MUST suggest at least one test if the diagnosis is not 100% certain.
-    - **preliminaryMedications:** Suggest medications ONLY if needed for urgent symptom relief (e.g., 'Ibuprofen for pain relief', 'Antihistamine for severe itching'). If none are needed, return an empty array.
+    - **preliminaryMedications:** Suggest medications ONLY if needed for urgent symptom relief. For each medication, provide a 'name' and a 'dosage' (e.g., name: 'Ibuprofen', dosage: '200mg as needed for pain'). If none are needed, return an empty array.
 4.  **justification:** Justify your suggested next steps.
 5.  **urgency:** Assign an urgency level ('Low', 'Medium', 'High', 'Critical').
 6.  **followUpPlan:** Propose a follow-up plan, e.g., 'Request user to upload lab results in 3 days.'

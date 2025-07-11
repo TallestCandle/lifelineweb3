@@ -1,5 +1,5 @@
-import { RemindersList } from "@/components/reminders/reminders-list";
+import { PrescriptionsList } from "@/components/reminders/prescriptions-list";
 
-export default function RemindersPage() {
-  return <RemindersList />;
+export default function PrescriptionsPage() {
+  return <PrescriptionsList />;
 }

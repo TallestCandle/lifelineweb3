@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
@@ -33,7 +33,8 @@ import {
   Camera,
   ClipboardCheck,
   UserCircle,
-  Building2
+  Building2,
+  FileSpreadsheet
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -48,7 +49,7 @@ const menuItems: { href: string; label: string; icon: LucideIcon; color: string 
   { href: "/clinic", label: "Clinic", icon: Building2, color: "text-teal-400" },
   { href: "/dietician", label: "AI Dietician", icon: Salad, color: "text-green-400" },
   { href: "/report", label: "Health Report", icon: FileText, color: "text-orange-400" },
-  { href: "/reminders", label: "Medication", icon: Pill, color: "text-pink-400" },
+  { href: "/reminders", label: "Prescriptions", icon: FileSpreadsheet, color: "text-pink-400" },
   { href: "/profiles", label: "My Profile", icon: UserCircle, color: "text-gray-400" },
   { href: "/emergency", label: "Emergency", icon: Siren, color: "text-red-500" },
 ];
@@ -58,6 +59,11 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -69,6 +75,10 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
       console.error("Error signing out: ", error);
     }
   };
+  
+  if (!isClient) {
+    return null;
+  }
 
   return (
     <>

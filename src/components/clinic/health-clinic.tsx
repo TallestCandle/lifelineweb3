@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, formatDistanceToNow, parseISO, isAfter } from 'date-fns';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 // AI Flows
 import { conductInterview } from '@/ai/flows/conduct-interview-flow';
@@ -26,12 +27,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video, Share2, ChevronsUpDown, Pencil } from 'lucide-react';
+import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video, Share2, ChevronsUpDown, FileSpreadsheet } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Textarea } from '../ui/textarea';
 
 // Types
 interface Message {
@@ -48,7 +48,7 @@ interface Investigation {
   createdAt: string;
   steps: InvestigationStep[];
   doctorPlan?: {
-      preliminaryMedications: string[];
+      preliminaryMedications: { name: string; dosage: string }[];
       suggestedLabTests: string[];
   };
   followUpRequest?: {
@@ -60,8 +60,6 @@ interface Investigation {
   doctorNote?: string;
   reviewedByUid?: string;
   reviewedByName?: string;
-  lastPatientReadTimestamp?: Date;
-  lastMessageTimestamp?: Date;
 }
 
 interface InvestigationStep {
@@ -70,16 +68,6 @@ interface InvestigationStep {
     userInput: any;
     aiAnalysis: any;
     doctorRequest?: any;
-}
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'doctor';
-  content: string;
-  timestamp: string;
-  authorId: string;
-  authorName: string;
-  edited?: boolean;
 }
 
 const statusConfig: Record<InvestigationStatus, { text: string; color: string; icon: React.ElementType }> = {
@@ -91,144 +79,10 @@ const statusConfig: Record<InvestigationStatus, { text: string; color: string; i
   awaiting_follow_up_visit: { text: 'Follow-up Visit Pending', color: 'bg-cyan-500', icon: ClipboardList },
 };
 
-function ChatPanel({ investigationId, doctorName }: { investigationId: string, doctorName: string }) {
-  const { user } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [isChatLoading, setIsChatLoading] = useState(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [editingMessage, setEditingMessage] = useState<{id: string, content: string} | null>(null);
-
-  useEffect(() => {
-    const messagesCol = collection(db, `investigations/${investigationId}/messages`);
-    const q = query(messagesCol, orderBy("timestamp", "asc"));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage)));
-      setIsChatLoading(false);
-    }, (error) => {
-      console.error("Chat Error: ", error);
-      setIsChatLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [investigationId]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !user) return;
-
-    const messagesCol = collection(db, `investigations/${investigationId}/messages`);
-    const investigationDocRef = doc(db, 'investigations', investigationId);
-    
-    await addDoc(messagesCol, {
-      role: 'user',
-      content: newMessage,
-      timestamp: new Date().toISOString(),
-      authorId: user.uid,
-      authorName: user.displayName || 'Patient',
-    });
-    
-    await updateDoc(investigationDocRef, {
-      lastMessageTimestamp: serverTimestamp(),
-      lastMessageContent: newMessage
-    });
-
-    setNewMessage("");
-  };
-
-  const handleStartEdit = (message: ChatMessage) => {
-    setEditingMessage({ id: message.id, content: message.content });
-  };
-  
-  const handleCancelEdit = () => {
-    setEditingMessage(null);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingMessage || !user) return;
-
-    const messageRef = doc(db, `investigations/${investigationId}/messages`, editingMessage.id);
-    await updateDoc(messageRef, {
-      content: editingMessage.content,
-      edited: true,
-      editedAt: new Date().toISOString(),
-    });
-
-    setEditingMessage(null);
-  };
-
-  return (
-    <div className="mt-4">
-      <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
-        <MessageSquare size={16} /> Chat with Dr. {doctorName}
-      </h4>
-      <div className="border rounded-lg p-2 bg-background/50">
-        <ScrollArea className="h-48 pr-4">
-          <div className="space-y-4">
-            {isChatLoading && <Loader2 className="animate-spin mx-auto"/>}
-            {!isChatLoading && messages.length === 0 && (
-              <p className="text-center text-sm text-muted-foreground pt-4">No messages yet. Say hello!</p>
-            )}
-            {messages.map((message) => {
-              const isMyMessage = message.authorId === user?.uid;
-
-              if (editingMessage?.id === message.id && isMyMessage) {
-                return (
-                  <div key={message.id} className={`flex items-end gap-2 w-full ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
-                    <div className="w-full max-w-[80%] space-y-2">
-                      <Textarea 
-                        value={editingMessage.content} 
-                        onChange={(e) => setEditingMessage(prev => prev ? {...prev, content: e.target.value} : null)}
-                        className="bg-background"
-                        rows={3}
-                      />
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={handleCancelEdit}>Cancel</Button>
-                        <Button size="sm" onClick={handleSaveEdit}>Save changes</Button>
-                      </div>
-                    </div>
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center"><User size={20}/></div>
-                  </div>
-                )
-              }
-
-              return (
-                <div key={message.id} className={`group flex items-end gap-2 ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
-                  {isMyMessage && 
-                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleStartEdit(message)}>
-                      <Pencil size={14} />
-                      <span className="sr-only">Edit</span>
-                    </Button>
-                  }
-                  {message.role === 'doctor' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center"><Bot size={20}/></div>}
-                  <div className={`max-w-[80%] rounded-lg p-3 ${isMyMessage ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                    {message.edited && <span className="text-xs opacity-70 mt-1 block">(edited)</span>}
-                  </div>
-                  {isMyMessage && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center"><User size={20}/></div>}
-                </div>
-              )
-            })}
-            <div ref={messagesEndRef} />
-          </div>
-        </ScrollArea>
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-2 border-t mt-2">
-          <Input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..." disabled={!!editingMessage} />
-          <Button type="submit" size="icon" disabled={!!editingMessage}><Send /></Button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 function CaseDetails({ investigation, onImageClick }: { investigation: Investigation, onImageClick: (url: string) => void }) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const [labResultUploads, setLabResultUploads] = useState<Record<string, string>>({});
   const [isSubmittingLabs, setIsSubmittingLabs] = useState(false);
 
@@ -271,14 +125,14 @@ function CaseDetails({ investigation, onImageClick }: { investigation: Investiga
   };
 
   return (
-    <div className="space-y-6 pt-6">
+    <div className="space-y-4 pt-4" style={{ scrollBehavior: 'smooth' }}>
       {investigation.steps.map((step, index) => (
-        <div key={index} className="relative pl-6 sm:pl-8">
-          <div className="absolute left-3 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
-          <div className="absolute left-3 top-2 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2"></div>
+        <div key={index} className="relative pl-6">
+          <div className="absolute left-2.5 top-1 w-0.5 h-full bg-border -translate-x-1/2"></div>
+          <div className="absolute left-2.5 top-2 w-3 h-3 rounded-full bg-primary ring-4 ring-background -translate-x-1/2"></div>
           <p className="font-bold text-sm mb-1">{step.type === 'initial_submission' ? 'Initial Case Submission' : 'Follow-up'}</p>
           <p className="text-xs text-muted-foreground mb-2">{format(parseISO(step.timestamp), 'MMM d, yyyy, h:mm a')}</p>
-          <div className="p-3 sm:p-4 bg-secondary/50 rounded-lg space-y-4">
+          <div className="p-3 bg-secondary/50 rounded-lg space-y-4">
             {step.doctorRequest && (
               <Alert variant="default" className="border-primary/50">
                 <ClipboardList className="h-4 w-4" />
@@ -316,7 +170,7 @@ function CaseDetails({ investigation, onImageClick }: { investigation: Investiga
 
       <Separator />
 
-      <div className="px-2 sm:px-4">
+      <div className="px-2">
         {(investigation.status === 'awaiting_lab_results' || investigation.status === 'awaiting_follow_up_visit') && (
           <Card className="bg-secondary/50">
             <CardHeader>
@@ -324,14 +178,17 @@ function CaseDetails({ investigation, onImageClick }: { investigation: Investiga
               {investigation.reviewedByName && investigation.reviewedByUid && (<CardDescription>Prescribed by <Link href={`/doctors?id=${investigation.reviewedByUid}`} className="font-bold text-primary hover:underline">{investigation.reviewedByName}</Link></CardDescription>)}
             </CardHeader>
             <CardContent className="space-y-6">
-              {(investigation.doctorPlan?.preliminaryMedications || investigation.followUpRequest?.preliminaryMedications)?.length > 0 && (
-                <div><h3 className="font-bold flex items-center gap-2"><Pill/> Preliminary Medications</h3><ul className="list-disc list-inside pl-4 mt-2 text-muted-foreground">{(investigation.doctorPlan?.preliminaryMedications || investigation.followUpRequest?.preliminaryMedications).map((med: string, i: number) => <li key={i}>{med}</li>)}</ul></div>
+              {(investigation.doctorPlan?.preliminaryMedications?.length || 0) > 0 && (
+                <div><h3 className="font-bold flex items-center gap-2"><FileSpreadsheet/> Preliminary Medications</h3>
+                <p className="text-sm text-muted-foreground mb-2">Your doctor has prescribed the following medications. Click to view details and set reminders.</p>
+                <Button onClick={() => router.push('/reminders')}><Pill className="mr-2"/> View Prescription Plan</Button>
+                </div>
               )}
-              {(investigation.doctorPlan?.suggestedLabTests || investigation.followUpRequest?.suggestedLabTests)?.length > 0 && (
+              {(investigation.doctorPlan?.suggestedLabTests?.length || 0) > 0 && (
                 <div>
                   <h3 className="font-bold flex items-center gap-2"><TestTube/> Required Lab Tests</h3>
                   <div className="space-y-4 mt-4">
-                    {(investigation.doctorPlan?.suggestedLabTests || investigation.followUpRequest?.suggestedLabTests).map((test: string, i: number) => (
+                    {(investigation.doctorPlan?.suggestedLabTests || []).map((test: string, i: number) => (
                       <div key={i} className="p-3 border rounded-md"><label htmlFor={`lab-upload-${i}`} className="font-semibold">{test}</label><div className="flex items-center gap-4 mt-2"><Input id={`lab-upload-${i}`} type="file" accept="image/*,.pdf" onChange={(e) => handleLabResultUpload(test, e)} className="file:text-foreground flex-grow" />{labResultUploads[test] && <Check className="w-5 h-5 text-green-500"/>}</div></div>
                     ))}
                     <Button onClick={() => handleSubmitLabResults(investigation)} disabled={isSubmittingLabs}>{isSubmittingLabs ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>}Submit Lab Results</Button>
@@ -342,17 +199,13 @@ function CaseDetails({ investigation, onImageClick }: { investigation: Investiga
           </Card>
         )}
         {investigation.status === 'completed' && (
-          <Alert><ShieldCheck className="h-4 w-4" /><AlertTitle>Diagnosis & Treatment Plan</AlertTitle>{investigation.reviewedByName && investigation.reviewedByUid && (<p className="text-xs text-muted-foreground -mt-1 mb-2">Finalized by <Link href={`/doctors?id=${investigation.reviewedByUid}`} className="font-bold text-primary hover:underline">{investigation.reviewedByName}</Link></p>)}<AlertDescription asChild><div className="space-y-4 mt-2">{investigation.finalDiagnosis?.map((diag: any, i: number) => (<div key={i} className="pb-2 border-b last:border-b-0"><h4 className="font-bold text-foreground">Diagnosis: {diag.condition} ({diag.probability}%)</h4><p className="text-xs text-muted-foreground">{diag.reasoning}</p></div>))}{investigation.finalTreatmentPlan?.medications?.length > 0 && (<div><h4 className="font-bold flex items-center gap-2 text-foreground"><Pill size={16}/> Medications</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{investigation.finalTreatmentPlan.medications.map((med: string, i: number) => <li key={i}>{med}</li>)}</ul></div>)}{investigation.finalTreatmentPlan?.lifestyleChanges?.length > 0 && (<div><h4 className="font-bold flex items-center gap-2 text-foreground"><Salad size={16}/> Lifestyle Changes</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{investigation.finalTreatmentPlan.lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}</ul></div>)}</div></AlertDescription></Alert>
+          <Alert><ShieldCheck className="h-4 w-4" /><AlertTitle>Diagnosis & Treatment Plan</AlertTitle>{investigation.reviewedByName && investigation.reviewedByUid && (<p className="text-xs text-muted-foreground -mt-1 mb-2">Finalized by <Link href={`/doctors?id=${investigation.reviewedByUid}`} className="font-bold text-primary hover:underline">{investigation.reviewedByName}</Link></p>)}<AlertDescription asChild><div className="space-y-4 mt-2">{investigation.finalDiagnosis?.map((diag: any, i: number) => (<div key={i} className="pb-2 border-b last:border-b-0"><h4 className="font-bold text-foreground">Diagnosis: {diag.condition} ({diag.probability}%)</h4><p className="text-xs text-muted-foreground">{diag.reasoning}</p></div>))}{investigation.finalTreatmentPlan?.medications?.length > 0 && (<div><h4 className="font-bold flex items-center gap-2 text-foreground"><Pill size={16}/> Medications</h4><Button onClick={() => router.push('/reminders')} size="sm" variant="outline" className="mt-2">View Full Prescription</Button></div>)}{investigation.finalTreatmentPlan?.lifestyleChanges?.length > 0 && (<div><h4 className="font-bold flex items-center gap-2 text-foreground"><Salad size={16}/> Lifestyle Changes</h4><ul className="list-disc list-inside pl-4 text-xs text-muted-foreground">{investigation.finalTreatmentPlan.lifestyleChanges.map((change: string, i: number) => <li key={i}>{change}</li>)}</ul></div>)}</div></AlertDescription></Alert>
         )}
         {investigation.status === 'rejected' && (
           <Alert variant="destructive"><X className="h-4 w-4"/><AlertTitle>Case Closed by Doctor</AlertTitle>{investigation.doctorNote && <AlertDescription>{investigation.doctorNote}{investigation.reviewedByName && investigation.reviewedByUid && (<span className="italic">{' - '}<Link href={`/doctors?id=${investigation.reviewedByUid}`} className="font-bold hover:underline">{investigation.reviewedByName}</Link></span>)}</AlertDescription>}</Alert>
         )}
         {(investigation.status === 'pending_review' || investigation.status === 'pending_final_review') && (
           <Alert><Sparkles className="h-4 w-4"/><AlertTitle>Under Review</AlertTitle><AlertDescription>Your case is currently being reviewed by a doctor. You will be notified of the next steps.</AlertDescription></Alert>
-        )}
-
-        {investigation.reviewedByUid && (investigation.status !== 'rejected' && investigation.status !== 'completed') && (
-          <div className="pt-4 mt-4 border-t"><ChatPanel investigationId={investigation.id} doctorName={investigation.reviewedByName || 'the Doctor'} /></div>
         )}
       </div>
     </div>
@@ -391,8 +244,6 @@ export function HealthClinic() {
         return { 
           id: doc.id,
           ...data,
-          lastMessageTimestamp: data.lastMessageTimestamp?.toDate(),
-          lastPatientReadTimestamp: data.lastPatientReadTimestamp?.toDate(),
         } as Investigation;
       });
       setInvestigations(newInvestigations);
@@ -408,11 +259,13 @@ export function HealthClinic() {
   
   // Scroll chat to bottom
   useEffect(() => {
-    const parent = scrollAreaRef.current?.parentElement;
-    if (parent) {
-      parent.scrollTo({ top: parent.scrollHeight, behavior: 'smooth' });
+    if (activeView === 'chat') {
+        const parent = scrollAreaRef.current?.parentElement;
+        if (parent) {
+          parent.scrollTo({ top: parent.scrollHeight, behavior: 'smooth' });
+        }
     }
-  }, [messages]);
+  }, [messages, activeView]);
 
   const startNewAdmission = () => {
     setMessages([{ role: 'model', content: "Hello! I'm your AI Clinic Assistant. To start, please briefly describe your main health concern." }]);
@@ -484,15 +337,7 @@ export function HealthClinic() {
       setInterviewState('awaiting_upload');
     }
   };
-
-  const markCaseAsRead = async (investigationId: string) => {
-    if (!user) return;
-    const investigationDocRef = doc(db, 'investigations', investigationId);
-    await updateDoc(investigationDocRef, {
-      lastPatientReadTimestamp: serverTimestamp()
-    });
-  }
-
+  
   const handleShareImage = async () => {
     if (!selectedImage) return;
 
@@ -612,10 +457,6 @@ export function HealthClinic() {
           ) : investigations.length > 0 ? (
             <div className="space-y-4">
               {investigations.map((c) => {
-                const hasUnread =
-                  c.lastMessageTimestamp &&
-                  (!c.lastPatientReadTimestamp ||
-                    isAfter(c.lastMessageTimestamp, c.lastPatientReadTimestamp));
                 const StatusIcon = statusConfig[c.status]?.icon || Sparkles;
 
                 return (
@@ -624,17 +465,13 @@ export function HealthClinic() {
                     open={openItemId === c.id}
                     onOpenChange={(isOpen) => {
                         setOpenItemId(isOpen ? c.id : null);
-                        if (isOpen) {
-                            markCaseAsRead(c.id);
-                        }
                     }}
                   >
                     <Card className="overflow-hidden">
                       <CollapsibleTrigger asChild>
-                        <button className="p-4 w-full text-left hover:bg-secondary/50 [&[data-state=open]]:bg-secondary/50">
+                        <button className="p-3 sm:p-4 w-full text-left hover:bg-secondary/50 [&[data-state=open]]:bg-secondary/50">
                           <div className="flex justify-between items-center w-full gap-2">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="relative">
                                 <div
                                   className={cn(
                                     "w-8 h-8 rounded-full flex items-center justify-center",
@@ -643,10 +480,6 @@ export function HealthClinic() {
                                 >
                                   <StatusIcon className="w-5 h-5 text-white" />
                                 </div>
-                                {hasUnread && (
-                                  <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-destructive ring-2 ring-background animate-pulse" />
-                                )}
-                              </div>
                               <div className="min-w-0 text-left">
                                 <p className="font-bold truncate">
                                   Case from {format(parseISO(c.createdAt), 'MMM d, yyyy')}
@@ -698,5 +531,3 @@ export function HealthClinic() {
     </div>
   );
 }
-
-    
