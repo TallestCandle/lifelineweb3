@@ -360,6 +360,7 @@ export function HealthClinic() {
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
   
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [openItemId, setOpenItemId] = useState<string | null>(null);
 
   // Fetch history of investigations
   useEffect(() => {
@@ -380,6 +381,9 @@ export function HealthClinic() {
         } as Investigation;
       });
       setInvestigations(newInvestigations);
+      if (newInvestigations.length > 0 && !openItemId) {
+        setOpenItemId(newInvestigations[0].id);
+      }
       setIsLoadingHistory(false);
     }, (err) => {
       console.error("Error fetching investigations: ", err);
@@ -388,7 +392,7 @@ export function HealthClinic() {
     });
 
     return () => unsubscribe();
-  }, [user, toast]);
+  }, [user, toast, openItemId]);
   
   // Scroll chat to bottom
   useEffect(() => {
@@ -519,8 +523,8 @@ export function HealthClinic() {
         <Button variant="ghost" onClick={cancelAdmission} size="sm"><X className="mr-2 h-4 w-4"/> Cancel</Button>
       </CardHeader>
       <CardContent className="p-0">
-        <ScrollArea className="h-[50vh] p-4" viewportRef={scrollAreaRef}>
-          <div className="space-y-4">
+        <ScrollArea className="h-[50vh]" viewportRef={scrollAreaRef}>
+          <div className="space-y-4 p-4">
             {messages.map((message, index) => (
               <div key={index} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {message.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center"><Bot size={20}/></div>}
@@ -576,8 +580,6 @@ export function HealthClinic() {
   );
 
   const HistoryPanel = () => {
-    const [openItemId, setOpenItemId] = useState<string | null>(null);
-
     return (
       <Card>
         <CardHeader className="flex-row items-center justify-between">
@@ -608,9 +610,9 @@ export function HealthClinic() {
                     key={c.id} 
                     open={openItemId === c.id}
                     onOpenChange={(isOpen) => {
-                        setOpenItemId(isOpen ? c.id : null)
+                        setOpenItemId(isOpen ? c.id : null);
                         if (isOpen) {
-                            markCaseAsRead(c.id)
+                            markCaseAsRead(c.id);
                         }
                     }}
                   >
@@ -683,3 +685,5 @@ export function HealthClinic() {
     </div>
   );
 }
+
+    
