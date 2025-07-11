@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Pill, PlusCircle, Trash2, BellRing, Check, X, CalendarDays, FileSpreadsheet } from "lucide-react";
 import { cn } from '@/lib/utils';
@@ -84,12 +85,16 @@ export function PrescriptionsList() {
                 const fetchedPrescriptions: Prescription[] = [];
                 casesSnap.forEach(doc => {
                     const data = doc.data();
-                    const meds = data.doctorPlan?.preliminaryMedications || data.finalTreatmentPlan?.medications;
-                    if (meds && meds.length > 0) {
+                    const planMeds = data.doctorPlan?.preliminaryMedications || [];
+                    const finalMeds = data.finalTreatmentPlan?.medications || [];
+
+                    const combinedMeds = [...planMeds, ...finalMeds];
+
+                    if (combinedMeds.length > 0) {
                         fetchedPrescriptions.push({
                             caseId: doc.id,
                             createdAt: data.createdAt,
-                            medications: meds
+                            medications: combinedMeds,
                         });
                     }
                 });
@@ -320,3 +325,5 @@ export function PrescriptionsList() {
         </div>
     );
 }
+
+    
