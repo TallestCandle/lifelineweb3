@@ -3,7 +3,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAuth } from '@/context/auth-provider';
@@ -19,12 +19,27 @@ import {
   Siren,
   LogOut,
   Stethoscope,
+  ChevronLeft,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { ProfileProvider } from '@/context/profile-provider';
 import { ProfileGuard } from './auth/profile-guard';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import {
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarFooter,
+  SidebarProvider,
+  SidebarTrigger,
+  SidebarInset,
+  useSidebar,
+} from '@/components/ui/sidebar';
+import { Button } from './ui/button';
+import { useIsMobile } from '@/hooks/use-mobile';
+
 
 const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -36,97 +51,99 @@ const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/reminders", label: "Prescriptions", icon: FileSpreadsheet },
 ];
 
-const bottomMenuItems: { href: string; label: string; icon: LucideIcon; isAction?: boolean, isDestructive?: boolean }[] = [
+const bottomMenuItems: { href: string; label: string; icon: LucideIcon; isDestructive?: boolean }[] = [
     { href: "/profiles", label: "My Profile", icon: UserCircle },
     { href: "/emergency", label: "Emergency", icon: Siren, isDestructive: true },
-    { href: "#", label: "Logout", icon: LogOut, isAction: true },
 ];
 
-function AppShellLayout({ children }: { children: React.ReactNode }) {
+function AppShellInternal({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { user } = useAuth();
-  const [isClient, setIsClient] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const { toggleSidebar, state } = useSidebar();
+  const isMobile = useIsMobile();
 
   const handleLogout = async () => {
     try {
       if (auth) {
         await signOut(auth);
       }
-      router.push('/auth');
+      // No need to router.push, AuthGuard will handle it
     } catch (error) {
       console.error("Error signing out: ", error);
     }
   };
 
-  if (!isClient) {
-    return null;
-  }
-
   return (
-    <div className="flex min-h-screen w-full bg-background">
-      <TooltipProvider delayDuration={0}>
-        <aside className="fixed left-0 top-0 z-50 flex h-full flex-col border-r border-border bg-card">
-          <div className="flex h-16 items-center justify-center border-b border-border px-4">
-            <Link href="/" className="flex items-center gap-2 text-primary">
-              <Stethoscope className="w-8 h-8" />
-            </Link>
-          </div>
-          <nav className="flex flex-1 flex-col items-center gap-2 py-4">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Tooltip key={item.href}>
-                  <TooltipTrigger asChild>
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground",
-                        isActive && "bg-primary text-primary-foreground hover:text-primary-foreground"
-                      )}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      <span className="sr-only">{item.label}</span>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">{item.label}</TooltipContent>
-                </Tooltip>
-              );
-            })}
-          </nav>
-          <nav className="mt-auto flex flex-col items-center gap-2 py-4">
-            {bottomMenuItems.map((item) => {
-                const isActive = pathname === item.href;
-                 return (
-                    <Tooltip key={item.label}>
-                    <TooltipTrigger asChild>
-                        <button
-                        onClick={item.isAction ? handleLogout : () => router.push(item.href)}
-                        className={cn(
-                            "flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground",
-                            isActive && "bg-primary text-primary-foreground hover:text-primary-foreground",
-                            item.isDestructive && "hover:text-red-500"
-                        )}
-                        >
-                        <item.icon className="h-5 w-5" />
-                        <span className="sr-only">{item.label}</span>
-                        </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">{item.label}</TooltipContent>
-                    </Tooltip>
-                );
-            })}
-          </nav>
-        </aside>
-      </TooltipProvider>
+    <>
+      <Sidebar>
+        <SidebarHeader>
+           <div className="flex items-center gap-2">
+                <Stethoscope className="w-8 h-8 text-primary" />
+                <span className="font-bold text-lg text-foreground">Lifeline AI</span>
+           </div>
+        </SidebarHeader>
 
-      <div className="flex flex-1 flex-col pl-[65px]">
-        <header className="sticky top-0 z-40 flex h-16 items-center justify-end border-b border-border bg-card/80 px-6 backdrop-blur-sm">
-           <div className="flex items-center gap-4">
+        <SidebarContent>
+          <SidebarMenu>
+            {menuItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <Link href={item.href} legacyBehavior passHref>
+                    <SidebarMenuButton
+                        isActive={pathname === item.href}
+                        icon={<item.icon />}
+                        tooltip={{ children: item.label, side: "right" }}
+                    >
+                        {item.label}
+                    </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarContent>
+        <SidebarFooter>
+            <SidebarMenu>
+                 {bottomMenuItems.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                        <Link href={item.href} legacyBehavior passHref>
+                             <SidebarMenuButton
+                                isActive={pathname === item.href}
+                                icon={<item.icon />}
+                                className={item.isDestructive ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : ''}
+                                tooltip={{ children: item.label, side: "right" }}
+                            >
+                                {item.label}
+                            </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
+                ))}
+                <SidebarMenuItem>
+                     <SidebarMenuButton
+                        onClick={handleLogout}
+                        icon={<LogOut />}
+                        tooltip={{ children: 'Logout', side: "right" }}
+                    >
+                        Logout
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+            </SidebarMenu>
+        </SidebarFooter>
+      </Sidebar>
+
+      <SidebarInset>
+        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
+            <div className="flex items-center gap-2">
+                 <SidebarTrigger className="md:hidden" />
+                 <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hidden md:flex"
+                    onClick={toggleSidebar}
+                    aria-label="Toggle Sidebar"
+                 >
+                    <ChevronLeft className={`h-5 w-5 transition-transform duration-300 ${state === 'collapsed' ? 'rotate-180' : ''}`} />
+                 </Button>
+            </div>
+            <div className="flex items-center gap-4">
                 <span className="text-sm font-semibold text-foreground hidden sm:inline-block">{user?.displayName || 'User'}</span>
                 <UserCircle className="h-8 w-8 text-primary" />
             </div>
@@ -136,15 +153,23 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
                 {children}
             </ProfileGuard>
         </main>
-      </div>
-    </div>
+      </SidebarInset>
+    </>
   );
 }
 
+
 export function AppShell({ children }: { children: React.ReactNode }) {
+    // Default the sidebar to be open on desktop.
+    // The user can override this by clicking the toggle button, which is saved in a cookie.
+    const defaultOpen = typeof window !== 'undefined' ? 
+        document.cookie.includes('sidebar_state=true') : true;
+
     return (
         <ProfileProvider>
-            <AppShellLayout>{children}</AppShellLayout>
+            <SidebarProvider defaultOpen={defaultOpen}>
+                 <AppShellInternal>{children}</AppShellInternal>
+            </SidebarProvider>
         </ProfileProvider>
     )
 }
