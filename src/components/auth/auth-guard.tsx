@@ -7,6 +7,8 @@ import { useEffect } from 'react';
 import { Loader } from '../ui/loader';
 import { AppShell } from '../app-shell';
 import { DoctorAppShell } from '../doctor/doctor-app-shell';
+import { ProfileGuard } from './profile-guard';
+import { ProfileProvider } from '@/context/profile-provider';
 
 const PUBLIC_USER_ROUTES = ['/auth', '/landing'];
 const PUBLIC_DOCTOR_ROUTES = ['/doctor/auth'];
@@ -57,7 +59,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         if (isDoctorRoute) {
             return <DoctorAppShell>{children}</DoctorAppShell>;
         }
-        return <AppShell>{children}</AppShell>;
+        return (
+            <ProfileProvider>
+                <AppShell>
+                    <ProfileGuard>
+                        {children}
+                    </ProfileGuard>
+                </AppShell>
+            </ProfileProvider>
+        );
     }
 
     // Render public pages without any shell
