@@ -21,7 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Camera, Sparkles, Save, RotateCcw, AlertCircle, HeartPulse, Beaker, Loader2, FileClock, Edit, Trash2 } from 'lucide-react';
+import { Camera, Sparkles, Save, RotateCcw, AlertCircle, HeartPulse, Beaker, Loader2, FileClock, Edit, Trash2, PlusCircle } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
@@ -253,6 +253,18 @@ export function UnifiedLogger() {
             return newResult;
         });
     };
+
+    const handleAddField = () => {
+        setEditableResult(prev => {
+            if (!prev) return null;
+            const newResult = JSON.parse(JSON.stringify(prev));
+            if (!newResult.otherData) {
+                newResult.otherData = [];
+            }
+            newResult.otherData.push({ metricName: '', metricValue: '' });
+            return newResult;
+        });
+    };
     
     const handleSave = async () => {
         if (!user || !editableResult) return;
@@ -262,7 +274,7 @@ export function UnifiedLogger() {
         
         try {
             const dateToSave = { date: new Date().toISOString() };
-            const otherDataToSave = editableResult.otherData && editableResult.otherData.length > 0 ? { otherData: editableResult.otherData } : {};
+            const otherDataToSave = editableResult.otherData && editableResult.otherData.length > 0 ? { otherData: editableResult.otherData.filter(d => d.metricName && d.metricValue) } : {};
 
             let logType: 'vitals' | 'strips' | null = null;
             let collectionRef;
@@ -383,7 +395,12 @@ export function UnifiedLogger() {
                             </Alert>
                             
                             <div className="p-4 bg-background rounded-lg">
-                                <h4 className="font-bold mb-4 flex items-center gap-2"><Edit /> Review & Edit Extracted Data</h4>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h4 className="font-bold flex items-center gap-2"><Edit /> Review &amp; Edit Extracted Data</h4>
+                                    <Button size="sm" variant="outline" onClick={handleAddField}>
+                                        <PlusCircle className="mr-2 h-4 w-4" /> Add Field
+                                    </Button>
+                                </div>
                                  <div className="space-y-3 text-sm">
                                     {editableResult.extractedVitals && Object.entries(editableResult.extractedVitals).map(([key, value]) => (
                                         <div key={key} className="flex items-center justify-between gap-4">
