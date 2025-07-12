@@ -48,23 +48,24 @@ const statusConfig: Record<Investigation['status'], { text: string; color: strin
 
 // --- Meter Configurations ---
 const bpLevels: Level[] = [
-  { name: 'Low', color: 'text-blue-400', bgColor: 'bg-blue-400', value: 90 },
-  { name: 'Normal', color: 'text-green-400', bgColor: 'bg-green-400', value: 120 },
-  { name: 'High', color: 'text-yellow-400', bgColor: 'bg-yellow-400', value: 140 },
-  { name: 'Critical', color: 'text-red-500', bgColor: 'bg-red-500', value: 180 },
+  { name: 'Low', color: '#3b82f6' },      // blue-500
+  { name: 'Normal', color: '#22c55e' },   // green-500
+  { name: 'Elevated', color: '#facc15' }, // yellow-400
+  { name: 'High', color: '#f97316' },     // orange-500
+  { name: 'Critical', color: '#ef4444' }, // red-500
 ];
 
 const sugarLevels: Level[] = [
-  { name: 'Low', color: 'text-blue-400', bgColor: 'bg-blue-400', value: 70 },
-  { name: 'Normal', color: 'text-green-400', bgColor: 'bg-green-400', value: 140 },
-  { name: 'High', color: 'text-yellow-400', bgColor: 'bg-yellow-400', value: 200 },
-  { name: 'Critical', color: 'text-red-500', bgColor: 'bg-red-500', value: 240 },
+  { name: 'Low', color: '#3b82f6' },
+  { name: 'Normal', color: '#22c55e' },
+  { name: 'High', color: '#f97316' },
+  { name: 'Critical', color: '#ef4444' },
 ];
 
 const oxygenLevels: Level[] = [
-  { name: 'Low', color: 'text-red-500', bgColor: 'bg-red-500', value: 90 },
-  { name: 'Normal', color: 'text-green-400', bgColor: 'bg-green-400', value: 95 },
-  { name: 'High', color: 'text-green-400', bgColor: 'bg-green-400', value: 100 },
+  { name: 'Low', color: '#ef4444' },
+  { name: 'Normal', color: '#22c55e' },
+  { name: 'High', color: '#22c55e' },
 ];
 
 
@@ -86,47 +87,42 @@ export function Dashboard() {
     
     setIsLoading(true);
     const vitalsCollection = collection(db, `users/${user.uid}/vitals`);
-
-    // Query for latest blood pressure
-    const bpQuery = query(vitalsCollection, where('systolic', '!=', null), orderBy('systolic'), orderBy("date", "desc"), limit(1));
-    const unsubscribeBp = onSnapshot(bpQuery, (snapshot) => {
-      if (!snapshot.empty) {
-        setLatestBloodPressure(snapshot.docs[0].data() as VitalReading);
-      }
-    });
-
-    // Query for latest blood sugar
-    const sugarQuery = query(vitalsCollection, where('bloodSugar', '!=', null), orderBy('bloodSugar'), orderBy("date", "desc"), limit(1));
-    const unsubscribeSugar = onSnapshot(sugarQuery, (snapshot) => {
-      if (!snapshot.empty) {
-        setLatestBloodSugar(snapshot.docs[0].data() as VitalReading);
-      }
-    });
-
-    // Query for latest oxygen saturation
-    const oxygenQuery = query(vitalsCollection, where('oxygenSaturation', '!=', null), orderBy('oxygenSaturation'), orderBy("date", "desc"), limit(1));
-    const unsubscribeOxygen = onSnapshot(oxygenQuery, (snapshot) => {
-      if (!snapshot.empty) {
-        setLatestOxygen(snapshot.docs[0].data() as VitalReading);
-      }
-    });
+    const q = query(vitalsCollection, orderBy("date", "desc"), limit(20));
     
-    // Query for active cases
+    const unsubscribeVitals = onSnapshot(q, (snapshot) => {
+      const vitals = snapshot.docs.map(doc => doc.data() as VitalReading);
+      
+      const latestBp = vitals.find(v => v.systolic && v.diastolic) || null;
+      const latestSugar = vitals.find(v => v.bloodSugar) || null;
+      const latestO2 = vitals.find(v => v.oxygenSaturation) || null;
+      
+      setLatestBloodPressure(latestBp);
+      setLatestBloodSugar(latestSugar);
+      setLatestOxygen(latestO2);
+
+      // This ensures loading is false only after the first successful data fetch
+      if (isLoading) setIsLoading(false); 
+    }, (error) => {
+        console.error("Error fetching vitals:", error);
+        setIsLoading(false);
+    });
+
     const casesQuery = query(collection(db, "investigations"), where("userId", "==", user.uid), where("status", "in", ["pending_review", "awaiting_lab_results", "pending_final_review", "awaiting_follow_up_visit"]));
     const unsubscribeCases = onSnapshot(casesQuery, (snapshot) => {
       setActiveCases(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investigation)));
     });
 
-    // Set loading to false after a short delay to allow queries to run
-    const timer = setTimeout(() => setIsLoading(false), 1500);
+    // Fallback to stop loading after a timeout
+    const timer = setTimeout(() => {
+        if (isLoading) setIsLoading(false);
+    }, 3000);
 
     return () => {
-      unsubscribeBp();
-      unsubscribeSugar();
-      unsubscribeOxygen();
+      unsubscribeVitals();
       unsubscribeCases();
       clearTimeout(timer);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const hasData = !isLoading && (latestBloodPressure || latestBloodSugar || latestOxygen || activeCases.length > 0);
@@ -153,9 +149,10 @@ export function Dashboard() {
                         displayValue={`${latestBloodPressure.systolic}/${latestBloodPressure.diastolic}`}
                         unit="mmHg"
                         date={latestBloodPressure.date}
-                        min={50}
-                        max={200}
+                        min={70}
+                        max={190}
                         levels={bpLevels}
+                        levelBoundaries={[90, 120, 140, 180]}
                     />
                 )}
                 {latestBloodSugar?.bloodSugar && (
@@ -166,9 +163,10 @@ export function Dashboard() {
                         displayValue={latestBloodSugar.bloodSugar}
                         unit="mg/dL"
                         date={latestBloodSugar.date}
-                        min={40}
-                        max={300}
+                        min={50}
+                        max={250}
                         levels={sugarLevels}
+                        levelBoundaries={[70, 140, 200]}
                     />
                 )}
                 {latestOxygen?.oxygenSaturation && (
@@ -179,9 +177,10 @@ export function Dashboard() {
                         displayValue={latestOxygen.oxygenSaturation}
                         unit="%"
                         date={latestOxygen.date}
-                        min={80}
+                        min={85}
                         max={100}
                         levels={oxygenLevels}
+                        levelBoundaries={[90, 95]}
                     />
                 )}
             </>
