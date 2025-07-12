@@ -14,13 +14,15 @@ import {
   ArrowRight,
   ClipboardList,
   Wind,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldQuestion,
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
-import { VitalMeter, type Level } from './vital-meter';
 
 // Types
 interface VitalReading {
@@ -28,6 +30,9 @@ interface VitalReading {
   diastolic?: string;
   bloodSugar?: string;
   oxygenSaturation?: string;
+  temperature?: string;
+  weight?: string;
+  pulseRate?: string;
   date: string;
 }
 
@@ -46,34 +51,83 @@ const statusConfig: Record<Investigation['status'], { text: string; color: strin
   awaiting_follow_up_visit: { text: 'Follow-up Visit Pending', color: 'bg-cyan-500' },
 };
 
-// --- Meter Configurations ---
-const bpLevels: Level[] = [
-  { name: 'Low', color: '#3b82f6' },      // blue-500
-  { name: 'Normal', color: '#22c55e' },   // green-500
-  { name: 'Elevated', color: '#facc15' }, // yellow-400
-  { name: 'High', color: '#f97316' },     // orange-500
-  { name: 'Critical', color: '#ef4444' }, // red-500
-];
+// --- Helper function to analyze a vital reading ---
+function getVitalStatus(vital: VitalReading): {
+    level: 'Good' | 'Moderate' | 'Critical';
+    message: string;
+    icon: React.ElementType;
+    color: string;
+} {
+    if (vital.systolic && vital.diastolic) {
+        const sys = parseInt(vital.systolic, 10);
+        const dia = parseInt(vital.diastolic, 10);
+        if (sys > 180 || dia > 120) return { level: 'Critical', message: 'Hypertensive Crisis. Seek immediate medical attention.', icon: ShieldAlert, color: 'bg-red-600' };
+        if (sys >= 140 || dia >= 90) return { level: 'Critical', message: 'High Blood Pressure (Stage 2).', icon: ShieldAlert, color: 'bg-red-600' };
+        if (sys >= 130 || dia >= 80) return { level: 'Moderate', message: 'High Blood Pressure (Stage 1).', icon: ShieldQuestion, color: 'bg-orange-500' };
+        if (sys > 120) return { level: 'Moderate', message: 'Elevated Blood Pressure.', icon: ShieldQuestion, color: 'bg-yellow-500' };
+        if (sys >= 90 && dia >= 60) return { level: 'Good', message: 'Normal Blood Pressure.', icon: ShieldCheck, color: 'bg-green-500' };
+        return { level: 'Moderate', message: 'Low Blood Pressure.', icon: ShieldQuestion, color: 'bg-blue-500' };
+    }
+    if (vital.bloodSugar) {
+        const sugar = parseInt(vital.bloodSugar, 10);
+        if (sugar > 250) return { level: 'Critical', message: 'Very High Blood Sugar. Seek medical advice.', icon: ShieldAlert, color: 'bg-red-600' };
+        if (sugar > 180) return { level: 'Moderate', message: 'High Blood Sugar.', icon: ShieldQuestion, color: 'bg-orange-500' };
+        if (sugar >= 70) return { level: 'Good', message: 'Normal Blood Sugar.', icon: ShieldCheck, color: 'bg-green-500' };
+        return { level: 'Moderate', message: 'Low Blood Sugar.', icon: ShieldQuestion, color: 'bg-blue-500' };
+    }
+    if (vital.oxygenSaturation) {
+        const oxygen = parseInt(vital.oxygenSaturation, 10);
+        if (oxygen < 90) return { level: 'Critical', message: 'Very Low Oxygen. Seek medical attention.', icon: ShieldAlert, color: 'bg-red-600' };
+        if (oxygen < 95) return { level: 'Moderate', message: 'Low Oxygen Level.', icon: ShieldQuestion, color: 'bg-orange-500' };
+        return { level: 'Good', message: 'Normal Oxygen Level.', icon: ShieldCheck, color: 'bg-green-500' };
+    }
+    return { level: 'Good', message: 'Data logged.', icon: ShieldCheck, color: 'bg-gray-500' };
+}
 
-const sugarLevels: Level[] = [
-  { name: 'Low', color: '#3b82f6' },
-  { name: 'Normal', color: '#22c55e' },
-  { name: 'High', color: '#f97316' },
-  { name: 'Critical', color: '#ef4444' },
-];
+function VitalStatusCard({ vital }: { vital: VitalReading }) {
+    const status = getVitalStatus(vital);
+    const StatusIcon = status.icon;
 
-const oxygenLevels: Level[] = [
-  { name: 'Low', color: '#ef4444' },
-  { name: 'Normal', color: '#22c55e' },
-  { name: 'High', color: '#22c55e' },
-];
+    const renderVitalData = () => {
+        return Object.entries(vital)
+            .filter(([key, value]) => key !== 'date' && value)
+            .map(([key, value]) => (
+                <div key={key} className="flex justify-between text-sm">
+                    <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                    <span className="font-bold">{value}</span>
+                </div>
+            ));
+    };
 
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                    <span>Latest Vital Reading</span>
+                     <Badge className={cn("text-white", status.color)}>
+                        <StatusIcon className="mr-1 h-3 w-3" />
+                        {status.level}
+                    </Badge>
+                </CardTitle>
+                <CardDescription>
+                    {format(parseISO(vital.date), 'MMM d, yyyy, h:mm a')}
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    {renderVitalData()}
+                    <div className="pt-2 text-center text-sm font-semibold" style={{ color: status.color.startsWith('bg-') ? undefined : status.color }}>
+                        {status.message}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
 
 export function Dashboard() {
   const { user } = useAuth();
-  const [latestBloodPressure, setLatestBloodPressure] = useState<VitalReading | null>(null);
-  const [latestBloodSugar, setLatestBloodSugar] = useState<VitalReading | null>(null);
-  const [latestOxygen, setLatestOxygen] = useState<VitalReading | null>(null);
+  const [latestVital, setLatestVital] = useState<VitalReading | null>(null);
   const [activeCases, setActiveCases] = useState<Investigation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -86,61 +140,35 @@ export function Dashboard() {
     }
     
     setIsLoading(true);
+
+    // Fetch latest vital
     const vitalsCollection = collection(db, `users/${user.uid}/vitals`);
-    const q = query(vitalsCollection, orderBy("date", "desc"), limit(20));
-    
+    const q = query(vitalsCollection, orderBy("date", "desc"), limit(1));
     const unsubscribeVitals = onSnapshot(q, (snapshot) => {
-      const vitals = snapshot.docs.map(doc => doc.data() as VitalReading);
-      
-      // Correctly find the latest of each type of vital
-      let foundBp: VitalReading | null = null;
-      let foundSugar: VitalReading | null = null;
-      let foundO2: VitalReading | null = null;
-
-      for (const vital of vitals) {
-        if (!foundBp && vital.systolic && vital.diastolic) {
-          foundBp = vital;
-        }
-        if (!foundSugar && vital.bloodSugar) {
-          foundSugar = vital;
-        }
-        if (!foundO2 && vital.oxygenSaturation) {
-          foundO2 = vital;
-        }
-        // If all are found, we can stop searching
-        if (foundBp && foundSugar && foundO2) break;
+      if (!snapshot.empty) {
+        setLatestVital(snapshot.docs[0].data() as VitalReading);
+      } else {
+        setLatestVital(null);
       }
-      
-      setLatestBloodPressure(foundBp);
-      setLatestBloodSugar(foundSugar);
-      setLatestOxygen(foundO2);
-
-      // This ensures loading is false only after the first successful data fetch
-      if (isLoading) setIsLoading(false); 
+      setIsLoading(false);
     }, (error) => {
-        console.error("Error fetching vitals:", error);
+        console.error("Error fetching latest vital:", error);
         setIsLoading(false);
     });
 
+    // Fetch active cases
     const casesQuery = query(collection(db, "investigations"), where("userId", "==", user.uid), where("status", "in", ["pending_review", "awaiting_lab_results", "pending_final_review", "awaiting_follow_up_visit"]));
     const unsubscribeCases = onSnapshot(casesQuery, (snapshot) => {
       setActiveCases(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investigation)));
     });
 
-    // Fallback to stop loading after a timeout
-    const timer = setTimeout(() => {
-        if (isLoading) setIsLoading(false);
-    }, 3000);
-
     return () => {
       unsubscribeVitals();
       unsubscribeCases();
-      clearTimeout(timer);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const hasData = !isLoading && (latestBloodPressure || latestBloodSugar || latestOxygen || activeCases.length > 0);
+  const hasData = !isLoading && (latestVital || activeCases.length > 0);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -148,116 +176,69 @@ export function Dashboard() {
         <h1 className="text-3xl md:text-4xl font-bold text-foreground">
           Welcome, {firstName}
         </h1>
-        <p className="text-lg text-muted-foreground">Here's a visual summary of your latest health stats.</p>
+        <p className="text-lg text-muted-foreground">Here's your most recent health update.</p>
       </div>
       
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2">
         {isLoading ? (
-            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-64 w-full" />)
+            <Skeleton className="h-64 w-full" />
+        ) : latestVital ? (
+            <VitalStatusCard vital={latestVital} />
         ) : (
-            <>
-                {latestBloodPressure?.systolic && latestBloodPressure?.diastolic && (
-                    <VitalMeter
-                        icon={HeartPulse}
-                        title="Blood Pressure"
-                        value={parseInt(latestBloodPressure.systolic, 10)}
-                        displayValue={`${latestBloodPressure.systolic}/${latestBloodPressure.diastolic}`}
-                        unit="mmHg"
-                        date={latestBloodPressure.date}
-                        min={70}
-                        max={190}
-                        levels={bpLevels}
-                        levelBoundaries={[90, 120, 140, 180]}
-                    />
-                )}
-                {latestBloodSugar?.bloodSugar && (
-                    <VitalMeter
-                        icon={Droplet}
-                        title="Blood Sugar"
-                        value={parseInt(latestBloodSugar.bloodSugar, 10)}
-                        displayValue={latestBloodSugar.bloodSugar}
-                        unit="mg/dL"
-                        date={latestBloodSugar.date}
-                        min={50}
-                        max={250}
-                        levels={sugarLevels}
-                        levelBoundaries={[70, 140, 200]}
-                    />
-                )}
-                {latestOxygen?.oxygenSaturation && (
-                     <VitalMeter
-                        icon={Wind}
-                        title="Oxygen Saturation"
-                        value={parseInt(latestOxygen.oxygenSaturation, 10)}
-                        displayValue={latestOxygen.oxygenSaturation}
-                        unit="%"
-                        date={latestOxygen.date}
-                        min={85}
-                        max={100}
-                        levels={oxygenLevels}
-                        levelBoundaries={[90, 95]}
-                    />
-                )}
-            </>
-        )}
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="text-primary"/> Active Clinic Cases
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          ) : activeCases.length > 0 ? (
-            <div className="space-y-4">
-              {activeCases.map(c => {
-                const config = statusConfig[c.status];
-                return (
-                  <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-                    <div>
-                      <p className="font-bold">Case from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
-                      <Badge className={cn("mt-1 text-white", config.color)}>{config.text}</Badge>
-                    </div>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href="/clinic">View Case <ArrowRight className="ml-2 h-4 w-4"/></Link>
+             <Card className="bg-primary/5 border-primary/20 text-center py-10 flex flex-col items-center justify-center">
+                <CardContent>
+                    <h3 className="text-xl font-bold">Log Your First Vital</h3>
+                    <p className="text-muted-foreground mt-2 mb-6">Use the AI Logger to log a health metric. Your status will appear here.</p>
+                    <Button asChild>
+                        <Link href="/log">Log Your First Data <ArrowRight className="ml-2 h-4 w-4" /></Link>
                     </Button>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No Active Cases</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Start a new case in the clinic if you have any health concerns.
-              </p>
-              <Button asChild className="mt-4">
-                <Link href="/clinic">Go to Clinic</Link>
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </CardContent>
+            </Card>
+        )}
 
-      {!hasData && !isLoading && (
-         <Card className="bg-primary/5 border-primary/20 text-center py-10">
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Building2 className="text-primary"/> Active Clinic Cases
+                </CardTitle>
+            </CardHeader>
             <CardContent>
-                <h3 className="text-xl font-bold">Get Started with Lifeline AI</h3>
-                <p className="text-muted-foreground mt-2 mb-6">Log your first health metric using our AI Logger to see your dashboard come to life.</p>
-                <Button asChild>
-                    <Link href="/log">Log Your First Data <ArrowRight className="ml-2 h-4 w-4" /></Link>
+            {isLoading ? (
+                <div className="space-y-2">
+                <Skeleton className="h-12 w-full" />
+                </div>
+            ) : activeCases.length > 0 ? (
+                <div className="space-y-4">
+                {activeCases.map(c => {
+                    const config = statusConfig[c.status];
+                    return (
+                    <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                        <div>
+                        <p className="font-bold">Case from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
+                        <Badge className={cn("mt-1 text-white", config.color)}>{config.text}</Badge>
+                        </div>
+                        <Button asChild variant="outline" size="sm">
+                        <Link href="/clinic">View Case <ArrowRight className="ml-2 h-4 w-4"/></Link>
+                        </Button>
+                    </div>
+                    )
+                })}
+                </div>
+            ) : (
+                <div className="text-center py-8">
+                <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="mt-4 text-lg font-semibold">No Active Cases</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    Start a new case in the clinic if you have any health concerns.
+                </p>
+                <Button asChild className="mt-4">
+                    <Link href="/clinic">Go to Clinic</Link>
                 </Button>
+                </div>
+            )}
             </CardContent>
         </Card>
-      )}
-
+      </div>
     </div>
   );
 }
