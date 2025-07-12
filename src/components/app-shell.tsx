@@ -62,7 +62,7 @@ const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
 function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { toggleSidebar, state } = useSidebar();
+  const { toggleSidebar } = useSidebar();
 
   const handleLogout = async () => {
     try {
@@ -74,9 +74,8 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  return (
+  const SidebarItems = () => (
     <>
-      <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2">
              <div className="p-2 rounded-lg bg-primary text-primary-foreground">
@@ -137,6 +136,13 @@ function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenuItem>
              </SidebarMenu>
         </SidebarFooter>
+    </>
+  )
+
+  return (
+    <>
+      <Sidebar>
+        <SidebarItems/>
       </Sidebar>
       
       <SidebarInset>
