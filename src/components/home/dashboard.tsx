@@ -70,7 +70,9 @@ const oxygenLevels: Level[] = [
 
 export function Dashboard() {
   const { user } = useAuth();
-  const [latestVitals, setLatestVitals] = useState<VitalReading | null>(null);
+  const [latestBloodPressure, setLatestBloodPressure] = useState<VitalReading | null>(null);
+  const [latestBloodSugar, setLatestBloodSugar] = useState<VitalReading | null>(null);
+  const [latestOxygen, setLatestOxygen] = useState<VitalReading | null>(null);
   const [activeCases, setActiveCases] = useState<Investigation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -81,27 +83,53 @@ export function Dashboard() {
       setIsLoading(false);
       return;
     }
+    
+    setIsLoading(true);
+    const vitalsCollection = collection(db, `users/${user.uid}/vitals`);
 
-    const vitalsQuery = query(collection(db, `users/${user.uid}/vitals`), orderBy("date", "desc"), limit(1));
-    const unsubscribeVitals = onSnapshot(vitalsQuery, (snapshot) => {
+    // Query for latest blood pressure
+    const bpQuery = query(vitalsCollection, where('systolic', '!=', null), orderBy('systolic'), orderBy("date", "desc"), limit(1));
+    const unsubscribeBp = onSnapshot(bpQuery, (snapshot) => {
       if (!snapshot.empty) {
-        setLatestVitals(snapshot.docs[0].data() as VitalReading);
+        setLatestBloodPressure(snapshot.docs[0].data() as VitalReading);
       }
-      setIsLoading(false);
+    });
+
+    // Query for latest blood sugar
+    const sugarQuery = query(vitalsCollection, where('bloodSugar', '!=', null), orderBy('bloodSugar'), orderBy("date", "desc"), limit(1));
+    const unsubscribeSugar = onSnapshot(sugarQuery, (snapshot) => {
+      if (!snapshot.empty) {
+        setLatestBloodSugar(snapshot.docs[0].data() as VitalReading);
+      }
+    });
+
+    // Query for latest oxygen saturation
+    const oxygenQuery = query(vitalsCollection, where('oxygenSaturation', '!=', null), orderBy('oxygenSaturation'), orderBy("date", "desc"), limit(1));
+    const unsubscribeOxygen = onSnapshot(oxygenQuery, (snapshot) => {
+      if (!snapshot.empty) {
+        setLatestOxygen(snapshot.docs[0].data() as VitalReading);
+      }
     });
     
+    // Query for active cases
     const casesQuery = query(collection(db, "investigations"), where("userId", "==", user.uid), where("status", "in", ["pending_review", "awaiting_lab_results", "pending_final_review", "awaiting_follow_up_visit"]));
     const unsubscribeCases = onSnapshot(casesQuery, (snapshot) => {
       setActiveCases(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investigation)));
     });
 
+    // Set loading to false after a short delay to allow queries to run
+    const timer = setTimeout(() => setIsLoading(false), 1500);
+
     return () => {
-      unsubscribeVitals();
+      unsubscribeBp();
+      unsubscribeSugar();
+      unsubscribeOxygen();
       unsubscribeCases();
+      clearTimeout(timer);
     };
   }, [user]);
 
-  const hasData = !isLoading && (latestVitals || activeCases.length > 0);
+  const hasData = !isLoading && (latestBloodPressure || latestBloodSugar || latestOxygen || activeCases.length > 0);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -117,40 +145,40 @@ export function Dashboard() {
             Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-64 w-full" />)
         ) : (
             <>
-                {latestVitals?.systolic && latestVitals?.diastolic && (
+                {latestBloodPressure?.systolic && latestBloodPressure?.diastolic && (
                     <VitalMeter
                         icon={HeartPulse}
                         title="Blood Pressure"
-                        value={parseInt(latestVitals.systolic, 10)}
-                        displayValue={`${latestVitals.systolic}/${latestVitals.diastolic}`}
+                        value={parseInt(latestBloodPressure.systolic, 10)}
+                        displayValue={`${latestBloodPressure.systolic}/${latestBloodPressure.diastolic}`}
                         unit="mmHg"
-                        date={latestVitals.date}
+                        date={latestBloodPressure.date}
                         min={50}
                         max={200}
                         levels={bpLevels}
                     />
                 )}
-                {latestVitals?.bloodSugar && (
+                {latestBloodSugar?.bloodSugar && (
                     <VitalMeter
                         icon={Droplet}
                         title="Blood Sugar"
-                        value={parseInt(latestVitals.bloodSugar, 10)}
-                        displayValue={latestVitals.bloodSugar}
+                        value={parseInt(latestBloodSugar.bloodSugar, 10)}
+                        displayValue={latestBloodSugar.bloodSugar}
                         unit="mg/dL"
-                        date={latestVitals.date}
+                        date={latestBloodSugar.date}
                         min={40}
                         max={300}
                         levels={sugarLevels}
                     />
                 )}
-                {latestVitals?.oxygenSaturation && (
+                {latestOxygen?.oxygenSaturation && (
                      <VitalMeter
                         icon={Wind}
                         title="Oxygen Saturation"
-                        value={parseInt(latestVitals.oxygenSaturation, 10)}
-                        displayValue={latestVitals.oxygenSaturation}
+                        value={parseInt(latestOxygen.oxygenSaturation, 10)}
+                        displayValue={latestOxygen.oxygenSaturation}
                         unit="%"
-                        date={latestVitals.date}
+                        date={latestOxygen.date}
                         min={80}
                         max={100}
                         levels={oxygenLevels}
@@ -204,7 +232,7 @@ export function Dashboard() {
         </CardContent>
       </Card>
 
-      {!hasData && (
+      {!hasData && !isLoading && (
          <Card className="bg-primary/5 border-primary/20 text-center py-10">
             <CardContent>
                 <h3 className="text-xl font-bold">Get Started with Lifeline AI</h3>
