@@ -1,147 +1,83 @@
 
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
-import Image from 'next/image';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, parseISO } from 'date-fns';
+import { AnimatePresence, motion } from 'framer-motion';
 
-import { extractDataFromImage, type ExtractDataFromImageOutput } from '@/ai/flows/extract-data-from-image-flow';
 import { useAuth } from '@/context/auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
 
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Camera, Sparkles, Save, RotateCcw, AlertCircle, HeartPulse, Beaker, Loader2, FileClock, Edit, Trash2, PlusCircle } from 'lucide-react';
+import { HeartPulse, Droplets, Wind, Thermometer, Scale, Beaker, FileClock, Trash2, ArrowLeft, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Separator } from '../ui/separator';
-import { Badge } from '../ui/badge';
-import { cn } from '@/lib/utils';
 
-// --- Form Schema and Types ---
-const loggerSchema = z.object({
-  userPrompt: z.string().optional(),
+// --- Schemas & Types ---
+const bpSchema = z.object({
+    systolic: z.string().min(1, "Required"),
+    diastolic: z.string().min(1, "Required"),
+    pulseRate: z.string().optional(),
 });
-type LoggerFormValues = z.infer<typeof loggerSchema>;
+const singleValueSchema = (name: string) => z.object({ [name]: z.string().min(1, "Required") });
 
-type OtherData = { metricName: string; metricValue: string };
+const testStripSchema = z.object({
+    protein: z.string().optional(), glucose: z.string().optional(),
+    ketones: z.string().optional(), blood: z.string().optional(),
+    nitrite: z.string().optional(), ph: z.string().optional(),
+}).refine(data => Object.values(data).some(v => v), { message: "At least one test strip value is required." });
 
-interface Vital {
-    type: 'vitals';
-    id: string;
-    date: string; // ISO String
-    systolic?: string;
-    diastolic?: string;
-    pulseRate?: string;
-    bloodSugar?: string;
-    oxygenSaturation?: string;
-    temperature?: string;
-    weight?: string;
-    otherData?: OtherData[];
-}
+type VitalType = 'blood_pressure' | 'blood_sugar' | 'oxygen_saturation' | 'temperature' | 'weight' | 'test_strip';
 
-interface Strip {
-    type: 'strips';
-    id: string;
-    date: string; // ISO String
-    protein?: string;
-    glucose?: string;
-    ketones?: string;
-    blood?: string;
-    nitrite?: string;
-    ph?: string;
-    otherData?: OtherData[];
-}
-
+interface Vital { type: 'vitals'; id: string; date: string; systolic?: string; diastolic?: string; pulseRate?: string; bloodSugar?: string; oxygenSaturation?: string; temperature?: string; weight?: string; }
+interface Strip { type: 'strips'; id: string; date: string; protein?: string; glucose?: string; ketones?: string; blood?: string; nitrite?: string; ph?: string; }
 type HistoryItem = Vital | Strip;
 
-// --- Helper Component for Rendering History Items ---
-const HistoryItemContent = ({ item }: { item: HistoryItem }) => {
-    const displayLabels: Record<string, string> = {
-        systolic: 'Systolic', diastolic: 'Diastolic', pulseRate: 'Pulse Rate',
-        bloodSugar: 'Blood Sugar', oxygenSaturation: 'Oxygen Saturation',
-        temperature: 'Temperature', weight: 'Weight', protein: 'Protein',
-        glucose: 'Glucose', ketones: 'Ketones', blood: 'Blood',
-        nitrite: 'Nitrite', ph: 'pH',
-    };
 
-    const data = { ...item };
-    const otherData = (data as any).otherData as OtherData[] | undefined;
-    
-    // Clean up properties that shouldn't be displayed as data rows
-    delete (data as any).id;
-    delete (data as any).type;
-    delete (data as any).date;
-    delete (data as any).otherData;
+const vitalOptions: { type: VitalType, title: string, icon: React.ElementType, schema: any }[] = [
+    { type: 'blood_pressure', title: 'Blood Pressure', icon: HeartPulse, schema: bpSchema },
+    { type: 'blood_sugar', title: 'Blood Sugar', icon: Droplets, schema: singleValueSchema('bloodSugar') },
+    { type: 'oxygen_saturation', title: 'Oxygen Sat.', icon: Wind, schema: singleValueSchema('oxygenSaturation') },
+    { type: 'temperature', title: 'Temperature', icon: Thermometer, schema: singleValueSchema('temperature') },
+    { type: 'weight', title: 'Weight', icon: Scale, schema: singleValueSchema('weight') },
+    { type: 'test_strip', title: 'Test Strip', icon: Beaker, schema: testStripSchema },
+];
 
-    const mainEntries = Object.entries(data).filter(([_, value]) => value != null && value !== '');
-    const otherEntries = otherData || [];
-
-    if (mainEntries.length === 0 && otherEntries.length === 0) {
-        return <p className="text-muted-foreground text-sm">No specific data points were recorded for this entry.</p>;
-    }
-
-    return (
-        <div className="text-sm space-y-2">
-            {mainEntries.map(([key, value]) => (
-                <div key={key} className="flex justify-between">
-                    <span className="text-muted-foreground">{displayLabels[key] || key}</span>
-                    <span className="font-bold">{String(value)}</span>
-                </div>
-            ))}
-            
-            {otherEntries.length > 0 && mainEntries.length > 0 && <Separator className="my-2" />}
-            
-            {otherEntries.length > 0 && (
-                <div>
-                    <h5 className="font-bold text-xs text-muted-foreground uppercase tracking-wider mb-2">Other Metrics</h5>
-                    <div className="space-y-2">
-                        {otherEntries.map((metric, index) => (
-                             <div key={index} className="flex justify-between">
-                                <span className="text-muted-foreground capitalize">{metric.metricName.replace(/([A-Z])/g, ' $1')}</span>
-                                <span className="font-bold">{String(metric.metricValue)}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-// Define confidence level configuration
-const confidenceConfig = (score: number) => {
-    if (score > 90) return { text: 'High', color: 'bg-green-500 text-white' };
-    if (score > 75) return { text: 'Medium', color: 'bg-yellow-400 text-black' };
-    return { text: 'Low', color: 'bg-red-600 text-white' };
-};
+const stripMarkers = [
+    { value: "protein", label: "Protein" }, { value: "glucose", label: "Glucose" }, { value: "ketones", label: "Ketones" },
+    { value: "blood", label: "Blood" }, { value: "nitrite", label: "Nitrite" }, { value: "ph", label: "pH" },
+];
+const generalLevels = ["Negative", "Trace", "+", "++", "+++"];
+const phLevels = ["5.0", "6.0", "6.5", "7.0", "7.5", "8.0", "9.0"];
 
 
 // --- Main Component ---
 export function UnifiedLogger() {
     const { user } = useAuth();
     const { toast } = useToast();
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const [imageDataUri, setImageDataUri] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [aiResult, setAiResult] = useState<ExtractDataFromImageOutput | null>(null);
-    const [editableResult, setEditableResult] = useState<ExtractDataFromImageOutput | null>(null);
+    const [activeForm, setActiveForm] = useState<typeof vitalOptions[number] | null>(null);
     const [history, setHistory] = useState<HistoryItem[]>([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(true);
 
-    const form = useForm<LoggerFormValues>({
-        resolver: zodResolver(loggerSchema),
-        defaultValues: { userPrompt: "" },
+    const form = useForm({
+        resolver: activeForm ? zodResolver(activeForm.schema) : undefined,
     });
+    
+    useEffect(() => {
+        if (activeForm) {
+            form.reset();
+        }
+    }, [activeForm, form]);
 
     useEffect(() => {
         if (!user) {
@@ -153,19 +89,13 @@ export function UnifiedLogger() {
             setIsHistoryLoading(true);
             try {
                 const basePath = `users/${user.uid}`;
-                const vitalsCol = collection(db, `${basePath}/vitals`);
-                const vitalsQuery = query(vitalsCol, orderBy('date', 'desc'));
-                const vitalsSnap = await getDocs(vitalsQuery);
+                const vitalsSnap = await getDocs(query(collection(db, `${basePath}/vitals`), orderBy('date', 'desc')));
                 const vitalsData = vitalsSnap.docs.map(doc => ({ type: 'vitals' as const, id: doc.id, ...doc.data() } as Vital));
-
-                const stripsCol = collection(db, `${basePath}/test_strips`);
-                const stripsQuery = query(stripsCol, orderBy('date', 'desc'));
-                const stripsSnap = await getDocs(stripsQuery);
+                
+                const stripsSnap = await getDocs(query(collection(db, `${basePath}/test_strips`), orderBy('date', 'desc')));
                 const stripsData = stripsSnap.docs.map(doc => ({ type: 'strips' as const, id: doc.id, ...doc.data() } as Strip));
 
-                const combinedHistory = [...vitalsData, ...stripsData].sort((a, b) => 
-                    parseISO(b.date).getTime() - parseISO(a.date).getTime()
-                );
+                const combinedHistory = [...vitalsData, ...stripsData].sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
                 setHistory(combinedHistory);
 
             } catch (error) {
@@ -175,316 +105,145 @@ export function UnifiedLogger() {
                 setIsHistoryLoading(false);
             }
         };
-
         fetchHistory();
     }, [user, toast]);
+    
+    const handleSave = async (data: any) => {
+        if (!user || !activeForm) return;
 
-    const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImageDataUri(reader.result as string);
-                setAiResult(null);
-                setEditableResult(null);
+        const date = new Date().toISOString();
+        const collectionName = activeForm.type === 'test_strip' ? 'test_strips' : 'vitals';
+        const collectionRef = collection(db, `users/${user.uid}/${collectionName}`);
+        
+        try {
+            const docRef = await addDoc(collectionRef, { ...data, date });
+            const newItem: HistoryItem = { 
+                type: collectionName as 'vitals' | 'strips', 
+                id: docRef.id, 
+                ...data, 
+                date 
             };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    const handleAnalyze = async (data: LoggerFormValues) => {
-        if (!imageDataUri) {
-            toast({ variant: 'destructive', title: 'No Image', description: 'Please upload an image to analyze.' });
-            return;
-        }
-        setIsLoading(true);
-        setAiResult(null);
-        setEditableResult(null);
-        try {
-            const result = await extractDataFromImage({
-                imageDataUri,
-                userPrompt: data.userPrompt,
-            });
-            setAiResult(result);
-            setEditableResult(JSON.parse(JSON.stringify(result))); // Deep copy for editing
+            setHistory(prev => [newItem, ...prev].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()));
+            toast({ title: 'Data Saved', description: `${activeForm.title} has been logged.` });
+            setActiveForm(null);
         } catch (error) {
-            console.error("AI analysis failed:", error);
-            toast({ variant: 'destructive', title: 'Analysis Failed', description: 'The AI could not process the image.' });
-        } finally {
-            setIsLoading(false);
+            console.error("Error saving data:", error);
+            toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the data.' });
         }
     };
     
-    const handleFieldChange = (type: 'vitals' | 'strips' | 'otherName' | 'otherValue', key: string | number, value: string) => {
-        setEditableResult(prev => {
-            if (!prev) return null;
-            const newResult = JSON.parse(JSON.stringify(prev));
-
-            if (type === 'vitals' && newResult.extractedVitals && typeof key === 'string') {
-                newResult.extractedVitals[key as keyof typeof newResult.extractedVitals] = value;
-            } else if (type === 'strips' && newResult.extractedTestStrip && typeof key === 'string') {
-                newResult.extractedTestStrip[key as keyof typeof newResult.extractedTestStrip] = value;
-            } else if (type === 'otherValue' && newResult.otherData && typeof key === 'number') {
-                if (newResult.otherData[key]) {
-                    newResult.otherData[key].metricValue = value;
-                }
-            } else if (type === 'otherName' && newResult.otherData && typeof key === 'number') {
-                 if (newResult.otherData[key]) {
-                    newResult.otherData[key].metricName = value;
-                }
-            }
-            return newResult;
-        });
-    };
-
-    const handleRemoveField = (type: 'vitals' | 'strips' | 'other', key: string | number) => {
-        setEditableResult(prev => {
-            if (!prev) return null;
-            const newResult = JSON.parse(JSON.stringify(prev));
-
-            if (type === 'vitals' && newResult.extractedVitals && typeof key === 'string') {
-                delete newResult.extractedVitals[key as keyof typeof newResult.extractedVitals];
-            } else if (type === 'strips' && newResult.extractedTestStrip && typeof key === 'string') {
-                delete newResult.extractedTestStrip[key as keyof typeof newResult.extractedTestStrip];
-            } else if (type === 'other' && newResult.otherData && typeof key === 'number') {
-                newResult.otherData.splice(key, 1);
-            }
-            
-            return newResult;
-        });
-    };
-
-    const handleAddField = () => {
-        setEditableResult(prev => {
-            if (!prev) return null;
-            const newResult = JSON.parse(JSON.stringify(prev));
-            if (!newResult.otherData) {
-                newResult.otherData = [];
-            }
-            newResult.otherData.push({ metricName: '', metricValue: '' });
-            return newResult;
-        });
-    };
-    
-    const handleSave = async () => {
-        if (!user || !editableResult) return;
+    const deleteHistoryItem = async (item: HistoryItem) => {
+        if (!user) return;
         
-        setIsLoading(true);
-        let saved = false;
+        const collectionName = item.type === 'strips' ? 'test_strips' : 'vitals';
+        const docRef = doc(db, `users/${user.uid}/${collectionName}`, item.id);
         
         try {
-            const dateToSave = { date: new Date().toISOString() };
-            const otherDataToSave = editableResult.otherData && editableResult.otherData.length > 0 ? { otherData: editableResult.otherData.filter(d => d.metricName && d.metricValue) } : {};
-
-            let logType: 'vitals' | 'strips' | null = null;
-            let collectionRef;
-            let dataPayload: any;
-
-            const hasVitals = editableResult.extractedVitals && Object.values(editableResult.extractedVitals).some(v => v);
-            const hasStrips = editableResult.extractedTestStrip && Object.values(editableResult.extractedTestStrip).some(v => v);
-
-            if (hasVitals) {
-                logType = 'vitals';
-                dataPayload = editableResult.extractedVitals;
-                collectionRef = collection(db, `users/${user.uid}/vitals`);
-            } else if (hasStrips) {
-                logType = 'strips';
-                dataPayload = editableResult.extractedTestStrip;
-                collectionRef = collection(db, `users/${user.uid}/test_strips`);
-            } else if (Object.keys(otherDataToSave).length > 0) {
-                 logType = 'vitals';
-                 dataPayload = {};
-                 collectionRef = collection(db, `users/${user.uid}/vitals`);
-            }
-
-            if (logType && collectionRef) {
-                 const finalPayload = { ...dataPayload, ...otherDataToSave, ...dateToSave };
-                 const docRef = await addDoc(collectionRef, finalPayload);
-                 const newItem: HistoryItem = { type: logType, id: docRef.id, ...finalPayload };
-                 setHistory(prev => [newItem, ...prev].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()));
-                 saved = true;
-            }
-
-            if (saved) {
-                toast({ title: 'Data Saved', description: 'Your health data has been logged to your history.' });
-                resetState();
-            } else {
-                toast({ variant: 'destructive', title: 'Nothing to Save', description: 'No data was available to save.' });
-            }
+            await deleteDoc(docRef);
+            setHistory(prev => prev.filter(h => h.id !== item.id));
+            toast({ title: 'Entry Deleted', description: 'The log entry has been removed.' });
         } catch (error) {
-             console.error("Error saving data:", error);
-             toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the extracted data.' });
-        } finally {
-            setIsLoading(false);
+            console.error("Error deleting item:", error);
+            toast({ variant: 'destructive', title: 'Delete Failed' });
         }
     };
-    
-    const resetState = () => {
-        setAiResult(null);
-        setEditableResult(null);
-        setImageDataUri(null);
-        form.reset();
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+
+    const renderFormFields = () => {
+        if (!activeForm) return null;
+
+        switch (activeForm.type) {
+            case 'blood_pressure':
+                return <>
+                    <FormField control={form.control} name="systolic" render={({ field }) => (<FormItem><FormLabel>Systolic (mmHg)</FormLabel><FormControl><Input placeholder="120" type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="diastolic" render={({ field }) => (<FormItem><FormLabel>Diastolic (mmHg)</FormLabel><FormControl><Input placeholder="80" type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="pulseRate" render={({ field }) => (<FormItem><FormLabel>Pulse Rate (BPM) (Optional)</FormLabel><FormControl><Input placeholder="70" type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                </>;
+            case 'blood_sugar':
+                return <FormField control={form.control} name="bloodSugar" render={({ field }) => (<FormItem><FormLabel>Blood Sugar (mg/dL)</FormLabel><FormControl><Input placeholder="100" type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />;
+            case 'oxygen_saturation':
+                return <FormField control={form.control} name="oxygenSaturation" render={({ field }) => (<FormItem><FormLabel>Oxygen Saturation (%)</FormLabel><FormControl><Input placeholder="98" type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />;
+            case 'temperature':
+                return <FormField control={form.control} name="temperature" render={({ field }) => (<FormItem><FormLabel>Temperature (°F)</FormLabel><FormControl><Input placeholder="98.6" type="number" step="0.1" {...field} /></FormControl><FormMessage /></FormItem>)} />;
+            case 'weight':
+                return <FormField control={form.control} name="weight" render={({ field }) => (<FormItem><FormLabel>Weight (lbs)</FormLabel><FormControl><Input placeholder="150" type="number" step="0.1" {...field} /></FormControl><FormMessage /></FormItem>)} />;
+            case 'test_strip':
+                return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {stripMarkers.map(marker => (
+                        <FormField key={marker.value} control={form.control} name={marker.value} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>{marker.label}</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        {(marker.value === 'ph' ? phLevels : generalLevels).map(level => (
+                                            <SelectItem key={level} value={level}>{level}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </FormItem>
+                        )} />
+                    ))}
+                </div>;
+            default: return null;
         }
     };
 
     return (
         <div className="space-y-8">
-            <div className="max-w-2xl mx-auto space-y-8">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-3"><Camera /> AI-Powered Logger</CardTitle>
-                        <CardDescription>Upload an image of your medical device (BP monitor, glucometer) or test strip. Our AI will read it and log the data for you.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Form {...form}>
-                            <form onSubmit={form.handleSubmit(handleAnalyze)} className="space-y-6">
-                                <FormItem>
-                                    <FormLabel>1. Upload Image</FormLabel>
-                                    <FormControl>
-                                        <Input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="file:text-foreground" />
-                                    </FormControl>
-                                </FormItem>
-                                
-                                {imageDataUri && (
-                                    <div className="flex justify-center p-4 bg-secondary rounded-lg">
-                                        <Image src={imageDataUri} alt="Preview" width={250} height={250} className="rounded-md border-2 border-primary/50 object-contain"/>
+            <Card className="overflow-hidden">
+                <AnimatePresence mode="wait">
+                    {!activeForm ? (
+                        <motion.div key="selection" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                            <CardHeader>
+                                <CardTitle>Log New Vitals</CardTitle>
+                                <CardDescription>What would you like to log today?</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    {vitalOptions.map((opt) => (
+                                        <button key={opt.type} onClick={() => setActiveForm(opt)} className="group flex flex-col items-center justify-center p-4 aspect-square rounded-lg bg-secondary/50 hover:bg-secondary transition-all">
+                                            <opt.icon className="w-10 h-10 text-primary mb-2 transition-transform group-hover:scale-110" />
+                                            <p className="font-bold text-sm text-center">{opt.title}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </motion.div>
+                    ) : (
+                        <motion.div key="form" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ ease: "easeInOut", duration: 0.3 }}>
+                            <CardHeader>
+                                <div className="flex items-center gap-4">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setActiveForm(null)}><ArrowLeft/></Button>
+                                    <div>
+                                        <CardTitle>Log {activeForm.title}</CardTitle>
+                                        <CardDescription>Enter the values below.</CardDescription>
                                     </div>
-                                )}
-
-                                <FormField control={form.control} name="userPrompt" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>2. Give a Hint (Optional)</FormLabel>
-                                        <FormControl><Input placeholder="e.g., 'blood pressure reading' or 'urine test strip'" {...field} /></FormControl>
-                                    </FormItem>
-                                )}/>
-                                
-                                <Button type="submit" className="w-full" disabled={isLoading || !imageDataUri}>
-                                    {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</> : <><Sparkles className="mr-2"/> Analyze Image</>}
-                                </Button>
-                            </form>
-                        </Form>
-                    </CardContent>
-                </Card>
-
-                {editableResult && (
-                    <Card className="bg-secondary">
-                        <CardHeader>
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <CardTitle>Analysis Result</CardTitle>
-                                    <CardDescription>Please review and edit the data our AI extracted before saving.</CardDescription>
                                 </div>
-                                <Badge className={cn("ml-4 whitespace-nowrap", confidenceConfig(editableResult.confidenceScore).color)}>
-                                    {editableResult.confidenceScore}% {confidenceConfig(editableResult.confidenceScore).text}
-                                </Badge>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {editableResult.confidenceScore < 80 && (
-                                <Alert variant="destructive">
-                                    <AlertCircle className="h-4 w-4" />
-                                    <AlertTitle>Low Confidence Reading</AlertTitle>
-                                    <AlertDescription>The AI is not highly confident about these results, possibly due to image quality. Please carefully verify the values below.</AlertDescription>
-                                </Alert>
-                            )}
-                            <Alert>
-                                <AlertTitle>AI Summary</AlertTitle>
-                                <AlertDescription>{editableResult.analysisSummary}</AlertDescription>
-                            </Alert>
-                            
-                            <div className="p-4 bg-background rounded-lg">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-bold flex items-center gap-2"><Edit /> Review &amp; Edit Extracted Data</h4>
-                                    <Button size="sm" variant="outline" onClick={handleAddField}>
-                                        <PlusCircle className="mr-2 h-4 w-4" /> Add Field
-                                    </Button>
-                                </div>
-                                 <div className="space-y-3 text-sm">
-                                    {editableResult.extractedVitals && Object.entries(editableResult.extractedVitals).map(([key, value]) => (
-                                        <div key={key} className="flex items-center justify-between gap-4">
-                                            <Label htmlFor={key} className="capitalize text-muted-foreground">{key.replace(/([A-Z])/g, ' $1')}</Label>
-                                            <div className="flex items-center gap-1">
-                                                <Input
-                                                    id={key}
-                                                    value={value || ''}
-                                                    onChange={(e) => handleFieldChange('vitals', key, e.target.value)}
-                                                    className="h-8 max-w-[150px]"
-                                                />
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive" onClick={() => handleRemoveField('vitals', key)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {editableResult.extractedTestStrip && Object.entries(editableResult.extractedTestStrip).map(([key, value]) => (
-                                        <div key={key} className="flex items-center justify-between gap-4">
-                                            <Label htmlFor={key} className="capitalize text-muted-foreground">{key}</Label>
-                                            <div className="flex items-center gap-1">
-                                                <Input
-                                                    id={key}
-                                                    value={value || ''}
-                                                    onChange={(e) => handleFieldChange('strips', key, e.target.value)}
-                                                    className="h-8 max-w-[150px]"
-                                                />
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive" onClick={() => handleRemoveField('strips', key)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {editableResult.otherData && editableResult.otherData.length > 0 && (
-                                        <Separator className="my-2"/>
-                                    )}
-                                    {editableResult.otherData?.map((metric, index) => (
-                                        <div key={index} className="flex items-center justify-between gap-2">
-                                            <Input
-                                                id={`other-name-${index}`}
-                                                value={metric.metricName}
-                                                placeholder="Metric Name"
-                                                onChange={(e) => handleFieldChange('otherName', index, e.target.value)}
-                                                className="h-8 flex-grow capitalize"
-                                            />
-                                            <div className="flex items-center gap-1 shrink-0">
-                                                <Input
-                                                    id={`other-value-${index}`}
-                                                    value={metric.metricValue}
-                                                    placeholder="Value"
-                                                    onChange={(e) => handleFieldChange('otherValue', index, e.target.value)}
-                                                    className="h-8 w-[120px]"
-                                                />
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive" onClick={() => handleRemoveField('other', index)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </CardContent>
-                        <CardFooter className="flex justify-end gap-2">
-                            <Button variant="ghost" onClick={resetState}><RotateCcw className="mr-2" /> Start Over</Button>
-                            <Button onClick={handleSave} disabled={isLoading}><Save className="mr-2"/>Save to History</Button>
-                        </CardFooter>
-                    </Card>
-                )}
-            </div>
+                            </CardHeader>
+                            <CardContent>
+                                <Form {...form}>
+                                    <form onSubmit={form.handleSubmit(handleSave)} className="space-y-4">
+                                        {renderFormFields()}
+                                        {form.formState.errors.root && <FormMessage>{form.formState.errors.root.message}</FormMessage>}
+                                        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                                            {form.formState.isSubmitting ? <Loader2 className="animate-spin mr-2"/> : null}
+                                            Save Log
+                                        </Button>
+                                    </form>
+                                </Form>
+                            </CardContent>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </Card>
 
-            <Card>
+             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <FileClock className="w-6 h-6"/>
-                        <span>Log History</span>
-                    </CardTitle>
+                    <CardTitle className="flex items-center gap-2"><FileClock className="w-6 h-6"/>Log History</CardTitle>
                     <CardDescription>View your previously logged data.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {isHistoryLoading ? (
-                        <div className="flex justify-center items-center h-24">
-                            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                        </div>
-                    ) : history.length > 0 ? (
+                    {isHistoryLoading ? <Loader2 className="mx-auto w-8 h-8 animate-spin text-primary" /> : history.length > 0 ? (
                         <Accordion type="single" collapsible className="w-full">
                             {history.map(item => (
                                 <AccordionItem value={item.id} key={item.id}>
@@ -497,15 +256,23 @@ export function UnifiedLogger() {
                                             </div>
                                         </div>
                                     </AccordionTrigger>
-                                    <AccordionContent className="pl-10">
-                                       <HistoryItemContent item={item} />
+                                    <AccordionContent className="pl-10 pr-2 space-y-4">
+                                        <div className="text-sm space-y-2">
+                                            {Object.entries(item).filter(([key, value]) => key !== 'id' && key !== 'type' && key !== 'date' && value).map(([key, value]) => (
+                                                <div key={key} className="flex justify-between">
+                                                    <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                                                    <span className="font-bold">{String(value)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="flex justify-end">
+                                            <Button variant="destructive" size="sm" onClick={() => deleteHistoryItem(item)}><Trash2 className="mr-2 h-4 w-4"/>Delete</Button>
+                                        </div>
                                     </AccordionContent>
                                 </AccordionItem>
                             ))}
                         </Accordion>
-                    ) : (
-                        <p className="text-muted-foreground text-center py-8">No log history found.</p>
-                    )}
+                    ) : <p className="text-muted-foreground text-center py-8">No log history found.</p>}
                 </CardContent>
             </Card>
         </div>
