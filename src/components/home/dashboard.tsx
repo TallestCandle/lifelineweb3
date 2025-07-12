@@ -105,73 +105,88 @@ export function Dashboard() {
     // --- Fetch and Process Vitals ---
     const fetchVitals = async () => {
         try {
-            const vitalsQuery = query(collection(db, `users/${user.uid}/vitals`), orderBy('date', 'desc'), limit(25));
+            const vitalsQuery = query(collection(db, `users/${user.uid}/vitals`), orderBy('date', 'desc'), limit(50));
             const snapshot = await getDocs(vitalsQuery);
-            const vitalsHistory = snapshot.docs.map(doc => doc.data() as Vital);
+            const history = snapshot.docs.map(doc => doc.data() as Vital);
 
-            const findLatest = (type: VitalType, key: keyof Vital, secondKey?: keyof Vital) => {
-                const recent = vitalsHistory.find(v => v[key]);
-                if (!recent) return null;
-                
-                const prev = vitalsHistory.find(v => v[key] && v.date < recent.date);
-                
-                const currentValue = parseFloat(recent[key]!);
-                const prevValue = prev && prev[key] ? parseFloat(prev[key]!) : null;
+            const latestReadings = new Map<VitalType, {current: Vital, previous: Vital | null}>();
 
-                let trend: 'up' | 'down' | 'stable' = 'stable';
-                if (prevValue !== null && !isNaN(currentValue) && !isNaN(prevValue)) {
-                    if (currentValue > prevValue) trend = 'up';
-                    if (currentValue < prevValue) trend = 'down';
+            // This loop ensures we find the latest reading and its preceding one for trend calculation
+            for (const type of Object.keys(vitalConfig) as VitalType[]) {
+                const readingsForType = history.filter(v => {
+                    if (type === 'blood_pressure') return v.systolic && v.diastolic;
+                    if (type === 'blood_sugar') return v.bloodSugar;
+                    if (type === 'oxygen_saturation') return v.oxygenSaturation;
+                    if (type === 'temperature') return v.temperature;
+                    if (type === 'pulse_rate') return v.pulseRate;
+                    return false;
+                });
+
+                if (readingsForType.length > 0) {
+                    latestReadings.set(type, {
+                        current: readingsForType[0],
+                        previous: readingsForType.length > 1 ? readingsForType[1] : null,
+                    });
                 }
+            }
 
-                let status: 'Good' | 'Moderate' | 'Critical' = 'Good';
-                const s = parseFloat(recent.systolic || '0');
-                const d = parseFloat(recent.diastolic || '0');
-                const sugar = parseFloat(recent.bloodSugar || '0');
-                const temp = parseFloat(recent.temperature || '0');
-                const oxygen = parseFloat(recent.oxygenSaturation || '0');
-                const pulse = parseFloat(recent.pulseRate || '0');
+            const vitalsToShow = Array.from(latestReadings.entries()).map(([type, data]) => {
+                const { current, previous } = data;
+                let value: string, currentValue: number, prevValue: number | null, trend: 'up' | 'down' | 'stable' = 'stable', status: 'Good' | 'Moderate' | 'Critical' = 'Good';
 
                 switch(type) {
                     case 'blood_pressure':
-                        if (s >= 140 || d >= 90 || s < 90 || d < 60) status = 'Critical';
-                        else if ((s >= 120 && s < 140) || (d >= 80 && d < 90)) status = 'Moderate';
+                        value = `${current.systolic}/${current.diastolic}`;
+                        currentValue = parseFloat(current.systolic!);
+                        prevValue = previous ? parseFloat(previous.systolic!) : null;
+                        
+                        const s = parseFloat(current.systolic!);
+                        const d = parseFloat(current.diastolic!);
+                        if (s >= 130 || d >= 80) status = 'Critical';
+                        else if (s >= 120 && s < 130 && d < 80) status = 'Moderate';
+                        else if (s < 90 || d < 60) status = 'Critical';
                         else status = 'Good';
                         break;
                     case 'blood_sugar':
-                        if (sugar > 180 || sugar < 70) status = 'Critical';
-                        else if (sugar > 140) status = 'Moderate';
+                        value = current.bloodSugar!;
+                        currentValue = parseFloat(value);
+                        prevValue = previous ? parseFloat(previous.bloodSugar!) : null;
+                        if (currentValue > 180 || currentValue < 70) status = 'Critical';
+                        else if (currentValue > 140) status = 'Moderate';
                         break;
                     case 'oxygen_saturation':
-                        if (oxygen < 92) status = 'Critical';
-                        else if (oxygen < 95) status = 'Moderate';
+                        value = current.oxygenSaturation!;
+                        currentValue = parseFloat(value);
+                        prevValue = previous ? parseFloat(previous.oxygenSaturation!) : null;
+                        if (currentValue < 92) status = 'Critical';
+                        else if (currentValue < 95) status = 'Moderate';
                         break;
                     case 'temperature':
-                        if (temp > 100.4 || temp < 97) status = 'Critical';
-                        else if (temp > 99.5) status = 'Moderate';
+                        value = current.temperature!;
+                        currentValue = parseFloat(value);
+                        prevValue = previous ? parseFloat(previous.temperature!) : null;
+                        if (currentValue > 100.4 || currentValue < 97) status = 'Critical';
+                        else if (currentValue > 99.5) status = 'Moderate';
                         break;
                     case 'pulse_rate':
-                        if (pulse > 100 || pulse < 60) status = 'Critical';
-                        else if (pulse > 90) status = 'Moderate';
+                        value = current.pulseRate!;
+                        currentValue = parseFloat(value);
+                        prevValue = previous ? parseFloat(previous.pulseRate!) : null;
+                        if (currentValue > 100 || currentValue < 60) status = 'Critical';
+                        else if (currentValue > 90) status = 'Moderate';
                         break;
+                    default:
+                      return null;
                 }
 
-                return {
-                    type,
-                    value: secondKey && recent[secondKey] ? `${recent[key]}/${recent[secondKey]}` : recent[key]!,
-                    unit: vitalConfig[type].unit,
-                    status,
-                    trend,
-                };
-            };
-            
-            const latestBP = findLatest('blood_pressure', 'systolic', 'diastolic');
-            const latestSugar = findLatest('blood_sugar', 'bloodSugar');
-            const latestOxygen = findLatest('oxygen_saturation', 'oxygenSaturation');
-            const latestTemp = findLatest('temperature', 'temperature');
-            const latestPulse = findLatest('pulse_rate', 'pulseRate');
+                if (prevValue !== null && !isNaN(currentValue) && !isNaN(prevValue)) {
+                    if (currentValue > prevValue) trend = 'up';
+                    else if (currentValue < prevValue) trend = 'down';
+                }
 
-            const vitalsToShow = [latestBP, latestSugar, latestOxygen, latestTemp, latestPulse].filter(v => v !== null) as LatestVital[];
+                return { type, value, unit: vitalConfig[type].unit, status, trend };
+            }).filter(v => v !== null) as LatestVital[];
+
             setLatestVitals(vitalsToShow);
 
         } catch (error) {
