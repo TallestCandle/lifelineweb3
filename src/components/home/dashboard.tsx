@@ -23,6 +23,7 @@ import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
+import { Separator } from '../ui/separator';
 
 // Types
 interface VitalReading {
@@ -34,6 +35,7 @@ interface VitalReading {
   weight?: string;
   pulseRate?: string;
   date: string;
+  otherData?: { metricName: string; metricValue: string }[];
 }
 
 interface Investigation {
@@ -89,14 +91,29 @@ function VitalStatusCard({ vital }: { vital: VitalReading }) {
     const StatusIcon = status.icon;
 
     const renderVitalData = () => {
-        return Object.entries(vital)
-            .filter(([key, value]) => key !== 'date' && value)
+        const standardVitals = Object.entries(vital)
+            .filter(([key]) => key !== 'date' && key !== 'otherData' && vital[key as keyof VitalReading])
             .map(([key, value]) => (
                 <div key={key} className="flex justify-between text-sm">
                     <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
-                    <span className="font-bold">{value}</span>
+                    <span className="font-bold">{String(value)}</span>
                 </div>
             ));
+        
+        const otherVitals = vital.otherData?.map((item, index) => (
+             <div key={`other-${index}`} className="flex justify-between text-sm">
+                <span className="text-muted-foreground capitalize">{item.metricName}</span>
+                <span className="font-bold">{item.metricValue}</span>
+            </div>
+        ));
+
+        return (
+            <>
+                {standardVitals}
+                {otherVitals && standardVitals.length > 0 && <Separator className="my-2" />}
+                {otherVitals}
+            </>
+        );
     };
 
     return (
