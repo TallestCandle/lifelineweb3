@@ -47,6 +47,7 @@ import {
   SidebarInset,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils';
 
 const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -106,22 +107,34 @@ function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
-             <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
-                  <Link href="/emergency">
-                    Emergency
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
              <SidebarMenu>
                 <SidebarMenuItem>
-                    <SidebarMenuButton onClick={toggleSidebar} tooltip="Collapse" icon={<ChevronLeft className="transition-transform duration-300 group-data-[state=collapsed]:rotate-180"/>}>
-                      Collapse
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
+                    <Link href="/emergency">
+                      Emergency
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                 <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === '/profiles'} tooltip="Settings" icon={<Settings/>}>
+                    <Link href="/profiles">
+                      Settings
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={handleLogout} tooltip="Logout" icon={<LogOut/>}>
+                    Logout
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem className="hidden md:block">
+                  <SidebarMenuButton onClick={toggleSidebar} tooltip="Collapse" icon={<ChevronLeft className="transition-transform duration-300 group-data-[state=collapsed]:rotate-180"/>}>
+                    Collapse
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
              </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
@@ -152,13 +165,10 @@ function AppLayout({ children }: { children: React.ReactNode }) {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                        <DropdownMenuLabel>{user?.displayName}</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                            <Link href="/profiles"><Settings className="mr-2 h-4 w-4" />Settings</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleLogout}>
-                            <LogOut className="mr-2 h-4 w-4" />Logout
+                        <DropdownMenuItem disabled>
+                            My Account
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

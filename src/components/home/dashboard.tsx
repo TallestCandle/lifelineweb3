@@ -83,7 +83,7 @@ const TrendIndicator = ({ trend, value }: { trend: 'up' | 'down' | 'stable', val
         <div className="flex items-center gap-1">
             <Icon className={cn("h-4 w-4", color)} />
             <span className={cn("font-bold", color)}>{value}</span>
-            <span className="text-muted-foreground text-xs">vs last month</span>
+            <span className="text-muted-foreground text-xs"></span>
         </div>
     )
 };
