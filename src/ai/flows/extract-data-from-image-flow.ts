@@ -88,9 +88,25 @@ const extractDataFromImageFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await extractDataPrompt(input);
+    
     if (!output) {
         throw new Error("The AI model did not return a valid data extraction.");
     }
+
+    // Post-processing to remove any fields with "N/A" or empty strings.
+    // This provides a robust fallback if the model doesn't follow the prompt perfectly.
+    const cleanObject = (obj: Record<string, any> | undefined) => {
+      if (!obj) return;
+      for (const key in obj) {
+        if (obj[key] === "N/A" || obj[key] === "") {
+          delete obj[key];
+        }
+      }
+    };
+
+    cleanObject(output.extractedVitals);
+    cleanObject(output.extractedTestStrip);
+
     return output;
   }
 );
