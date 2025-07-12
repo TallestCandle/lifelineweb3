@@ -98,7 +98,7 @@ const extractDataFromImageFlow = ai.defineFlow(
     const cleanObject = (obj: Record<string, any> | undefined) => {
       if (!obj) return;
       for (const key in obj) {
-        if (obj[key] === "N/A" || obj[key] === "") {
+        if (obj[key] === "N/A" || obj[key] === "" || (typeof obj[key] === 'string' && obj[key].includes("N/A"))) {
           delete obj[key];
         }
       }
