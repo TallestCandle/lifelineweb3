@@ -15,6 +15,7 @@ import {
   Droplet,
   Thermometer,
   Wind,
+  Activity, // Added for Pulse Rate
   ArrowUp,
   ArrowDown,
   Minus,
@@ -40,9 +41,10 @@ interface Vital {
     bloodSugar?: string;
     oxygenSaturation?: string;
     temperature?: string;
+    pulseRate?: string;
 }
 
-type VitalType = 'blood_pressure' | 'blood_sugar' | 'oxygen_saturation' | 'temperature';
+type VitalType = 'blood_pressure' | 'blood_sugar' | 'oxygen_saturation' | 'temperature' | 'pulse_rate';
 
 interface LatestVital {
     type: VitalType;
@@ -66,6 +68,7 @@ const vitalConfig: Record<VitalType, { icon: React.ElementType; title: string; u
     blood_sugar: { icon: Droplet, title: 'Blood Sugar', unit: 'mg/dL' },
     oxygen_saturation: { icon: Wind, title: 'Oxygen Sat.', unit: '%' },
     temperature: { icon: Thermometer, title: 'Temperature', unit: '°F' },
+    pulse_rate: { icon: Activity, title: 'Pulse Rate', unit: 'BPM' },
 };
 
 // --- Main Dashboard Component ---
@@ -106,18 +109,16 @@ export function Dashboard() {
             const snapshot = await getDocs(vitalsQuery);
             const vitalsHistory = snapshot.docs.map(doc => doc.data() as Vital);
 
-            const processedVitals = new Map<VitalType, LatestVital>();
-
             const findLatest = (type: VitalType, key: keyof Vital, secondKey?: keyof Vital) => {
                 const recent = vitalsHistory.find(v => v[key]);
                 if (!recent) return null;
                 
                 const prev = vitalsHistory.find(v => v[key] && v.date < recent.date);
-                const currentValue = secondKey ? parseFloat(recent[key]!) + parseFloat(recent[secondKey]!) : parseFloat(recent[key]!);
-                const prevValue = prev && prev[key] ? (secondKey ? parseFloat(prev[key]!) + parseFloat(prev[secondKey]!) : parseFloat(prev[key]!)) : null;
+                const currentValue = secondKey && recent[secondKey] ? parseFloat(recent[key]!) + parseFloat(recent[secondKey]!) : parseFloat(recent[key]!);
+                const prevValue = prev && prev[key] ? (secondKey && prev[secondKey] ? parseFloat(prev[key]!) + parseFloat(prev[secondKey]!) : parseFloat(prev[key]!)) : null;
 
                 let trend: 'up' | 'down' | 'stable' = 'stable';
-                if (prevValue !== null) {
+                if (prevValue !== null && !isNaN(currentValue) && !isNaN(prevValue)) {
                     if (currentValue > prevValue) trend = 'up';
                     if (currentValue < prevValue) trend = 'down';
                 }
@@ -128,6 +129,7 @@ export function Dashboard() {
                 const sugar = parseFloat(recent.bloodSugar || '0');
                 const temp = parseFloat(recent.temperature || '0');
                 const oxygen = parseFloat(recent.oxygenSaturation || '0');
+                const pulse = parseFloat(recent.pulseRate || '0');
 
                 switch(type) {
                     case 'blood_pressure':
@@ -146,11 +148,15 @@ export function Dashboard() {
                         if (temp > 100.4 || temp < 97) status = 'Critical';
                         else if (temp > 99.5) status = 'Moderate';
                         break;
+                    case 'pulse_rate':
+                        if (pulse > 100 || pulse < 60) status = 'Critical';
+                        else if (pulse > 90) status = 'Moderate';
+                        break;
                 }
 
                 return {
                     type,
-                    value: secondKey ? `${recent[key]}/${recent[secondKey]}` : recent[key]!,
+                    value: secondKey && recent[secondKey] ? `${recent[key]}/${recent[secondKey]}` : recent[key]!,
                     unit: vitalConfig[type].unit,
                     status,
                     trend,
@@ -161,8 +167,9 @@ export function Dashboard() {
             const latestSugar = findLatest('blood_sugar', 'bloodSugar');
             const latestOxygen = findLatest('oxygen_saturation', 'oxygenSaturation');
             const latestTemp = findLatest('temperature', 'temperature');
+            const latestPulse = findLatest('pulse_rate', 'pulseRate');
 
-            const vitalsToShow = [latestBP, latestSugar, latestOxygen, latestTemp].filter(v => v !== null) as LatestVital[];
+            const vitalsToShow = [latestBP, latestSugar, latestOxygen, latestTemp, latestPulse].filter(v => v !== null) as LatestVital[];
             setLatestVitals(vitalsToShow);
 
         } catch (error) {
