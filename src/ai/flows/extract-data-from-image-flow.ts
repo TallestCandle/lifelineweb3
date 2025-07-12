@@ -110,3 +110,4 @@ const extractDataFromImageFlow = ai.defineFlow(
     return output;
   }
 );
+
