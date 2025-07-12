@@ -87,7 +87,7 @@ function AppShellInternal({ children }: { children: React.ReactNode }) {
           <SidebarMenu>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href} legacyBehavior passHref>
+                <Link href={item.href}>
                     <SidebarMenuButton
                         isActive={pathname === item.href}
                         icon={<item.icon />}
@@ -104,7 +104,7 @@ function AppShellInternal({ children }: { children: React.ReactNode }) {
             <SidebarMenu>
                  {bottomMenuItems.map((item) => (
                     <SidebarMenuItem key={item.href}>
-                        <Link href={item.href} legacyBehavior passHref>
+                        <Link href={item.href}>
                              <SidebarMenuButton
                                 isActive={pathname === item.href}
                                 icon={<item.icon />}
