@@ -1,12 +1,12 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, where, orderBy, limit, getDocs } from 'firebase/firestore';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import {
   Building2,
   ArrowRight,
@@ -15,14 +15,15 @@ import {
   Droplets,
   Wind,
   Thermometer,
-  AlertCircle
-} from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from '../ui/button';
-import { Skeleton } from '../ui/skeleton';
-import { Badge } from '../ui/badge';
+  AlertCircle,
+} from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Separator } from '../ui/separator';
+import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
 
 // --- Types ---
 interface Investigation {
@@ -32,264 +33,286 @@ interface Investigation {
 }
 
 interface VitalReading {
-    date: string;
-    systolic?: string;
-    diastolic?: string;
-    bloodSugar?: string;
-    oxygenSaturation?: string;
-    temperature?: string;
+  date: string;
+  systolic?: string;
+  diastolic?: string;
+  bloodSugar?: string;
+  oxygenSaturation?: string;
+  temperature?: string;
+  otherData?: { metricName: string; metricValue: string }[];
 }
 
-interface VitalUIProps {
-    label: string;
-    value: string;
-    unit: string;
-    Icon: React.ElementType;
-    status: 'Good' | 'Moderate' | 'Critical';
+interface VitalStatus {
+  label: string;
+  value: string;
+  unit: string;
+  Icon: React.ComponentType<{ className?: string }>;
+  status: 'Good' | 'Moderate' | 'Critical';
 }
 
-const statusConfig: Record<Investigation['status'], { text: string; color: string; }> = {
-  pending_review: { text: 'Awaiting Doctor Review', color: 'bg-yellow-500' },
-  awaiting_lab_results: { text: 'Awaiting Lab Results', color: 'bg-blue-500' },
-  pending_final_review: { text: 'Doctor Reviewing Results', color: 'bg-yellow-500' },
-  completed: { text: 'Case Complete', color: 'bg-green-500' },
-  rejected: { text: 'Case Closed', color: 'bg-red-500' },
-  awaiting_follow_up_visit: { text: 'Follow-up Visit Pending', color: 'bg-cyan-500' },
+// --- Configuration ---
+const statusConfig: Record<VitalStatus['status'], string> = {
+  Good: 'bg-green-500',
+  Moderate: 'bg-yellow-500',
+  Critical: 'bg-red-600',
 };
 
-const statusBadgeConfig: Record<VitalUIProps['status'], string> = {
-    'Good': 'bg-green-500',
-    'Moderate': 'bg-yellow-500',
-    'Critical': 'bg-red-500',
+// --- Helper Functions ---
+const getVitalStatus = (type: keyof Omit<VitalReading, 'date' | 'otherData'>, value1: number, value2?: number): VitalStatus['status'] => {
+  switch (type) {
+    case 'systolic':
+      const systolic = value1;
+      const diastolic = value2 ?? 0;
+      if (systolic >= 140 || diastolic >= 90) return 'Critical';
+      if (systolic >= 130 || diastolic >= 80) return 'Moderate';
+      return 'Good';
+    case 'bloodSugar':
+      if (value1 > 180 || value1 < 70) return 'Critical';
+      if (value1 > 140) return 'Moderate';
+      return 'Good';
+    case 'oxygenSaturation':
+      if (value1 < 92) return 'Critical';
+      if (value1 < 95) return 'Moderate';
+      return 'Good';
+    case 'temperature':
+      if (value1 > 100.4) return 'Critical';
+      if (value1 > 99.5) return 'Moderate';
+      return 'Good';
+    default:
+      return 'Good';
+  }
 };
-
-
-const getVitalStatus = (type: keyof VitalReading, value1: number, value2?: number): VitalUIProps['status'] => {
-    switch (type) {
-        case 'systolic': // This case covers blood pressure
-            const systolic = value1;
-            const diastolic = value2 || 0;
-            if ((systolic >= 140 || diastolic >= 90)) return 'Critical';
-            if ((systolic >= 130 || diastolic >= 80)) return 'Moderate';
-            return 'Good';
-        case 'bloodSugar':
-            if (value1 > 180 || value1 < 70) return 'Critical';
-            if (value1 > 140) return 'Moderate';
-            return 'Good';
-        case 'oxygenSaturation':
-            if (value1 < 92) return 'Critical';
-            if (value1 < 95) return 'Moderate';
-            return 'Good';
-        case 'temperature':
-            if (value1 > 100.4) return 'Critical';
-            if (value1 > 99.5) return 'Moderate';
-            return 'Good';
-        default:
-            return 'Good';
-    }
-};
-
 
 export function Dashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [activeCases, setActiveCases] = useState<Investigation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
-  const [latestVitals, setLatestVitals] = useState<Partial<Record<keyof VitalReading, VitalReading>>>({});
+  const [latestVitals, setLatestVitals] = useState<Record<string, VitalReading>>({});
   const [isVitalsLoading, setIsVitalsLoading] = useState(true);
-
 
   const firstName = user?.displayName?.split(' ')[0] || 'User';
 
   useEffect(() => {
-    if (!user) {
+    if (!user?.uid) {
       setIsLoading(false);
       setIsVitalsLoading(false);
       return;
     }
-    
-    setIsLoading(true);
-    setIsVitalsLoading(true);
 
     // --- Fetch Vitals ---
-    const vitalsQuery = query(collection(db, `users/${user.uid}/vitals`), orderBy("date", "desc"), limit(20));
-    const unsubscribeVitals = onSnapshot(vitalsQuery, (snapshot) => {
-        const latestFoundVitals = new Map<keyof VitalReading, VitalReading>();
+    const vitalsQuery = query(collection(db, `users/${user.uid}/vitals`), orderBy('date', 'desc'), limit(20));
+    const unsubscribeVitals = onSnapshot(
+      vitalsQuery,
+      (snapshot) => {
+        const foundVitals = new Map<string, VitalReading>();
+        const vitalTypes = ['systolic', 'bloodSugar', 'oxygenSaturation', 'temperature'];
 
-        snapshot.docs.forEach(doc => {
-            const data = doc.data() as VitalReading;
-            
-            if (data.systolic && data.diastolic && !latestFoundVitals.has('systolic')) {
-                latestFoundVitals.set('systolic', data);
-            }
-            if (data.bloodSugar && !latestFoundVitals.has('bloodSugar')) {
-                latestFoundVitals.set('bloodSugar', data);
-            }
-            if (data.oxygenSaturation && !latestFoundVitals.has('oxygenSaturation')) {
-                latestFoundVitals.set('oxygenSaturation', data);
-            }
-            if (data.temperature && !latestFoundVitals.has('temperature')) {
-                latestFoundVitals.set('temperature', data);
-            }
+        snapshot.docs.forEach((doc) => {
+          const data = doc.data() as VitalReading;
+          
+          if (data.systolic && !foundVitals.has('systolic')) {
+            foundVitals.set('systolic', data);
+          }
+          if (data.bloodSugar && !foundVitals.has('bloodSugar')) {
+            foundVitals.set('bloodSugar', data);
+          }
+          if (data.oxygenSaturation && !foundVitals.has('oxygenSaturation')) {
+            foundVitals.set('oxygenSaturation', data);
+          }
+          if (data.temperature && !foundVitals.has('temperature')) {
+            foundVitals.set('temperature', data);
+          }
         });
-
-        setLatestVitals(Object.fromEntries(latestFoundVitals));
+        
+        setLatestVitals(Object.fromEntries(foundVitals));
         setIsVitalsLoading(false);
-    }, (error) => {
-        console.error("Error fetching vitals:", error);
+      },
+      (error) => {
+        console.error('Error fetching vitals:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load vital readings.',
+          variant: 'destructive',
+        });
         setIsVitalsLoading(false);
-    });
+      }
+    );
 
     // --- Fetch Active Cases ---
     const casesQuery = query(collection(db, "investigations"), where("userId", "==", user.uid), where("status", "in", ["pending_review", "awaiting_lab_results", "pending_final_review", "awaiting_follow_up_visit"]));
     const unsubscribeCases = onSnapshot(casesQuery, (snapshot) => {
       setActiveCases(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investigation)));
-      setIsLoading(false); // General loading off
-    }, (error) => {
-        console.error("Error fetching active cases:", error);
-        setIsLoading(false);
     });
 
     return () => {
       unsubscribeVitals();
       unsubscribeCases();
     };
-  }, [user]);
+  }, [user?.uid, toast]);
 
-  const vitalDisplayData: VitalUIProps[] = Object.entries(latestVitals).map(([type, data]) => {
-      switch(type as keyof VitalReading) {
+  const vitalDisplayData = useMemo<VitalStatus[]>(() => {
+    return Object.entries(latestVitals)
+      .map(([type, data]) => {
+        if (!data) return null;
+        switch (type) {
           case 'systolic':
-              return {
-                  label: 'Blood Pressure',
-                  value: `${data.systolic}/${data.diastolic}`,
-                  unit: 'mmHg',
-                  Icon: HeartPulse,
-                  status: getVitalStatus('systolic', Number(data.systolic), Number(data.diastolic))
-              };
+            if (!data.systolic || !data.diastolic) return null;
+            return {
+              label: 'Blood Pressure',
+              value: `${data.systolic}/${data.diastolic}`,
+              unit: 'mmHg',
+              Icon: HeartPulse,
+              status: getVitalStatus('systolic', Number(data.systolic), Number(data.diastolic)),
+            };
           case 'bloodSugar':
-              return {
-                  label: 'Blood Sugar',
-                  value: data.bloodSugar!,
-                  unit: 'mg/dL',
-                  Icon: Droplets,
-                  status: getVitalStatus('bloodSugar', Number(data.bloodSugar))
-              };
+            if (!data.bloodSugar) return null;
+            return {
+              label: 'Blood Sugar',
+              value: data.bloodSugar,
+              unit: 'mg/dL',
+              Icon: Droplets,
+              status: getVitalStatus('bloodSugar', Number(data.bloodSugar)),
+            };
           case 'oxygenSaturation':
-              return {
-                  label: 'Oxygen Saturation',
-                  value: data.oxygenSaturation!,
-                  unit: '%',
-                  Icon: Wind,
-                  status: getVitalStatus('oxygenSaturation', Number(data.oxygenSaturation))
-              };
+            if (!data.oxygenSaturation) return null;
+            return {
+              label: 'Oxygen Saturation',
+              value: data.oxygenSaturation,
+              unit: '%',
+              Icon: Wind,
+              status: getVitalStatus('oxygenSaturation', Number(data.oxygenSaturation)),
+            };
           case 'temperature':
-              return {
-                  label: 'Temperature',
-                  value: data.temperature!,
-                  unit: '°F',
-                  Icon: Thermometer,
-                  status: getVitalStatus('temperature', Number(data.temperature))
-              };
+            if (!data.temperature) return null;
+            return {
+              label: 'Temperature',
+              value: data.temperature,
+              unit: '°F',
+              Icon: Thermometer,
+              status: getVitalStatus('temperature', Number(data.temperature)),
+            };
           default:
-              return null;
-      }
-  }).filter((item): item is VitalUIProps => item !== null);
+            return null;
+        }
+      })
+      .filter((item): item is VitalStatus => item !== null);
+  }, [latestVitals]);
 
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="space-y-2">
-        <h1 className="text-3xl md:text-4xl font-bold text-foreground">
-          Welcome, {firstName}
-        </h1>
-        <p className="text-lg text-muted-foreground">Here is your most recent health summary.</p>
+        <h1 className="text-3xl md:text-4xl font-bold text-foreground">Welcome, {firstName}</h1>
+        <p className="text-lg text-muted-foreground">Here is your health summary.</p>
       </div>
-      
-      <div className="space-y-6">
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         <Card>
-            <CardHeader>
-                <CardTitle>Recent Health Snapshot</CardTitle>
-            </CardHeader>
-            <CardContent>
-                {isVitalsLoading ? (
-                    <Skeleton className="h-48 w-full" />
-                ) : vitalDisplayData.length > 0 ? (
-                    <div className="space-y-4">
-                        {vitalDisplayData.map((vital, index) => (
-                            <React.Fragment key={vital.label}>
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-3">
-                                        <vital.Icon className="w-6 h-6 text-primary"/>
-                                        <p className="font-bold">{vital.label}</p>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <p className="text-lg font-mono">{vital.value} <span className="text-sm text-muted-foreground">{vital.unit}</span></p>
-                                        <Badge className={cn("text-white", statusBadgeConfig[vital.status])}>{vital.status}</Badge>
-                                    </div>
-                                </div>
-                                {index < vitalDisplayData.length - 1 && <Separator />}
-                            </React.Fragment>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                        <AlertCircle className="mx-auto h-12 w-12" />
-                        <h3 className="mt-4 text-lg font-semibold">No Recent Vitals</h3>
-                        <p className="mt-1 text-sm">
-                            Use the AI Logger to record your health data.
+          <CardHeader>
+            <CardTitle>Recent Health Snapshot</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isVitalsLoading ? (
+              <div className="space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : vitalDisplayData.length > 0 ? (
+              <div className="space-y-4">
+                {vitalDisplayData.map((vital, index) => (
+                  <React.Fragment key={vital.label}>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <vital.Icon className="w-6 h-6 text-primary" />
+                        <p className="font-bold">{vital.label}</p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <p className="text-lg font-mono">
+                          {vital.value} <span className="text-sm text-muted-foreground">{vital.unit}</span>
                         </p>
-                        <Button asChild className="mt-4">
-                            <Link href="/log">Go to Logger</Link>
-                        </Button>
+                        <Badge className={cn('text-white', statusConfig[vital.status])}>
+                          {vital.status}
+                        </Badge>
+                      </div>
                     </div>
-                )}
-            </CardContent>
+                    {index < vitalDisplayData.length - 1 && <Separator />}
+                  </React.Fragment>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <AlertCircle className="mx-auto h-12 w-12" />
+                <h3 className="mt-4 text-lg font-semibold">No Recent Vitals</h3>
+                <p className="mt-1 text-sm">Use the AI Logger to record your health data.</p>
+                <Button asChild className="mt-4">
+                  <Link href="/log">Go to Logger</Link>
+                </Button>
+              </div>
+            )}
+          </CardContent>
         </Card>
 
         <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Building2 className="text-primary"/> Active Clinic Cases
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="text-primary" /> Active Clinic Cases
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             {isLoading ? (
-                <div className="space-y-2">
-                    <Skeleton className="h-12 w-full" />
-                </div>
+              <div className="space-y-2">
+                <Skeleton className="h-12 w-full" />
+              </div>
             ) : activeCases.length > 0 ? (
-                <div className="space-y-4">
-                {activeCases.map(c => {
-                    const config = statusConfig[c.status];
-                    return (
-                    <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-                        <div>
-                        <p className="font-bold">Case from {format(parseISO(c.createdAt), 'MMM d, yyyy')}</p>
-                        <Badge className={cn("mt-1 text-white", config.color)}>{config.text}</Badge>
-                        </div>
-                        <Button asChild variant="outline" size="sm">
-                        <Link href="/clinic">View Case <ArrowRight className="ml-2 h-4 w-4"/></Link>
-                        </Button>
+              <div className="space-y-4">
+                {activeCases.map((c) => {
+                  const caseStatusConfig = {
+                    pending_review: { text: 'Awaiting Doctor Review', color: 'bg-yellow-500' },
+                    awaiting_lab_results: { text: 'Awaiting Lab Results', color: 'bg-blue-500' },
+                    pending_final_review: { text: 'Doctor Reviewing Results', color: 'bg-yellow-500' },
+                    completed: { text: 'Case Complete', color: 'bg-green-500' },
+                    rejected: { text: 'Case Closed', color: 'bg-red-500' },
+                    awaiting_follow_up_visit: { text: 'Follow-up Visit Pending', color: 'bg-cyan-500' },
+                  };
+                  const config = caseStatusConfig[c.status];
+                  const createdAtDate = parseISO(c.createdAt);
+                  const formattedDate = isValid(createdAtDate)
+                    ? format(createdAtDate, 'MMM d, yyyy')
+                    : 'Invalid Date';
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
+                    >
+                      <div>
+                        <p className="font-bold">Case from {formattedDate}</p>
+                        <Badge className={cn('mt-1 text-white', config.color)}>{config.text}</Badge>
+                      </div>
+                      <Button asChild variant="outline" size="sm">
+                        <Link href="/clinic">
+                          View Case <ArrowRight className="ml-2 h-4 w-4" />
+                        </Link>
+                      </Button>
                     </div>
-                    )
+                  );
                 })}
-                </div>
+              </div>
             ) : (
-                <div className="text-center py-8">
+              <div className="text-center py-8">
                 <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-4 text-lg font-semibold">No Active Cases</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    Start a new case in the clinic if you have any health concerns.
+                  Start a new case in the clinic if you have any health concerns.
                 </p>
                 <Button asChild className="mt-4">
-                    <Link href="/clinic">Go to Clinic</Link>
+                  <Link href="/clinic">Go to Clinic</Link>
                 </Button>
-                </div>
+              </div>
             )}
-            </CardContent>
+          </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-
-    
