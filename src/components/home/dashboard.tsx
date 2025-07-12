@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, onSnapshot, where, orderBy, limit } from 'firebase/firestore';
 import { format, parseISO, isValid } from 'date-fns';
 import {
   Building2,
@@ -39,7 +39,6 @@ interface VitalReading {
   bloodSugar?: string;
   oxygenSaturation?: string;
   temperature?: string;
-  otherData?: { metricName: string; metricValue: string }[];
 }
 
 interface VitalStatus {
@@ -51,14 +50,23 @@ interface VitalStatus {
 }
 
 // --- Configuration ---
-const statusConfig: Record<VitalStatus['status'], string> = {
-  Good: 'bg-green-500',
-  Moderate: 'bg-yellow-500',
-  Critical: 'bg-red-600',
+const statusConfig: Record<VitalStatus['status'], { text: string, color: string }> = {
+  Good: { text: 'Good', color: 'bg-green-500' },
+  Moderate: { text: 'Moderate', color: 'bg-yellow-500' },
+  Critical: { text: 'Critical', color: 'bg-red-600' },
+};
+
+const caseStatusConfig: Record<Investigation['status'], { text: string; color: string }> = {
+    pending_review: { text: 'Awaiting Doctor Review', color: 'bg-yellow-500' },
+    awaiting_lab_results: { text: 'Awaiting Lab Results', color: 'bg-blue-500' },
+    pending_final_review: { text: 'Doctor Reviewing Results', color: 'bg-yellow-500' },
+    completed: { text: 'Case Complete', color: 'bg-green-500' },
+    rejected: { text: 'Case Closed', color: 'bg-red-500' },
+    awaiting_follow_up_visit: { text: 'Follow-up Visit Pending', color: 'bg-cyan-500' },
 };
 
 // --- Helper Functions ---
-const getVitalStatus = (type: keyof Omit<VitalReading, 'date' | 'otherData'>, value1: number, value2?: number): VitalStatus['status'] => {
+const getVitalStatus = (type: keyof Omit<VitalReading, 'date'>, value1: number, value2?: number): VitalStatus['status'] => {
   switch (type) {
     case 'systolic':
       const systolic = value1;
@@ -87,59 +95,29 @@ export function Dashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeCases, setActiveCases] = useState<Investigation[]>([]);
+  const [latestVitals, setLatestVitals] = useState<VitalReading[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [latestVitals, setLatestVitals] = useState<Record<string, VitalReading>>({});
-  const [isVitalsLoading, setIsVitalsLoading] = useState(true);
 
   const firstName = user?.displayName?.split(' ')[0] || 'User';
 
   useEffect(() => {
     if (!user?.uid) {
       setIsLoading(false);
-      setIsVitalsLoading(false);
       return;
     }
+    
+    setIsLoading(true);
 
-    // --- Fetch Vitals ---
     const vitalsQuery = query(collection(db, `users/${user.uid}/vitals`), orderBy('date', 'desc'), limit(20));
-    const unsubscribeVitals = onSnapshot(
-      vitalsQuery,
-      (snapshot) => {
-        const foundVitals = new Map<string, VitalReading>();
-        const vitalTypes = ['systolic', 'bloodSugar', 'oxygenSaturation', 'temperature'];
-
-        snapshot.docs.forEach((doc) => {
-          const data = doc.data() as VitalReading;
-          
-          if (data.systolic && !foundVitals.has('systolic')) {
-            foundVitals.set('systolic', data);
-          }
-          if (data.bloodSugar && !foundVitals.has('bloodSugar')) {
-            foundVitals.set('bloodSugar', data);
-          }
-          if (data.oxygenSaturation && !foundVitals.has('oxygenSaturation')) {
-            foundVitals.set('oxygenSaturation', data);
-          }
-          if (data.temperature && !foundVitals.has('temperature')) {
-            foundVitals.set('temperature', data);
-          }
-        });
-        
-        setLatestVitals(Object.fromEntries(foundVitals));
-        setIsVitalsLoading(false);
-      },
-      (error) => {
+    const unsubscribeVitals = onSnapshot(vitalsQuery, (snapshot) => {
+        setLatestVitals(snapshot.docs.map(doc => doc.data() as VitalReading));
+        setIsLoading(false);
+    }, (error) => {
         console.error('Error fetching vitals:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load vital readings.',
-          variant: 'destructive',
-        });
-        setIsVitalsLoading(false);
-      }
-    );
+        toast({ title: 'Error', description: 'Failed to load vital readings.', variant: 'destructive' });
+        setIsLoading(false);
+    });
 
-    // --- Fetch Active Cases ---
     const casesQuery = query(collection(db, "investigations"), where("userId", "==", user.uid), where("status", "in", ["pending_review", "awaiting_lab_results", "pending_final_review", "awaiting_follow_up_visit"]));
     const unsubscribeCases = onSnapshot(casesQuery, (snapshot) => {
       setActiveCases(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investigation)));
@@ -152,51 +130,51 @@ export function Dashboard() {
   }, [user?.uid, toast]);
 
   const vitalDisplayData = useMemo<VitalStatus[]>(() => {
-    return Object.entries(latestVitals)
-      .map(([type, data]) => {
-        if (!data) return null;
-        switch (type) {
-          case 'systolic':
-            if (!data.systolic || !data.diastolic) return null;
-            return {
-              label: 'Blood Pressure',
-              value: `${data.systolic}/${data.diastolic}`,
-              unit: 'mmHg',
-              Icon: HeartPulse,
-              status: getVitalStatus('systolic', Number(data.systolic), Number(data.diastolic)),
-            };
-          case 'bloodSugar':
-            if (!data.bloodSugar) return null;
-            return {
-              label: 'Blood Sugar',
-              value: data.bloodSugar,
-              unit: 'mg/dL',
-              Icon: Droplets,
-              status: getVitalStatus('bloodSugar', Number(data.bloodSugar)),
-            };
-          case 'oxygenSaturation':
-            if (!data.oxygenSaturation) return null;
-            return {
-              label: 'Oxygen Saturation',
-              value: data.oxygenSaturation,
-              unit: '%',
-              Icon: Wind,
-              status: getVitalStatus('oxygenSaturation', Number(data.oxygenSaturation)),
-            };
-          case 'temperature':
-            if (!data.temperature) return null;
-            return {
-              label: 'Temperature',
-              value: data.temperature,
-              unit: '°F',
-              Icon: Thermometer,
-              status: getVitalStatus('temperature', Number(data.temperature)),
-            };
-          default:
-            return null;
+    const vitalTypes: (keyof Omit<VitalReading, 'date'>)[] = ['systolic', 'bloodSugar', 'oxygenSaturation', 'temperature'];
+    const foundVitals = new Map<keyof Omit<VitalReading, 'date'>, VitalStatus>();
+
+    for (const reading of latestVitals) {
+        for (const type of vitalTypes) {
+            if (reading[type] && !foundVitals.has(type)) {
+                 switch (type) {
+                    case 'systolic':
+                        if (reading.systolic && reading.diastolic) {
+                             foundVitals.set('systolic', {
+                                label: 'Blood Pressure', value: `${reading.systolic}/${reading.diastolic}`, unit: 'mmHg', Icon: HeartPulse,
+                                status: getVitalStatus('systolic', Number(reading.systolic), Number(reading.diastolic)),
+                            });
+                        }
+                        break;
+                    case 'bloodSugar':
+                        if (reading.bloodSugar) {
+                            foundVitals.set('bloodSugar', {
+                                label: 'Blood Sugar', value: reading.bloodSugar, unit: 'mg/dL', Icon: Droplets,
+                                status: getVitalStatus('bloodSugar', Number(reading.bloodSugar)),
+                            });
+                        }
+                        break;
+                    case 'oxygenSaturation':
+                         if (reading.oxygenSaturation) {
+                            foundVitals.set('oxygenSaturation', {
+                                label: 'Oxygen Saturation', value: reading.oxygenSaturation, unit: '%', Icon: Wind,
+                                status: getVitalStatus('oxygenSaturation', Number(reading.oxygenSaturation)),
+                            });
+                        }
+                        break;
+                    case 'temperature':
+                        if (reading.temperature) {
+                            foundVitals.set('temperature', {
+                                label: 'Temperature', value: reading.temperature, unit: '°F', Icon: Thermometer,
+                                status: getVitalStatus('temperature', Number(reading.temperature)),
+                            });
+                        }
+                        break;
+                }
+            }
         }
-      })
-      .filter((item): item is VitalStatus => item !== null);
+    }
+
+    return Array.from(foundVitals.values());
   }, [latestVitals]);
 
   return (
@@ -212,11 +190,9 @@ export function Dashboard() {
             <CardTitle>Recent Health Snapshot</CardTitle>
           </CardHeader>
           <CardContent>
-            {isVitalsLoading ? (
+            {isLoading ? (
               <div className="space-y-4">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
+                {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
               </div>
             ) : vitalDisplayData.length > 0 ? (
               <div className="space-y-4">
@@ -231,8 +207,8 @@ export function Dashboard() {
                         <p className="text-lg font-mono">
                           {vital.value} <span className="text-sm text-muted-foreground">{vital.unit}</span>
                         </p>
-                        <Badge className={cn('text-white', statusConfig[vital.status])}>
-                          {vital.status}
+                        <Badge className={cn('text-white', statusConfig[vital.status].color)}>
+                          {statusConfig[vital.status].text}
                         </Badge>
                       </div>
                     </div>
@@ -267,24 +243,11 @@ export function Dashboard() {
             ) : activeCases.length > 0 ? (
               <div className="space-y-4">
                 {activeCases.map((c) => {
-                  const caseStatusConfig = {
-                    pending_review: { text: 'Awaiting Doctor Review', color: 'bg-yellow-500' },
-                    awaiting_lab_results: { text: 'Awaiting Lab Results', color: 'bg-blue-500' },
-                    pending_final_review: { text: 'Doctor Reviewing Results', color: 'bg-yellow-500' },
-                    completed: { text: 'Case Complete', color: 'bg-green-500' },
-                    rejected: { text: 'Case Closed', color: 'bg-red-500' },
-                    awaiting_follow_up_visit: { text: 'Follow-up Visit Pending', color: 'bg-cyan-500' },
-                  };
                   const config = caseStatusConfig[c.status];
                   const createdAtDate = parseISO(c.createdAt);
-                  const formattedDate = isValid(createdAtDate)
-                    ? format(createdAtDate, 'MMM d, yyyy')
-                    : 'Invalid Date';
+                  const formattedDate = isValid(createdAtDate) ? format(createdAtDate, 'MMM d, yyyy') : 'Invalid Date';
                   return (
-                    <div
-                      key={c.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
-                    >
+                    <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                       <div>
                         <p className="font-bold">Case from {formattedDate}</p>
                         <Badge className={cn('mt-1 text-white', config.color)}>{config.text}</Badge>
