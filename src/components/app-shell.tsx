@@ -37,6 +37,7 @@ import {
   SidebarProvider,
   Sidebar,
   SidebarHeader,
+  SidebarFooter,
   SidebarContent,
   SidebarMenu,
   SidebarMenuItem,
@@ -59,7 +60,7 @@ const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
 function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { state: sidebarState, toggleSidebar } = useSidebar();
+  const { toggleSidebar } = useSidebar();
 
   const handleLogout = async () => {
     try {
