@@ -38,7 +38,6 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from './ui/button';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 
 const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
@@ -60,14 +59,12 @@ function AppShellInternal({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const { toggleSidebar, state } = useSidebar();
-  const isMobile = useIsMobile();
 
   const handleLogout = async () => {
     try {
       if (auth) {
         await signOut(auth);
       }
-      // No need to router.push, AuthGuard will handle it
     } catch (error) {
       console.error("Error signing out: ", error);
     }
@@ -77,10 +74,7 @@ function AppShellInternal({ children }: { children: React.ReactNode }) {
     <>
       <Sidebar>
         <SidebarHeader>
-           <div className="flex items-center gap-2">
-                <Stethoscope className="w-8 h-8 text-primary" />
-                <span className="font-bold text-lg text-foreground">Lifeline AI</span>
-           </div>
+           {/* Header is kept for structure but content is moved to main header */}
         </SidebarHeader>
 
         <SidebarContent>
@@ -142,6 +136,14 @@ function AppShellInternal({ children }: { children: React.ReactNode }) {
                  >
                     <ChevronLeft className={`h-5 w-5 transition-transform duration-300 ${state === 'collapsed' ? 'rotate-180' : ''}`} />
                  </Button>
+                 <div className="hidden md:flex items-center gap-2">
+                    <Stethoscope className="w-8 h-8 text-primary" />
+                    <span className="font-bold text-lg text-foreground">Lifeline AI</span>
+                </div>
+            </div>
+            <div className="md:hidden flex items-center gap-2">
+                <Stethoscope className="w-8 h-8 text-primary" />
+                <span className="font-bold text-lg text-foreground">Lifeline AI</span>
             </div>
             <div className="flex items-center gap-4">
                 <span className="text-sm font-semibold text-foreground hidden sm:inline-block">{user?.displayName || 'User'}</span>
@@ -160,8 +162,6 @@ function AppShellInternal({ children }: { children: React.ReactNode }) {
 
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-    // Default the sidebar to be open on desktop.
-    // The user can override this by clicking the toggle button, which is saved in a cookie.
     const defaultOpen = typeof window !== 'undefined' ? 
         document.cookie.includes('sidebar_state=true') : true;
 
