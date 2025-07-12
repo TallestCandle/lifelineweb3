@@ -28,6 +28,11 @@ interface VitalMeterProps {
 }
 
 const Needle = ({ value, cx, cy, iR, oR, color, angle }: any) => {
+  // Safeguard against NaN values during initial render cycles
+  if ([cx, cy, iR, oR, angle].some(val => typeof val !== 'number')) {
+    return null;
+  }
+  
   const needleRadius = (oR - iR) / 2 + iR;
   const length = oR - iR;
   const needleAngle = 180 + angle;
@@ -45,8 +50,8 @@ const Needle = ({ value, cx, cy, iR, oR, color, angle }: any) => {
         x2={x2}
         y2={y2}
         stroke={color}
+        strokeLineCap="round"
         strokeWidth={2}
-        strokeLinecap="round"
       />
     </>
   );
