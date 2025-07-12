@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { format, parseISO } from 'date-fns';
 import {
   HeartPulse,
@@ -37,7 +37,7 @@ interface VitalReading {
   pulseRate?: string;
   date: string;
   otherData?: { metricName: string; metricValue: string }[];
-  type: 'Blood Pressure' | 'Blood Sugar' | 'Oxygen Saturation' | 'Temperature';
+  type?: 'Blood Pressure' | 'Blood Sugar' | 'Oxygen Saturation' | 'Temperature';
 }
 
 interface Investigation {
@@ -54,7 +54,6 @@ const statusConfig: Record<Investigation['status'], { text: string; color: strin
   rejected: { text: 'Case Closed', color: 'bg-red-500' },
   awaiting_follow_up_visit: { text: 'Follow-up Visit Pending', color: 'bg-cyan-500' },
 };
-
 
 // --- Helper function to get vital status ---
 function getVitalStatus(vital: VitalReading): {
@@ -96,7 +95,7 @@ function getVitalStatus(vital: VitalReading): {
     return { level: 'Good', message: 'Normal', icon: ShieldCheck, color: 'bg-gray-500' };
 }
 
-const VitalRow = ({ vital }: { vital: VitalReading }) => {
+const VitalRow = ({ vital }: { vital: VitalReading & { type: NonNullable<VitalReading['type']> } }) => {
     const status = getVitalStatus(vital);
     const icons = {
         'Blood Pressure': HeartPulse,
@@ -117,15 +116,15 @@ const VitalRow = ({ vital }: { vital: VitalReading }) => {
     };
 
     return (
-        <div className="flex items-center justify-between py-3">
+        <div className="flex items-start justify-between py-3">
             <div className="flex items-center gap-4">
-                <Icon className="w-6 h-6 text-primary" />
+                <Icon className="w-6 h-6 text-primary flex-shrink-0" />
                 <div>
                     <p className="font-bold">{vital.type}</p>
                     <p className="text-sm text-muted-foreground">{getValueString()}</p>
                 </div>
             </div>
-            <Badge className={cn("text-white", status.color)}>
+            <Badge className={cn("text-white text-xs", status.color)}>
                 <status.icon className="mr-1 h-3 w-3" />
                 {status.message}
             </Badge>
@@ -153,24 +152,28 @@ export function Dashboard() {
     const vitalsCollection = collection(db, `users/${user.uid}/vitals`);
     const q = query(vitalsCollection, orderBy("date", "desc"), limit(20));
     const unsubscribeVitals = onSnapshot(q, (snapshot) => {
-        const recentReadings = snapshot.docs.map(doc => doc.data());
+        const recentReadings = snapshot.docs.map(doc => doc.data() as VitalReading);
         
-        const latestEntries = new Map<string, any>();
+        const latestEntriesMap = new Map<string, VitalReading>();
         
-        // Helper to set if not already present
-        const setLatest = (type: VitalReading['type'], condition: (v: any) => boolean) => {
-            if (!latestEntries.has(type)) {
-                const reading = recentReadings.find(condition);
-                if (reading) latestEntries.set(type, { ...reading, type });
+        const processReading = (reading: VitalReading) => {
+            if (reading.systolic && reading.diastolic && !latestEntriesMap.has('Blood Pressure')) {
+                latestEntriesMap.set('Blood Pressure', { ...reading, type: 'Blood Pressure' });
+            }
+            if (reading.bloodSugar && !latestEntriesMap.has('Blood Sugar')) {
+                latestEntriesMap.set('Blood Sugar', { ...reading, type: 'Blood Sugar' });
+            }
+            if (reading.oxygenSaturation && !latestEntriesMap.has('Oxygen Saturation')) {
+                latestEntriesMap.set('Oxygen Saturation', { ...reading, type: 'Oxygen Saturation' });
+            }
+            if (reading.temperature && !latestEntriesMap.has('Temperature')) {
+                latestEntriesMap.set('Temperature', { ...reading, type: 'Temperature' });
             }
         };
 
-        setLatest('Blood Pressure', v => v.systolic && v.diastolic);
-        setLatest('Blood Sugar', v => v.bloodSugar);
-        setLatest('Oxygen Saturation', v => v.oxygenSaturation);
-        setLatest('Temperature', v => v.temperature);
+        recentReadings.forEach(processReading);
 
-        setLatestVitals(Array.from(latestEntries.values()));
+        setLatestVitals(Array.from(latestEntriesMap.values()));
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching latest vitals:", error);
@@ -208,7 +211,9 @@ export function Dashboard() {
                     <CardDescription>A summary of your latest and most important vital signs.</CardDescription>
                 </CardHeader>
                 <CardContent className="divide-y divide-border">
-                    {latestVitals.map((vital, index) => <VitalRow key={index} vital={vital} />)}
+                    {latestVitals.map((vital, index) => (
+                        vital.type ? <VitalRow key={index} vital={vital as VitalReading & { type: NonNullable<VitalReading['type']> }} /> : null
+                    ))}
                 </CardContent>
             </Card>
         ) : (
