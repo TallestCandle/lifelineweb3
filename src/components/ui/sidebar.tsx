@@ -579,10 +579,10 @@ const SidebarMenuButton = React.forwardRef<
     const { isMobile, state } = useSidebar()
 
     const buttonContent = (
-      <>
+      <div className="flex w-full items-center gap-3">
         {icon}
         <span className="group-data-[collapsible=icon]:hidden">{children}</span>
-      </>
+      </div>
     )
 
     const button = (
