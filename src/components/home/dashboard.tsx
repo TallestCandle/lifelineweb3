@@ -25,6 +25,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { Button } from '@/components/ui/button';
 
 
 type VitalType = 'blood_pressure' | 'blood_sugar' | 'oxygen_saturation' | 'pulse_rate';
@@ -102,29 +103,40 @@ export function Dashboard() {
                 const snapshot = await getDocs(vitalsQuery);
                 const history = snapshot.docs.map(doc => ({...doc.data(), date: doc.data().date ? parseISO(doc.data().date) : new Date()}));
                 
-                const processedVitals = (Object.keys(vitalConfig) as VitalType[]).map(type => {
-                    let readingsForType: any[] = [];
-                    if(type === 'blood_pressure') {
-                        readingsForType = history.filter(v => v.systolic && v.diastolic);
-                    } else if (type === 'blood_sugar') {
-                        readingsForType = history.filter(v => v.bloodSugar);
-                    } else if (type === 'oxygen_saturation') {
-                         readingsForType = history.filter(v => v.oxygenSaturation);
-                    } else if (type === 'pulse_rate') {
-                         readingsForType = history.filter(v => v.pulseRate);
-                    }
-                    
-                    if (readingsForType.length < 2) return null;
+                const latestReadings = new Map<VitalType, any>();
 
-                    const latest = readingsForType[0];
-                    const previous = readingsForType[1];
+                for (const vital of history) {
+                    if (!latestReadings.has('blood_pressure') && vital.systolic && vital.diastolic) {
+                        latestReadings.set('blood_pressure', vital);
+                    }
+                    if (!latestReadings.has('blood_sugar') && vital.bloodSugar) {
+                        latestReadings.set('blood_sugar', vital);
+                    }
+                    if (!latestReadings.has('oxygen_saturation') && vital.oxygenSaturation) {
+                        latestReadings.set('oxygen_saturation', vital);
+                    }
+                     if (!latestReadings.has('pulse_rate') && vital.pulseRate) {
+                        latestReadings.set('pulse_rate', vital);
+                    }
+                }
+
+                const processedVitals = (Object.keys(vitalConfig) as VitalType[]).map(type => {
+                    const latest = latestReadings.get(type);
+                    if (!latest) return null;
+
+                    const historyForType = history.filter(v => v[type.replace('_', '')] || (type === 'blood_pressure' && v.systolic));
+                    if (historyForType.length < 2) return null;
+
+                    const previousIndex = historyForType.findIndex(v => v.date < latest.date);
+                    const previous = previousIndex !== -1 ? historyForType[previousIndex] : null;
+
                     let value = '', currentValue = 0, prevValue = 0, trend: 'up' | 'down' | 'stable' = 'stable', status: 'Good' | 'Moderate' | 'Critical' = 'Good';
 
                     switch(type) {
                         case 'blood_pressure':
                             value = `${latest.systolic}/${latest.diastolic}`;
                             currentValue = parseFloat(latest.systolic);
-                            prevValue = parseFloat(previous.systolic);
+                            prevValue = previous ? parseFloat(previous.systolic) : 0;
                             const s = parseFloat(latest.systolic);
                             const d = parseFloat(latest.diastolic);
                             if (s >= 130 || d >= 80) status = 'Critical';
@@ -134,33 +146,35 @@ export function Dashboard() {
                         case 'blood_sugar':
                             value = latest.bloodSugar;
                             currentValue = parseFloat(value);
-                            prevValue = parseFloat(previous.bloodSugar);
+                            prevValue = previous ? parseFloat(previous.bloodSugar) : 0;
                             if (currentValue > 180 || currentValue < 70) status = 'Critical';
                             else if (currentValue > 140) status = 'Moderate';
                             break;
                         case 'oxygen_saturation':
                             value = latest.oxygenSaturation;
                             currentValue = parseFloat(value);
-                            prevValue = parseFloat(previous.oxygenSaturation);
+                            prevValue = previous ? parseFloat(previous.oxygenSaturation) : 0;
                             if (currentValue < 92) status = 'Critical';
                             else if (currentValue < 95) status = 'Moderate';
                             break;
                         case 'pulse_rate':
                             value = latest.pulseRate;
                             currentValue = parseFloat(value);
-                            prevValue = parseFloat(previous.pulseRate);
+                            prevValue = previous ? parseFloat(previous.pulseRate) : 0;
                             if (currentValue > 100 || currentValue < 60) status = 'Critical';
                             else if (currentValue > 90) status = 'Moderate';
                             break;
                     }
                     
-                    if (currentValue > prevValue) trend = 'up';
-                    else if (currentValue < prevValue) trend = 'down';
+                    if(previous) {
+                        if (currentValue > prevValue) trend = 'up';
+                        else if (currentValue < prevValue) trend = 'down';
+                    }
                     
-                    const change = Math.abs(currentValue - prevValue);
+                    const change = Math.abs(currentValue - (prevValue || currentValue));
                     const trendValue = `${change.toFixed(type === 'blood_pressure' ? 0 : 1)}${vitalConfig[type].unit}`;
 
-                    const historyForChart = readingsForType.slice(0, 10).reverse().map(d => ({ value: type === 'blood_pressure' ? parseFloat(d.systolic) : parseFloat(d[type.replace('_', '')] || d[type] || '0') }));
+                    const historyForChart = historyForType.slice(0, 10).reverse().map(d => ({ value: type === 'blood_pressure' ? parseFloat(d.systolic) : parseFloat(d[type.replace('_', '')] || d[type] || '0') }));
                     
                     return { type, value, unit: vitalConfig[type].unit, status, trend, trendValue, history: historyForChart };
 
