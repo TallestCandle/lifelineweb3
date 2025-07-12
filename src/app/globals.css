@@ -5,84 +5,66 @@
 
 @layer base {
   :root {
-    /* Lifeline Pro Theme (New Default) */
-    --background: 240 21% 15%; /* #1E1E2F */
-    --foreground: 240 8% 90%;
-    --card: 240 21% 18%;
-    --card-foreground: 240 8% 90%;
-    --popover: 240 21% 15%;
-    --popover-foreground: 240 8% 90%;
-    --primary: 173 71% 42%; /* #1BB9A8 */
-    --primary-foreground: 240 21% 10%;
-    --secondary: 240 21% 25%;
-    --secondary-foreground: 240 8% 90%;
-    --muted: 240 21% 25%;
-    --muted-foreground: 240 5% 75%;
-    --accent: 282 96% 62%; /* #E040FB */
-    --accent-foreground: 240 8% 98%;
-    --destructive: 0 72% 51%;
+    /* New Lifeline AI Theme */
+    --background: 165 37% 10%; /* Deep Teal - #101c19 */
+    --foreground: 45 74% 90%; /* Light Gold - #f2e6c9 */
+    
+    --card: 165 37% 12%; /* Darker Teal - #13221e */
+    --card-foreground: 45 74% 90%;
+    
+    --popover: 165 37% 10%;
+    --popover-foreground: 45 74% 90%;
+    
+    --primary: 45 74% 49%; /* Warm Gold - #D4A017 */
+    --primary-foreground: 165 37% 10%; /* Deep Teal for text on gold buttons */
+    
+    --secondary: 165 37% 15%; /* Mid Teal */
+    --secondary-foreground: 45 74% 85%;
+    
+    --muted: 165 37% 20%;
+    --muted-foreground: 45 74% 70%;
+    
+    --accent: 45 74% 55%;
+    --accent-foreground: 165 37% 5%;
+    
+    --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 98%;
-    --border: 173 71% 42%;
-    --input: 240 21% 25%;
-    --ring: 282 96% 62%;
-    --radius: 0.75rem;
+    
+    --border: 165 37% 20%;
+    --input: 165 37% 15%;
+    --ring: 45 74% 49%;
+    
+    --radius: 0.5rem;
 
-    --chart-1: 173 71% 42%; /* Primary Teal */
-    --chart-2: 282 96% 62%; /* Accent Purple */
-    --chart-3: 39 100% 50%; /* Bright Orange */
-    --chart-4: 220 85% 60%; /* Bright Blue */
-    --chart-5: 50 100% 50%;  /* Yellow */
-
-    /* Sidebar Variables */
-    --sidebar-background: 0 0% 0% / 0; /* transparent */
-    --sidebar-foreground: 240 8% 90%;
-    --sidebar-primary: 173 71% 42%;
-    --sidebar-primary-foreground: 240 21% 10%;
-    --sidebar-accent: 240 21% 25%;
-    --sidebar-accent-foreground: 240 8% 90%;
-    --sidebar-border: 0 0% 0% / 0; /* transparent */
-    --sidebar-ring: 282 96% 62%;
+    --chart-1: 45 74% 49%; /* Gold */
+    --chart-2: 170 40% 60%; /* Lighter Teal */
+    --chart-3: 39 100% 70%; /* Bright Orange */
+    --chart-4: 210 85% 70%; /* Bright Blue */
+    --chart-5: 300 70% 70%; /* Bright Purple */
   }
 
-  .theme-lifeline-pro {
-    --background: 240 21% 15%; /* #1E1E2F */
-    --foreground: 240 8% 90%;
-    --card: 240 21% 18%;
-    --card-foreground: 240 8% 90%;
-    --popover: 240 21% 15%;
-    --popover-foreground: 240 8% 90%;
-    --primary: 173 71% 42%; /* #1BB9A8 */
-    --primary-foreground: 240 21% 10%;
-    --secondary: 240 21% 25%;
-    --secondary-foreground: 240 8% 90%;
-    --muted: 240 21% 25%;
-    --muted-foreground: 240 5% 75%;
-    --accent: 282 96% 62%; /* #E040FB */
-    --accent-foreground: 240 8% 98%;
-    --destructive: 0 72% 51%;
+  .dark {
+    /* Same as root for a consistent dark theme */
+    --background: 165 37% 10%;
+    --foreground: 45 74% 90%;
+    --card: 165 37% 12%;
+    --card-foreground: 45 74% 90%;
+    --popover: 165 37% 10%;
+    --popover-foreground: 45 74% 90%;
+    --primary: 45 74% 49%;
+    --primary-foreground: 165 37% 10%;
+    --secondary: 165 37% 15%;
+    --secondary-foreground: 45 74% 85%;
+    --muted: 165 37% 20%;
+    --muted-foreground: 45 74% 70%;
+    --accent: 45 74% 55%;
+    --accent-foreground: 165 37% 5%;
+    --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 98%;
-    --border: 173 71% 42%;
-    --input: 240 21% 25%;
-    --ring: 282 96% 62%;
-    --radius: 0.75rem;
-
-    --chart-1: 173 71% 42%;
-    --chart-2: 282 96% 62%;
-    --chart-3: 39 100% 50%;
-    --chart-4: 220 85% 60%;
-    --chart-5: 50 100% 50%;
-
-    /* Sidebar Variables */
-    --sidebar-background: 0 0% 0% / 0;
-    --sidebar-foreground: 240 8% 90%;
-    --sidebar-primary: 173 71% 42%;
-    --sidebar-primary-foreground: 240 21% 10%;
-    --sidebar-accent: 240 21% 25%;
-    --sidebar-accent-foreground: 240 8% 90%;
-    --sidebar-border: 0 0% 0% / 0;
-    --sidebar-ring: 282 96% 62%;
+    --border: 165 37% 20%;
+    --input: 165 37% 15%;
+    --ring: 45 74% 49%;
   }
-
 }
 
 @layer base {
@@ -90,84 +72,8 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body;
-    font-family: 'Inter', sans-serif;
-  }
-}
-
-@layer utilities {
-  .animated-gradient-bg {
-    @apply relative;
-  }
-  .animated-gradient-bg::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: -1;
-    background: radial-gradient(circle at 10% 20%, hsl(var(--primary) / 0.1), transparent 35%),
-                radial-gradient(circle at 90% 80%, hsl(var(--accent) / 0.1), transparent 35%),
-                radial-gradient(circle at 50% 50%, hsl(var(--secondary) / 0.08), transparent 40%);
-    background-size: 200% 200%;
-    animation: gradient-move 20s ease infinite;
-    will-change: background-position;
-  }
-  
-  .animated-text-shine {
-    @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(to right, hsl(var(--primary)), hsl(var(--primary) / 0.8), hsl(var(--primary)));
-    background-size: 200% auto;
-    animation: text-shine 4s linear infinite;
-  }
-
-  .button-flash {
-    position: relative;
-    overflow: hidden;
-  }
-  .button-flash:active::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 5px;
-    height: 5px;
-    background: white;
-    opacity: 0;
-    border-radius: 50%;
-    transform: scale(1, 1) translate(-50%, -50%);
-    transform-origin: 50% 50%;
-    animation: ripple 0.5s ease-out;
-  }
-}
-
-@keyframes text-shine {
-  to {
-    background-position: -200% center;
-  }
-}
-
-@keyframes gradient-move {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.7); }
-  70% { box-shadow: 0 0 0 10px hsl(var(--primary) / 0); }
-  100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0); }
-}
-
-@keyframes ripple {
-  from {
-    opacity: 1;
-    transform: scale(0) translate(-50%, -50%);
-  }
-  to {
-    opacity: 0;
-    transform: scale(30) translate(-50%, -50%);
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
@@ -179,17 +85,4 @@
 @keyframes accordion-up {
   from { height: var(--radix-accordion-content-height); }
   to { height: 0; }
-}
-
-@keyframes pulse-line {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(0%);
-  }
-}
-
-.animate-pulse-line {
-  animation: pulse-line 1.5s linear infinite;
 }

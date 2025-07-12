@@ -86,8 +86,9 @@ export function AuthForm() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-secondary/50 animated-gradient-bg">
-      <Card className="w-full max-w-md mx-4">
+    <div className="flex items-center justify-center min-h-screen bg-background">
+       <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[radial-gradient(#D4A017_1px,transparent_1px)] [background-size:32px_32px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_60%,transparent_100%)] opacity-20"></div>
+      <Card className="w-full max-w-md mx-4 bg-card/80 backdrop-blur-sm border-primary/20">
         <CardHeader className="text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
                 <Stethoscope className="w-10 h-10 text-primary"/>

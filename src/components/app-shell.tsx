@@ -1,67 +1,54 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAuth } from '@/context/auth-provider';
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarFooter,
-  SidebarTrigger,
-  SidebarProvider,
-  SidebarInset,
-} from '@/components/ui/sidebar';
-import {
-  HeartPulse,
-  Beaker,
-  Pill,
-  BrainCircuit,
-  FileText,
-  Siren,
-  Salad,
   LayoutDashboard,
+  Camera,
+  BrainCircuit,
+  Building2,
+  Salad,
+  FileText,
+  FileSpreadsheet,
+  UserCircle,
+  Siren,
   LogOut,
   Stethoscope,
-  Search,
-  Camera,
-  ClipboardCheck,
-  UserCircle,
-  Building2,
-  FileSpreadsheet
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProfileProvider } from '@/context/profile-provider';
 import { ProfileGuard } from './auth/profile-guard';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
-
-const menuItems: { href: string; label: string; icon: LucideIcon; color: string }[] = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, color: "text-blue-400" },
-  { href: "/log", label: "AI Logger", icon: Camera, color: "text-yellow-400" },
-  { href: "/deep-dive", label: "Deep Dive", icon: BrainCircuit, color: "text-sky-400" },
-  { href: "/clinic", label: "Clinic", icon: Building2, color: "text-teal-400" },
-  { href: "/dietician", label: "AI Dietician", icon: Salad, color: "text-green-400" },
-  { href: "/report", label: "Health Report", icon: FileText, color: "text-orange-400" },
-  { href: "/reminders", label: "Prescriptions", icon: FileSpreadsheet, color: "text-pink-400" },
-  { href: "/profiles", label: "My Profile", icon: UserCircle, color: "text-gray-400" },
-  { href: "/emergency", label: "Emergency", icon: Siren, color: "text-red-500" },
+const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/log", label: "AI Logger", icon: Camera },
+  { href: "/deep-dive", label: "Deep Dive", icon: BrainCircuit },
+  { href: "/clinic", label: "Clinic", icon: Building2 },
+  { href: "/dietician", label: "AI Dietician", icon: Salad },
+  { href: "/report", label: "Health Report", icon: FileText },
+  { href: "/reminders", label: "Prescriptions", icon: FileSpreadsheet },
 ];
 
+const bottomMenuItems: { href: string; label: string; icon: LucideIcon; isAction?: boolean, isDestructive?: boolean }[] = [
+    { href: "/profiles", label: "My Profile", icon: UserCircle },
+    { href: "/emergency", label: "Emergency", icon: Siren, isDestructive: true },
+    { href: "#", label: "Logout", icon: LogOut, isAction: true },
+];
 
 function AppShellLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
-  const [isClient, setIsClient] = useState(false);
+  const [isClient, setIsClient] = React.useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     setIsClient(true);
   }, []);
 
@@ -75,68 +62,89 @@ function AppShellLayout({ children }: { children: React.ReactNode }) {
       console.error("Error signing out: ", error);
     }
   };
-  
+
   if (!isClient) {
     return null;
   }
 
   return (
-    <>
-      <Sidebar side="left" collapsible="icon" variant="inset">
-        <SidebarContent>
-          <SidebarMenu>
-            {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} size="lg">
-                  <Link href={item.href}>
-                    <item.icon className={cn(item.color)} />
-                    <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarContent>
-        <SidebarFooter>
-           <SidebarMenu>
-                <SidebarMenuItem>
-                    <SidebarMenuButton onClick={handleLogout} tooltip="Logout" size="lg">
-                        <LogOut />
-                        <span>Logout</span>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
-           </SidebarMenu>
-        </SidebarFooter>
-      </Sidebar>
-      <SidebarInset>
-        <header className="flex h-20 items-center justify-between p-4 border-b border-border/10 bg-background/80 backdrop-blur-sm sticky top-0 z-40">
-            <div className="flex items-center gap-4">
-                <SidebarTrigger />
-                <Link href="/" className="flex items-center gap-2 text-primary">
-                    <Stethoscope className="w-8 h-8" />
-                    <span className="text-2xl font-bold">Lifeline</span>
-                </Link>
-            </div>
-            <div className="flex items-center gap-4">
-                <span className="text-sm font-bold hidden sm:inline-block">{user?.displayName || 'User'}</span>
+    <div className="flex min-h-screen w-full bg-background">
+      <TooltipProvider delayDuration={0}>
+        <aside className="fixed left-0 top-0 z-50 flex h-full flex-col border-r border-border bg-card">
+          <div className="flex h-16 items-center justify-center border-b border-border px-4">
+            <Link href="/" className="flex items-center gap-2 text-primary">
+              <Stethoscope className="w-8 h-8" />
+            </Link>
+          </div>
+          <nav className="flex flex-1 flex-col items-center gap-2 py-4">
+            {menuItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Tooltip key={item.href}>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground",
+                        isActive && "bg-primary text-primary-foreground hover:text-primary-foreground"
+                      )}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      <span className="sr-only">{item.label}</span>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{item.label}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </nav>
+          <nav className="mt-auto flex flex-col items-center gap-2 py-4">
+            {bottomMenuItems.map((item) => {
+                const isActive = pathname === item.href;
+                 return (
+                    <Tooltip key={item.label}>
+                    <TooltipTrigger asChild>
+                        <button
+                        onClick={item.isAction ? handleLogout : () => router.push(item.href)}
+                        className={cn(
+                            "flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground",
+                            isActive && "bg-primary text-primary-foreground hover:text-primary-foreground",
+                            item.isDestructive && "hover:text-red-500"
+                        )}
+                        >
+                        <item.icon className="h-5 w-5" />
+                        <span className="sr-only">{item.label}</span>
+                        </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">{item.label}</TooltipContent>
+                    </Tooltip>
+                );
+            })}
+          </nav>
+        </aside>
+      </TooltipProvider>
+
+      <div className="flex flex-1 flex-col pl-[65px]">
+        <header className="sticky top-0 z-40 flex h-16 items-center justify-end border-b border-border bg-card/80 px-6 backdrop-blur-sm">
+           <div className="flex items-center gap-4">
+                <span className="text-sm font-semibold text-foreground hidden sm:inline-block">{user?.displayName || 'User'}</span>
+                <UserCircle className="h-8 w-8 text-primary" />
             </div>
         </header>
-        <main className="flex-1 p-4 md:p-6 lg:p-8 animated-gradient-bg">
+        <main className="flex-1 p-4 md:p-6 lg:p-8">
             <ProfileGuard>
                 {children}
             </ProfileGuard>
         </main>
-      </SidebarInset>
-    </>
+      </div>
+    </div>
   );
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
     return (
         <ProfileProvider>
-            <SidebarProvider>
-                <AppShellLayout>{children}</AppShellLayout>
-            </SidebarProvider>
+            <AppShellLayout>{children}</AppShellLayout>
         </ProfileProvider>
     )
 }
