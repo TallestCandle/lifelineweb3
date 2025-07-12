@@ -92,13 +92,28 @@ export function Dashboard() {
     const unsubscribeVitals = onSnapshot(q, (snapshot) => {
       const vitals = snapshot.docs.map(doc => doc.data() as VitalReading);
       
-      const latestBp = vitals.find(v => v.systolic && v.diastolic) || null;
-      const latestSugar = vitals.find(v => v.bloodSugar) || null;
-      const latestO2 = vitals.find(v => v.oxygenSaturation) || null;
+      // Correctly find the latest of each type of vital
+      let foundBp: VitalReading | null = null;
+      let foundSugar: VitalReading | null = null;
+      let foundO2: VitalReading | null = null;
+
+      for (const vital of vitals) {
+        if (!foundBp && vital.systolic && vital.diastolic) {
+          foundBp = vital;
+        }
+        if (!foundSugar && vital.bloodSugar) {
+          foundSugar = vital;
+        }
+        if (!foundO2 && vital.oxygenSaturation) {
+          foundO2 = vital;
+        }
+        // If all are found, we can stop searching
+        if (foundBp && foundSugar && foundO2) break;
+      }
       
-      setLatestBloodPressure(latestBp);
-      setLatestBloodSugar(latestSugar);
-      setLatestOxygen(latestO2);
+      setLatestBloodPressure(foundBp);
+      setLatestBloodSugar(foundSugar);
+      setLatestOxygen(foundO2);
 
       // This ensures loading is false only after the first successful data fetch
       if (isLoading) setIsLoading(false); 

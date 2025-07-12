@@ -28,10 +28,10 @@ interface VitalMeterProps {
 const Needle = ({ angle }: { angle: number }) => {
   return (
     <div
-      className="absolute bottom-0 left-1/2 h-1/2 w-0.5 origin-bottom bg-foreground transition-transform duration-500"
+      className="absolute bottom-0 left-1/2 h-1/2 w-0.5 origin-bottom transition-transform duration-500"
       style={{ transform: `translateX(-50%) rotate(${angle}deg)` }}
     >
-      <div className="absolute -top-1.5 -left-1.5 h-3.5 w-3.5 rounded-full border-2 border-foreground bg-background" />
+        <div className="absolute -top-1.5 -left-1.5 h-3.5 w-3.5 rounded-full border-2 border-foreground bg-background" />
     </div>
   );
 };
@@ -77,7 +77,7 @@ export const VitalMeter: React.FC<VitalMeterProps> = ({
             </CardDescription>
           )}
         </div>
-        <Icon className="h-5 w-5 text-foreground" style={{ color: activeLevel.color }}/>
+        <Icon className="h-5 w-5 text-green-400"/>
       </CardHeader>
       <CardContent className="flex flex-col items-center justify-center flex-grow pt-4">
         <div className="relative w-full max-w-[200px] aspect-video">
@@ -88,7 +88,7 @@ export const VitalMeter: React.FC<VitalMeterProps> = ({
                 <div
                   key={level.name}
                   className="flex-1"
-                  style={{ backgroundColor: level.color }}
+                  style={{ backgroundColor: level.color, opacity: 0.5 }}
                 />
               ))}
             </div>
@@ -97,15 +97,27 @@ export const VitalMeter: React.FC<VitalMeterProps> = ({
           </div>
           
           {/* Ticks */}
-           {ticks.map((tick) => (
-            <div
-              key={tick.value}
-              className="absolute left-1/2 top-1/2 h-full w-px -translate-x-1/2"
-              style={{ transform: `rotate(${tick.angle}deg)` }}
-            >
-              <div className="h-2 w-px bg-muted-foreground/50" />
-            </div>
-          ))}
+           {ticks.map((tick, index) => {
+             // Only show every other tick label to prevent clutter
+             const showLabel = index % 2 === 0;
+             return (
+                <div
+                key={tick.value}
+                className="absolute left-1/2 top-1/2 h-full origin-center"
+                style={{ transform: `rotate(${tick.angle}deg)` }}
+                >
+                    <div className="h-[calc(50%-10px)] w-px bg-muted-foreground/30" />
+                    {showLabel && (
+                        <div
+                            className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-xs text-muted-foreground"
+                            style={{ transform: `translateX(-50%) rotate(${-tick.angle}deg)` }}
+                        >
+                            {tick.value}
+                        </div>
+                    )}
+                </div>
+             );
+           })}
 
           <Needle angle={angle} />
         </div>
