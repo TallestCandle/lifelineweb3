@@ -71,6 +71,11 @@ export function UnifiedLogger() {
 
     const form = useForm({
         resolver: activeForm ? zodResolver(activeForm.schema) : undefined,
+        defaultValues: {
+            systolic: "", diastolic: "", pulseRate: "",
+            bloodSugar: "", oxygenSaturation: "", temperature: "", weight: "",
+            protein: "", glucose: "", ketones: "", blood: "", nitrite: "", ph: "",
+        },
     });
     
     useEffect(() => {
@@ -169,7 +174,7 @@ export function UnifiedLogger() {
             case 'test_strip':
                 return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {stripMarkers.map(marker => (
-                        <FormField key={marker.value} control={form.control} name={marker.value} render={({ field }) => (
+                        <FormField key={marker.value} control={form.control} name={marker.value as any} render={({ field }) => (
                             <FormItem>
                                 <FormLabel>{marker.label}</FormLabel>
                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
