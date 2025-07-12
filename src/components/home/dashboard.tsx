@@ -12,16 +12,14 @@ import {
   Droplet,
   Wind,
   Activity,
-  ArrowUp,
-  ArrowDown,
-  Minus,
   TrendingDown,
   TrendingUp,
+  Minus,
+  Thermometer,
   AlertCircle
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -305,7 +303,7 @@ export function Dashboard() {
                 )}
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 lg:grid-cols-1">
                  <Card>
                     <CardHeader>
                         <CardTitle>Blood Pressure Over Time</CardTitle>
@@ -328,32 +326,6 @@ export function Dashboard() {
                                 <Bar dataKey="systolic" fill="hsl(var(--chart-1))" name="Systolic" radius={[4, 4, 0, 0]} />
                                 <Bar dataKey="diastolic" fill="hsl(var(--chart-2))" name="Diastolic" radius={[4, 4, 0, 0]} />
                             </BarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Vitals Trend Analysis</CardTitle>
-                         <CardDescription>Your last 7 readings for other key vitals.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={trendsHistory}>
-                                 <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                                 <Tooltip
-                                    contentStyle={{ 
-                                        backgroundColor: 'hsl(var(--background))',
-                                        border: '1px solid hsl(var(--border))',
-                                        borderRadius: 'var(--radius)',
-                                    }}
-                                    labelStyle={{ color: 'hsl(var(--foreground))' }}
-                                    cursor={{stroke: 'hsl(var(--primary))', strokeWidth: 1, strokeDasharray: '3 3'}}
-                                />
-                                <Line type="monotone" dataKey="blood_sugar" name="Blood Sugar" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} />
-                                <Line type="monotone" dataKey="oxygen_saturation" name="Oxygen Sat." stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 4 }} />
-                                <Line type="monotone" dataKey="pulse_rate" name="Pulse Rate" stroke="hsl(var(--chart-4))" strokeWidth={2} dot={{ r: 4 }} />
-                            </LineChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
