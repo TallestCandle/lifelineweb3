@@ -20,6 +20,7 @@ import {
   Settings,
   Bell,
   Search,
+  ChevronLeft,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
@@ -60,7 +61,7 @@ const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
 function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, state } = useSidebar();
 
   const handleLogout = async () => {
     try {
@@ -77,7 +78,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2">
-            <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+             <div className="p-2 rounded-lg bg-primary text-primary-foreground">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 2L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M12 19L12 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -94,7 +95,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             <span className="font-bold text-xl group-data-[collapsible=icon]:hidden">Lifeline AI</span>
           </div>
         </SidebarHeader>
-        <SidebarContent className="flex-grow">
+        <SidebarContent>
           <SidebarMenu>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
@@ -105,15 +106,20 @@ function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
+             <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
+                  <Link href="/emergency">
+                    Emergency
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
              <SidebarMenu>
                 <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
-                      <Link href="/emergency">
-                        Emergency
-                      </Link>
+                    <SidebarMenuButton onClick={toggleSidebar} tooltip="Collapse" icon={<ChevronLeft className="transition-transform duration-300 group-data-[state=collapsed]:rotate-180"/>}>
+                      Collapse
                     </SidebarMenuButton>
                   </SidebarMenuItem>
              </SidebarMenu>
@@ -160,7 +166,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
         
         {/* Main Content */}
-        <main className="flex-1 p-4 sm:px-6 sm:py-0">
+        <main className="flex-1 p-4 sm:p-6">
             {children}
         </main>
       </SidebarInset>
