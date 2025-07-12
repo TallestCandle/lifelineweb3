@@ -20,7 +20,6 @@ import {
   Settings,
   Bell,
   Search,
-  ChevronsLeft,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
@@ -42,7 +41,6 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter,
   SidebarTrigger,
   SidebarInset,
   useSidebar,
@@ -95,33 +93,29 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             <span className="font-bold text-xl group-data-[collapsible=icon]:hidden">Lifeline AI</span>
           </div>
         </SidebarHeader>
-        <SidebarContent>
+        <SidebarContent className="flex-grow">
           <SidebarMenu>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
+                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} icon={<item.icon/>}>
                   <Link href={item.href}>
-                    <item.icon />
                     {item.label}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
-             <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground">
-                  <Link href="/emergency">
-                    <Siren/>
-                    Emergency
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
-            <Button variant="ghost" className="w-full justify-center group-data-[collapsible=icon]:justify-center" onClick={toggleSidebar}>
-                 <ChevronsLeft className="h-5 w-5 transition-transform duration-300 group-data-[collapsible=icon]:-rotate-180" />
-                 <span className="group-data-[collapsible=icon]:hidden pl-2">Collapse</span>
-            </Button>
+             <SidebarMenu>
+                <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
+                      <Link href="/emergency">
+                        Emergency
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+             </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
       
