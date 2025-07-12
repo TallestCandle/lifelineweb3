@@ -59,54 +59,61 @@ const statusConfig: Record<Investigation['status'], { text: string; color: strin
 function getVitalStatus(vital: VitalReading): {
     level: 'Good' | 'Moderate' | 'Critical';
     message: string;
-    icon: React.ElementType;
-    color: string;
 } {
-    if (vital.type === 'Blood Pressure' && vital.systolic && vital.diastolic) {
+    if (vital.systolic && vital.diastolic) {
         const sys = parseInt(vital.systolic, 10);
         const dia = parseInt(vital.diastolic, 10);
-        if (sys > 180 || dia > 120) return { level: 'Critical', message: 'Hypertensive Crisis', icon: ShieldAlert, color: 'bg-red-600' };
-        if (sys >= 140 || dia >= 90) return { level: 'Critical', message: 'High (Stage 2)', icon: ShieldAlert, color: 'bg-red-600' };
-        if (sys >= 130 || dia >= 80) return { level: 'Moderate', message: 'High (Stage 1)', icon: ShieldQuestion, color: 'bg-orange-500' };
-        if (sys > 120) return { level: 'Moderate', message: 'Elevated', icon: ShieldQuestion, color: 'bg-yellow-500' };
-        if (sys >= 90 && dia >= 60) return { level: 'Good', message: 'Normal', icon: ShieldCheck, color: 'bg-green-500' };
-        return { level: 'Moderate', message: 'Low', icon: ShieldQuestion, color: 'bg-blue-500' };
+        if (sys > 180 || dia > 120) return { level: 'Critical', message: 'Hypertensive Crisis' };
+        if (sys >= 140 || dia >= 90) return { level: 'Critical', message: 'High (Stage 2)' };
+        if (sys >= 130 || dia >= 80) return { level: 'Moderate', message: 'High (Stage 1)' };
+        if (sys > 120) return { level: 'Moderate', message: 'Elevated' };
+        if (sys >= 90 && dia >= 60) return { level: 'Good', message: 'Normal' };
+        return { level: 'Moderate', message: 'Low' };
     }
-    if (vital.type === 'Blood Sugar' && vital.bloodSugar) {
+    if (vital.bloodSugar) {
         const sugar = parseInt(vital.bloodSugar, 10);
-        if (sugar > 250) return { level: 'Critical', message: 'Very High', icon: ShieldAlert, color: 'bg-red-600' };
-        if (sugar > 180) return { level: 'Moderate', message: 'High', icon: ShieldQuestion, color: 'bg-orange-500' };
-        if (sugar >= 70) return { level: 'Good', message: 'Normal', icon: ShieldCheck, color: 'bg-green-500' };
-        return { level: 'Moderate', message: 'Low', icon: ShieldQuestion, color: 'bg-blue-500' };
+        if (sugar > 250) return { level: 'Critical', message: 'Very High' };
+        if (sugar > 180) return { level: 'Moderate', message: 'High' };
+        if (sugar >= 70) return { level: 'Good', message: 'Normal' };
+        return { level: 'Moderate', message: 'Low' };
     }
-    if (vital.type === 'Oxygen Saturation' && vital.oxygenSaturation) {
+    if (vital.oxygenSaturation) {
         const oxygen = parseInt(vital.oxygenSaturation, 10);
-        if (oxygen < 90) return { level: 'Critical', message: 'Very Low', icon: ShieldAlert, color: 'bg-red-600' };
-        if (oxygen < 95) return { level: 'Moderate', message: 'Low', icon: ShieldQuestion, color: 'bg-orange-500' };
-        return { level: 'Good', message: 'Normal', icon: ShieldCheck, color: 'bg-green-500' };
+        if (oxygen < 90) return { level: 'Critical', message: 'Very Low' };
+        if (oxygen < 95) return { level: 'Moderate', message: 'Low' };
+        return { level: 'Good', message: 'Normal' };
     }
-    if (vital.type === 'Temperature' && vital.temperature) {
+    if (vital.temperature) {
         const temp = parseFloat(vital.temperature);
-        if (temp > 103) return { level: 'Critical', message: 'High Fever', icon: ShieldAlert, color: 'bg-red-600' };
-        if (temp > 99.5) return { level: 'Moderate', message: 'Slight Fever', icon: ShieldQuestion, color: 'bg-orange-500' };
-        if (temp >= 97) return { level: 'Good', message: 'Normal', icon: ShieldCheck, color: 'bg-green-500' };
-        return { level: 'Moderate', message: 'Low', icon: ShieldQuestion, color: 'bg-blue-500' };
+        if (temp > 103) return { level: 'Critical', message: 'High Fever' };
+        if (temp > 99.5) return { level: 'Moderate', message: 'Slight Fever' };
+        if (temp >= 97) return { level: 'Good', message: 'Normal' };
+        return { level: 'Moderate', message: 'Low' };
     }
-    return { level: 'Good', message: 'Normal', icon: ShieldCheck, color: 'bg-gray-500' };
+    return { level: 'Good', message: 'Normal' };
 }
 
-const VitalRow = ({ vital }: { vital: VitalReading & { type: NonNullable<VitalReading['type']> } }) => {
+const statusBadgeConfig: Record<'Good' | 'Moderate' | 'Critical', { icon: React.ElementType, color: string }> = {
+    'Good': { icon: ShieldCheck, color: 'bg-green-500' },
+    'Moderate': { icon: ShieldQuestion, color: 'bg-yellow-500' },
+    'Critical': { icon: ShieldAlert, color: 'bg-red-600' },
+};
+
+
+const VitalRow = ({ vital, type }: { vital: VitalReading; type: NonNullable<VitalReading['type']> }) => {
     const status = getVitalStatus(vital);
+    const badge = statusBadgeConfig[status.level];
+
     const icons = {
         'Blood Pressure': HeartPulse,
         'Blood Sugar': Droplet,
         'Oxygen Saturation': Wind,
         'Temperature': Thermometer,
     };
-    const Icon = icons[vital.type];
+    const Icon = icons[type];
 
     const getValueString = () => {
-        switch (vital.type) {
+        switch (type) {
             case 'Blood Pressure': return `${vital.systolic}/${vital.diastolic} mmHg`;
             case 'Blood Sugar': return `${vital.bloodSugar} mg/dL`;
             case 'Oxygen Saturation': return `${vital.oxygenSaturation}%`;
@@ -120,12 +127,12 @@ const VitalRow = ({ vital }: { vital: VitalReading & { type: NonNullable<VitalRe
             <div className="flex items-center gap-4">
                 <Icon className="w-6 h-6 text-primary flex-shrink-0" />
                 <div>
-                    <p className="font-bold">{vital.type}</p>
+                    <p className="font-bold">{type}</p>
                     <p className="text-sm text-muted-foreground">{getValueString()}</p>
                 </div>
             </div>
-            <Badge className={cn("text-white text-xs", status.color)}>
-                <status.icon className="mr-1 h-3 w-3" />
+            <Badge className={cn("text-white text-xs", badge.color)}>
+                <badge.icon className="mr-1 h-3 w-3" />
                 {status.message}
             </Badge>
         </div>
@@ -151,29 +158,29 @@ export function Dashboard() {
     // Fetch latest vitals
     const vitalsCollection = collection(db, `users/${user.uid}/vitals`);
     const q = query(vitalsCollection, orderBy("date", "desc"), limit(20));
+    
     const unsubscribeVitals = onSnapshot(q, (snapshot) => {
         const recentReadings = snapshot.docs.map(doc => doc.data() as VitalReading);
         
-        const latestEntriesMap = new Map<string, VitalReading>();
+        const latestVitalsMap = new Map<NonNullable<VitalReading['type']>, VitalReading>();
+
+        for (const reading of recentReadings) {
+            if (reading.systolic && reading.diastolic && !latestVitalsMap.has('Blood Pressure')) {
+                latestVitalsMap.set('Blood Pressure', { ...reading, type: 'Blood Pressure' });
+            }
+            if (reading.bloodSugar && !latestVitalsMap.has('Blood Sugar')) {
+                latestVitalsMap.set('Blood Sugar', { ...reading, type: 'Blood Sugar' });
+            }
+            if (reading.oxygenSaturation && !latestVitalsMap.has('Oxygen Saturation')) {
+                latestVitalsMap.set('Oxygen Saturation', { ...reading, type: 'Oxygen Saturation' });
+            }
+            if (reading.temperature && !latestVitalsMap.has('Temperature')) {
+                latestVitalsMap.set('Temperature', { ...reading, type: 'Temperature' });
+            }
+        }
         
-        const processReading = (reading: VitalReading) => {
-            if (reading.systolic && reading.diastolic && !latestEntriesMap.has('Blood Pressure')) {
-                latestEntriesMap.set('Blood Pressure', { ...reading, type: 'Blood Pressure' });
-            }
-            if (reading.bloodSugar && !latestEntriesMap.has('Blood Sugar')) {
-                latestEntriesMap.set('Blood Sugar', { ...reading, type: 'Blood Sugar' });
-            }
-            if (reading.oxygenSaturation && !latestEntriesMap.has('Oxygen Saturation')) {
-                latestEntriesMap.set('Oxygen Saturation', { ...reading, type: 'Oxygen Saturation' });
-            }
-            if (reading.temperature && !latestEntriesMap.has('Temperature')) {
-                latestEntriesMap.set('Temperature', { ...reading, type: 'Temperature' });
-            }
-        };
-
-        recentReadings.forEach(processReading);
-
-        setLatestVitals(Array.from(latestEntriesMap.values()));
+        const displayVitals = Array.from(latestVitalsMap.values());
+        setLatestVitals(displayVitals);
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching latest vitals:", error);
@@ -212,7 +219,7 @@ export function Dashboard() {
                 </CardHeader>
                 <CardContent className="divide-y divide-border">
                     {latestVitals.map((vital, index) => (
-                        vital.type ? <VitalRow key={index} vital={vital as VitalReading & { type: NonNullable<VitalReading['type']> }} /> : null
+                        vital.type ? <VitalRow key={index} vital={vital} type={vital.type} /> : null
                     ))}
                 </CardContent>
             </Card>
