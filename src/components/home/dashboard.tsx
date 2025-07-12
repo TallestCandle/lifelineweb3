@@ -15,7 +15,7 @@ import {
   Droplet,
   Thermometer,
   Wind,
-  Activity, // Added for Pulse Rate
+  Activity,
   ArrowUp,
   ArrowDown,
   Minus,
@@ -133,8 +133,9 @@ export function Dashboard() {
 
                 switch(type) {
                     case 'blood_pressure':
-                        if (s > 140 || s < 90 || d > 90 || d < 60) status = 'Critical';
-                        else if (s > 120 || d > 80) status = 'Moderate';
+                        if (s >= 140 || d >= 90 || s < 90 || d < 60) status = 'Critical';
+                        else if ((s >= 120 && s <= 139) || (d >= 80 && d <= 89)) status = 'Moderate';
+                        else status = 'Good';
                         break;
                     case 'blood_sugar':
                         if (sugar > 180 || sugar < 70) status = 'Critical';
