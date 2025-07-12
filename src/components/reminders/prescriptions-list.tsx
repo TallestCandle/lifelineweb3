@@ -88,7 +88,7 @@ export function PrescriptionsList() {
                     const planMeds = data.doctorPlan?.preliminaryMedications || [];
                     const finalMeds = data.finalTreatmentPlan?.medications || [];
 
-                    const combinedMeds = [...planMeds, ...finalMeds];
+                    const combinedMeds = [...planMeds, ...finalMeds].filter(m => m.name && m.dosage);
 
                     if (combinedMeds.length > 0) {
                         fetchedPrescriptions.push({
@@ -325,5 +325,3 @@ export function PrescriptionsList() {
         </div>
     );
 }
-
-    

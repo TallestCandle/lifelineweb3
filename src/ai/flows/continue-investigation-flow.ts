@@ -39,6 +39,11 @@ const ContinueInvestigationInputSchema = z.object({
 });
 export type ContinueInvestigationInput = z.infer<typeof ContinueInvestigationInputSchema>;
 
+const MedicationSchema = z.object({
+    name: z.string().describe("The name of the suggested medication."),
+    dosage: z.string().describe("The suggested dosage plan for the medication (e.g., '1 tablet twice a day for 5 days', '20mg once daily').")
+});
+
 // Internal Zod schema for the AI's structured output.
 const ContinueInvestigationOutputSchema = z.object({
     refinedAnalysis: z.string().describe("A new, deeper analysis summary for the doctor, incorporating the new lab results and nurse's report. Explain how the results confirm or change the initial assessment."),
@@ -49,7 +54,7 @@ const ContinueInvestigationOutputSchema = z.object({
     })).describe("An updated list of potential diagnoses based on all available data."),
     suggestedNextSteps: z.object({
         suggestedLabTests: z.array(z.string()).describe("A list of any *additional* lab tests required to confirm a diagnosis. Return an empty array if no more tests are needed."),
-        preliminaryMedications: z.array(z.string()).describe("An updated list of suggested medications for symptom relief while investigation is ongoing."),
+        preliminaryMedications: z.array(MedicationSchema).describe("An updated list of suggested medications for symptom relief while investigation is ongoing."),
     }).describe("A plan for the next steps in the investigation. This could be a final treatment plan if no more tests are needed."),
     isFinalDiagnosisPossible: z.boolean().describe("Set to true if you believe enough data exists to make a final diagnosis and treatment plan."),
     justification: z.string().describe("A clear rationale for why these next steps (or no further tests) were chosen."),

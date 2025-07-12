@@ -36,6 +36,11 @@ import { type ComprehensiveAnalysisOutput } from '@/ai/flows/comprehensive-analy
 
 type InvestigationStatus = 'pending_review' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
 
+interface Medication {
+    name: string;
+    dosage: string;
+}
+
 interface Investigation {
   id: string;
   userId: string;
@@ -44,14 +49,18 @@ interface Investigation {
   createdAt: string;
   steps: InvestigationStep[];
   doctorPlan?: {
-      preliminaryMedications: string[];
+      preliminaryMedications: Medication[];
       suggestedLabTests: string[];
   };
   followUpRequest?: {
     note: string;
     suggestedLabTests: string[];
   };
-  finalTreatmentPlan?: any;
+  finalTreatmentPlan?: {
+      medications: Medication[];
+      lifestyleChanges: string[];
+      followUp: string;
+  };
   finalDiagnosis?: any;
   doctorNote?: string;
   reviewedByUid?: string;
@@ -100,7 +109,7 @@ export function DoctorDashboard() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // State for case review dialog
-  const [editablePlan, setEditablePlan] = useState<{ preliminaryMedications: string[]; suggestedLabTests: string[]; } | null>(null);
+  const [editablePlan, setEditablePlan] = useState<{ preliminaryMedications: Medication[]; suggestedLabTests: string[]; } | null>(null);
   const [followUpTests, setFollowUpTests] = useState<string[]>([]);
   const [followUpNote, setFollowUpNote] = useState('');
   const [modifiedPlan, setModifiedPlan] = useState('');
@@ -185,7 +194,7 @@ export function DoctorDashboard() {
     
     const cleanedPlan = {
         suggestedLabTests: editablePlan.suggestedLabTests.filter(t => t.trim() !== ''),
-        preliminaryMedications: editablePlan.preliminaryMedications.filter(m => m.trim() !== ''),
+        preliminaryMedications: editablePlan.preliminaryMedications.filter(m => m.name.trim() !== '' && m.dosage.trim() !== ''),
     };
 
     handleUpdateInvestigation(selectedCase.id, 'awaiting_lab_results', { doctorPlan: cleanedPlan });
@@ -270,14 +279,14 @@ export function DoctorDashboard() {
     });
   };
 
-  const handlePlanChange = (type: 'suggestedLabTests' | 'preliminaryMedications', index: number, value: string) => {
+  const handlePlanChange = (index: number, field: 'name' | 'dosage', value: string) => {
       setEditablePlan(prev => {
           if (!prev) return null;
-          const newPlan = { ...prev };
-          const list = [...newPlan[type]];
-          list[index] = value;
-          newPlan[type] = list;
-          return newPlan;
+          const newMeds = [...prev.preliminaryMedications];
+          if (newMeds[index]) {
+              newMeds[index] = { ...newMeds[index], [field]: value };
+          }
+          return { ...prev, preliminaryMedications: newMeds };
       });
   };
   
@@ -289,15 +298,16 @@ export function DoctorDashboard() {
         });
     };
 
-  const addPlanItem = (type: 'suggestedLabTests' | 'preliminaryMedications') => {
-      setEditablePlan(prev => {
-          if (!prev) return null;
-          return {
-              ...prev,
-              [type]: [...prev[type], ''],
-          };
-      });
-  };
+    const addPlanItem = (type: 'suggestedLabTests' | 'preliminaryMedications') => {
+        setEditablePlan(prev => {
+            if (!prev) return null;
+            if (type === 'preliminaryMedications') {
+                return { ...prev, preliminaryMedications: [...prev.preliminaryMedications, { name: '', dosage: '' }] };
+            }
+            return { ...prev, suggestedLabTests: [...prev.suggestedLabTests, ''] };
+        });
+    };
+
     const addFollowUpTest = () => {
         setFollowUpTests(prev => [...prev, '']);
     };
@@ -306,12 +316,12 @@ export function DoctorDashboard() {
   const removePlanItem = (type: 'suggestedLabTests' | 'preliminaryMedications', index: number) => {
       setEditablePlan(prev => {
           if (!prev) return null;
-          const list = [...prev[type]];
-          list.splice(index, 1);
-          return {
-              ...prev,
-              [type]: list,
-          };
+          if (type === 'preliminaryMedications') {
+              const meds = prev.preliminaryMedications.filter((_, i) => i !== index);
+              return { ...prev, preliminaryMedications: meds };
+          }
+          const tests = prev.suggestedLabTests.filter((_, i) => i !== index);
+          return { ...prev, suggestedLabTests: tests };
       });
   };
   
@@ -564,7 +574,7 @@ export function DoctorDashboard() {
                                                 <div>
                                                     <p className="font-semibold text-foreground/80">Medications:</p>
                                                     <ul className="list-disc list-inside pl-4">
-                                                        {evaluationResult.suggestedTreatmentPlan.medications.map((m: string, i: number) => <li key={i}>{m}</li>)}
+                                                        {evaluationResult.suggestedTreatmentPlan.medications.map((m: Medication, i: number) => <li key={i}>{m.name} ({m.dosage})</li>)}
                                                     </ul>
                                                 </div>
                                             )}
@@ -607,26 +617,36 @@ export function DoctorDashboard() {
                         )}
 
                         {viewMode === 'initial_review' && editablePlan && (
-                            <Card><CardHeader><CardTitle className="text-base m-0">Initial Plan</CardTitle></CardHeader><CardContent className="space-y-4">
-                                <div>
-                                    <Label className="font-bold">Suggested Lab Tests</Label>
-                                    <div className="space-y-2 mt-2">
-                                        {editablePlan.suggestedLabTests.map((test, index) => (
-                                            <div key={index} className="flex items-center gap-2"><Input value={test} placeholder="e.g., Complete Blood Count" onChange={(e) => handlePlanChange('suggestedLabTests', index, e.target.value)} /><Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('suggestedLabTests', index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>
-                                        ))}
+                            <Card>
+                                <CardHeader><CardTitle className="text-base m-0">Initial Plan</CardTitle></CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div>
+                                        <Label className="font-bold">Preliminary Medications</Label>
+                                        <div className="space-y-2 mt-2">
+                                            {editablePlan.preliminaryMedications.map((med, index) => (
+                                                <div key={index} className="flex items-center gap-2">
+                                                    <Input value={med.name} placeholder="Medication Name" onChange={(e) => handlePlanChange(index, 'name', e.target.value)} />
+                                                    <Input value={med.dosage} placeholder="Dosage" onChange={(e) => handlePlanChange(index, 'dosage', e.target.value)} />
+                                                    <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('preliminaryMedications', index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('preliminaryMedications')}>Add Medication</Button>
                                     </div>
-                                    <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('suggestedLabTests')}>Add Test</Button>
-                                </div>
-                                <div>
-                                    <Label className="font-bold">Preliminary Medications</Label>
-                                    <div className="space-y-2 mt-2">
-                                        {editablePlan.preliminaryMedications.map((med, index) => (
-                                            <div key={index} className="flex items-center gap-2"><Input value={med} placeholder="e.g., Ibuprofen 200mg" onChange={(e) => handlePlanChange('preliminaryMedications', index, e.target.value)} /><Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('preliminaryMedications', index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>
-                                        ))}
+                                    <div>
+                                        <Label className="font-bold">Suggested Lab Tests</Label>
+                                        <div className="space-y-2 mt-2">
+                                            {editablePlan.suggestedLabTests.map((test, index) => (
+                                                <div key={index} className="flex items-center gap-2">
+                                                    <Input value={test} placeholder="e.g., Complete Blood Count" onChange={(e) => setEditablePlan(prev => prev ? { ...prev, suggestedLabTests: prev.suggestedLabTests.map((t, i) => i === index ? e.target.value : t) } : null)} />
+                                                    <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removePlanItem('suggestedLabTests', index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('suggestedLabTests')}>Add Test</Button>
                                     </div>
-                                    <Button variant="outline" size="sm" className="mt-2" onClick={() => addPlanItem('preliminaryMedications')}>Add Medication</Button>
-                                </div>
-                            </CardContent></Card>
+                                </CardContent>
+                            </Card>
                         )}
                         
                         {viewMode === 'follow_up_request' && (
