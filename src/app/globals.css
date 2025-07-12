@@ -5,65 +5,65 @@
 
 @layer base {
   :root {
-    /* New Lifeline AI Theme */
-    --background: 165 37% 10%; /* Deep Teal - #101c19 */
-    --foreground: 45 74% 90%; /* Light Gold - #f2e6c9 */
+    /* Inspired by the provided image */
+    --background: 240 10% 3.9%; /* Very Dark Blue/Gray */
+    --foreground: 0 0% 98%; /* Almost White */
     
-    --card: 165 37% 12%; /* Darker Teal - #13221e */
-    --card-foreground: 45 74% 90%;
+    --card: 240 4.8% 12%; /* Slightly lighter dark blue/gray */
+    --card-foreground: 0 0% 98%;
     
-    --popover: 165 37% 10%;
-    --popover-foreground: 45 74% 90%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
     
-    --primary: 45 74% 49%; /* Warm Gold - #D4A017 */
-    --primary-foreground: 165 37% 10%; /* Deep Teal for text on gold buttons */
+    --primary: 84 75% 57%; /* Vibrant Lime Green */
+    --primary-foreground: 84 75% 10%; /* Dark Green for text on lime */
     
-    --secondary: 165 37% 15%; /* Mid Teal */
-    --secondary-foreground: 45 74% 85%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
     
-    --muted: 165 37% 20%;
-    --muted-foreground: 45 74% 70%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
     
-    --accent: 45 74% 55%;
-    --accent-foreground: 165 37% 5%;
+    --accent: 255 58% 68%; /* Cool Purple */
+    --accent-foreground: 0 0% 98%;
     
-    --destructive: 0 63% 31%;
+    --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     
-    --border: 165 37% 20%;
-    --input: 165 37% 15%;
-    --ring: 45 74% 49%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 84 75% 57%;
     
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --chart-1: 45 74% 49%; /* Gold */
-    --chart-2: 170 40% 60%; /* Lighter Teal */
-    --chart-3: 39 100% 70%; /* Bright Orange */
-    --chart-4: 210 85% 70%; /* Bright Blue */
-    --chart-5: 300 70% 70%; /* Bright Purple */
+    --chart-1: 84 75% 57%; /* Lime Green */
+    --chart-2: 255 58% 68%; /* Purple */
+    --chart-3: 39 100% 70%; /* Orange */
+    --chart-4: 210 85% 70%; /* Blue */
+    --chart-5: 0 84% 60%; /* Red */
   }
 
   .dark {
     /* Same as root for a consistent dark theme */
-    --background: 165 37% 10%;
-    --foreground: 45 74% 90%;
-    --card: 165 37% 12%;
-    --card-foreground: 45 74% 90%;
-    --popover: 165 37% 10%;
-    --popover-foreground: 45 74% 90%;
-    --primary: 45 74% 49%;
-    --primary-foreground: 165 37% 10%;
-    --secondary: 165 37% 15%;
-    --secondary-foreground: 45 74% 85%;
-    --muted: 165 37% 20%;
-    --muted-foreground: 45 74% 70%;
-    --accent: 45 74% 55%;
-    --accent-foreground: 165 37% 5%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 4.8% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 84 75% 57%;
+    --primary-foreground: 84 75% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 255 58% 68%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 98%;
-    --border: 165 37% 20%;
-    --input: 165 37% 15%;
-    --ring: 45 74% 49%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 84 75% 57%;
   }
 }
 
@@ -75,14 +75,4 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
-}
-
-@keyframes accordion-down {
-  from { height: 0; }
-  to { height: var(--radix-accordion-content-height); }
-}
-
-@keyframes accordion-up {
-  from { height: var(--radix-accordion-content-height); }
-  to { height: 0; }
 }

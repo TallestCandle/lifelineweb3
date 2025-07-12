@@ -15,29 +15,28 @@ import {
   Salad,
   FileText,
   FileSpreadsheet,
-  UserCircle,
+  User,
   Siren,
   LogOut,
-  Stethoscope,
-  ChevronLeft,
+  Settings,
+  Bell,
+  Search,
+  ChevronDown
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ProfileProvider } from '@/context/profile-provider';
 import { ProfileGuard } from './auth/profile-guard';
-import {
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarFooter,
-  SidebarProvider,
-  SidebarTrigger,
-  SidebarInset,
-  useSidebar,
-} from '@/components/ui/sidebar';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 
 
 const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
@@ -50,15 +49,9 @@ const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/reminders", label: "Prescriptions", icon: FileSpreadsheet },
 ];
 
-const bottomMenuItems: { href: string; label: string; icon: LucideIcon; isDestructive?: boolean }[] = [
-    { href: "/profiles", label: "My Profile", icon: UserCircle },
-    { href: "/emergency", label: "Emergency", icon: Siren, isDestructive: true },
-];
-
-function AppShellInternal({ children }: { children: React.ReactNode }) {
+export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { toggleSidebar, state } = useSidebar();
 
   const handleLogout = async () => {
     try {
@@ -71,105 +64,94 @@ function AppShellInternal({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <>
-      <Sidebar>
-        <SidebarHeader>
-           {/* Header is kept for structure but content is moved to main header */}
-        </SidebarHeader>
-
-        <SidebarContent>
-          <SidebarMenu>
-            {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <Link href={item.href}>
-                    <SidebarMenuButton
-                        isActive={pathname === item.href}
-                        icon={<item.icon />}
-                        tooltip={{ children: item.label, side: "right" }}
-                    >
-                        {item.label}
-                    </SidebarMenuButton>
-                </Link>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarContent>
-        <SidebarFooter>
-            <SidebarMenu>
-                 {bottomMenuItems.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                        <Link href={item.href}>
-                             <SidebarMenuButton
-                                isActive={pathname === item.href}
-                                icon={<item.icon />}
-                                className={item.isDestructive ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : ''}
-                                tooltip={{ children: item.label, side: "right" }}
-                            >
-                                {item.label}
-                            </SidebarMenuButton>
-                        </Link>
-                    </SidebarMenuItem>
-                ))}
-                <SidebarMenuItem>
-                     <SidebarMenuButton
-                        onClick={handleLogout}
-                        icon={<LogOut />}
-                        tooltip={{ children: 'Logout', side: "right" }}
-                    >
-                        Logout
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
-            </SidebarMenu>
-        </SidebarFooter>
-      </Sidebar>
-
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
-            <div className="flex items-center gap-2">
-                 <SidebarTrigger className="md:hidden" />
-                 <Button
-                    variant="ghost"
-                    size="icon"
-                    className="hidden md:flex"
-                    onClick={toggleSidebar}
-                    aria-label="Toggle Sidebar"
-                 >
-                    <ChevronLeft className={`h-5 w-5 transition-transform duration-300 ${state === 'collapsed' ? 'rotate-180' : ''}`} />
-                 </Button>
-                 <div className="hidden md:flex items-center gap-2">
-                    <Stethoscope className="w-8 h-8 text-primary" />
-                    <span className="font-bold text-lg text-foreground">Lifeline AI</span>
+      <ProfileProvider>
+        <div className="min-h-screen w-full flex bg-background">
+            {/* Sidebar */}
+            <aside className="hidden md:flex flex-col w-16 items-center space-y-4 py-4 bg-card border-r border-border">
+                <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M12 19L12 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M5 12H2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M22 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M19.0711 4.92896L16.9497 7.05028" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M7.05023 16.9497L4.92892 19.0711" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M19.0711 19.0711L16.9497 16.9497" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M7.05023 7.05028L4.92892 4.92896" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M15.9546 15.2234L15.3486 14.6174C16.3213 13.6446 16.3213 12.0696 15.3486 11.0968L12.9038 8.65198C11.9311 7.67925 10.3561 7.67925 9.38334 8.65198L8.64861 9.38671" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M8.77661 8.04541L8.04188 8.78014C7.06915 9.75287 7.06915 11.3279 8.04188 12.3006L10.4867 14.7454C11.4594 15.7182 13.0344 15.7182 14.0071 14.7454L14.6514 14.1011" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                 </div>
+                <nav className="flex flex-col items-center space-y-2 flex-grow">
+                    {menuItems.map((item) => (
+                        <Button asChild key={item.href} variant={pathname === item.href ? "secondary" : "ghost"} className="w-10 h-10 p-0 rounded-lg">
+                            <Link href={item.href}>
+                                <item.icon className="w-5 h-5" />
+                                <span className="sr-only">{item.label}</span>
+                            </Link>
+                        </Button>
+                    ))}
+                </nav>
+                 <nav className="flex flex-col items-center space-y-2">
+                     <Button asChild variant={pathname === '/emergency' ? "secondary" : "ghost"} className="w-10 h-10 p-0 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10">
+                        <Link href="/emergency">
+                            <Siren className="w-5 h-5" />
+                            <span className="sr-only">Emergency</span>
+                        </Link>
+                    </Button>
+                 </nav>
+            </aside>
+            
+            <div className="flex flex-col flex-1">
+                {/* Header */}
+                <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
+                    <h1 className="text-xl font-semibold hidden md:block">Dashboard</h1>
+                    <div className="relative flex-1 md:grow-0">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input type="search" placeholder="Start Search Here..." className="w-full rounded-lg bg-muted pl-8 md:w-[200px] lg:w-[336px]" />
+                    </div>
+                    <div className="flex items-center gap-4 ml-auto">
+                        <Button variant="ghost" size="icon" className="rounded-full">
+                            <Bell className="h-5 w-5" />
+                            <span className="sr-only">Toggle notifications</span>
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={`https://i.pravatar.cc/150?u=${user?.uid}`} alt={user?.displayName || 'User'} />
+                                        <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                                    </Avatar>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem asChild><Link href="/profiles"><Settings className="mr-2 h-4 w-4" />Settings</Link></DropdownMenuItem>
+                                <DropdownMenuItem onClick={handleLogout}><LogOut className="mr-2 h-4 w-4" />Logout</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </header>
+                
+                {/* Main Content */}
+                <main className="flex-1 p-4 sm:px-6 sm:py-0">
+                    <ProfileGuard>
+                        {children}
+                    </ProfileGuard>
+                </main>
             </div>
-            <div className="md:hidden flex items-center gap-2">
-                <Stethoscope className="w-8 h-8 text-primary" />
-                <span className="font-bold text-lg text-foreground">Lifeline AI</span>
-            </div>
-            <div className="flex items-center gap-4">
-                <span className="text-sm font-semibold text-foreground hidden sm:inline-block">{user?.displayName || 'User'}</span>
-                <UserCircle className="h-8 w-8 text-primary" />
-            </div>
-        </header>
-        <main className="flex-1 p-4 md:p-6 lg:p-8">
-            <ProfileGuard>
-                {children}
-            </ProfileGuard>
-        </main>
-      </SidebarInset>
-    </>
+
+            {/* Mobile Bottom Nav */}
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t p-2 flex justify-around">
+                 {menuItems.slice(0, 5).map((item) => (
+                    <Link href={item.href} key={item.href} className={`flex flex-col items-center p-2 rounded-md ${pathname === item.href ? 'text-primary' : 'text-muted-foreground'}`}>
+                        <item.icon className="w-6 h-6 mb-1"/>
+                        <span className="text-xs">{item.label}</span>
+                    </Link>
+                ))}
+            </nav>
+        </div>
+      </ProfileProvider>
   );
-}
-
-
-export function AppShell({ children }: { children: React.ReactNode }) {
-    const defaultOpen = typeof window !== 'undefined' ? 
-        document.cookie.includes('sidebar_state=true') : true;
-
-    return (
-        <ProfileProvider>
-            <SidebarProvider defaultOpen={defaultOpen}>
-                 <AppShellInternal>{children}</AppShellInternal>
-            </SidebarProvider>
-        </ProfileProvider>
-    )
 }

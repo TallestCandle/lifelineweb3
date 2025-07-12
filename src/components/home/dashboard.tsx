@@ -5,320 +5,321 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, limit, getDocs } from 'firebase/firestore';
-import { format, parseISO, isValid } from 'date-fns';
+import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
+import { format, parseISO } from 'date-fns';
 import {
-  Building2,
-  ArrowRight,
-  ClipboardList,
   Heart,
   Droplet,
-  Thermometer,
   Wind,
   Activity,
   ArrowUp,
   ArrowDown,
   Minus,
+  TrendingDown,
+  TrendingUp,
+  AlertCircle
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
-// --- Types ---
-interface Investigation {
-  id: string;
-  status: 'pending_review' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
-  createdAt: string;
-}
 
-interface Vital {
-    date: string;
-    systolic?: string;
-    diastolic?: string;
-    bloodSugar?: string;
-    oxygenSaturation?: string;
-    temperature?: string;
-    pulseRate?: string;
-}
-
-type VitalType = 'blood_pressure' | 'blood_sugar' | 'oxygen_saturation' | 'temperature' | 'pulse_rate';
+type VitalType = 'blood_pressure' | 'blood_sugar' | 'oxygen_saturation' | 'pulse_rate';
 
 interface LatestVital {
     type: VitalType;
     value: string;
     unit: string;
-    status: 'Good' | 'Moderate' | 'Critical';
     trend: 'up' | 'down' | 'stable';
+    trendValue: string;
+    history: { value: number }[];
+    status: 'Good' | 'Moderate' | 'Critical';
 }
 
-const caseStatusConfig: Record<Investigation['status'], { text: string; color: string }> = {
-    pending_review: { text: 'Awaiting Doctor Review', color: 'bg-yellow-500' },
-    awaiting_lab_results: { text: 'Awaiting Lab Results', color: 'bg-blue-500' },
-    pending_final_review: { text: 'Doctor Reviewing Results', color: 'bg-yellow-500' },
-    completed: { text: 'Case Complete', color: 'bg-green-500' },
-    rejected: { text: 'Case Closed', color: 'bg-red-500' },
-    awaiting_follow_up_visit: { text: 'Follow-up Visit Pending', color: 'bg-cyan-500' },
+const vitalConfig: Record<VitalType, { icon: React.ElementType; title: string; unit: string; color: string; }> = {
+    blood_pressure: { icon: Heart, title: 'Blood Pressure', unit: 'mmHg', color: 'hsl(var(--chart-1))' },
+    blood_sugar: { icon: Droplet, title: 'Blood Sugar', unit: 'mg/dL', color: 'hsl(var(--chart-2))' },
+    oxygen_saturation: { icon: Wind, title: 'Oxygen Sat.', unit: '%', color: 'hsl(var(--chart-3))' },
+    pulse_rate: { icon: Activity, title: 'Pulse Rate', unit: 'BPM', color: 'hsl(var(--chart-4))' },
 };
 
-const vitalConfig: Record<VitalType, { icon: React.ElementType; title: string; unit: string }> = {
-    blood_pressure: { icon: Heart, title: 'Blood Pressure', unit: 'mmHg' },
-    blood_sugar: { icon: Droplet, title: 'Blood Sugar', unit: 'mg/dL' },
-    oxygen_saturation: { icon: Wind, title: 'Oxygen Sat.', unit: '%' },
-    temperature: { icon: Thermometer, title: 'Temperature', unit: '°F' },
-    pulse_rate: { icon: Activity, title: 'Pulse Rate', unit: 'BPM' },
-};
-
-// --- Main Dashboard Component ---
-export function Dashboard() {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [activeCases, setActiveCases] = useState<Investigation[]>([]);
-  const [latestVitals, setLatestVitals] = useState<LatestVital[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const firstName = user?.displayName?.split(' ')[0] || 'User';
-
-  useEffect(() => {
-    if (!user?.uid) {
-      setIsLoading(false);
-      return;
-    }
-    
-    setIsLoading(true);
-
-    // --- Fetch Active Cases ---
-    const casesQuery = query(
-        collection(db, "investigations"), 
-        where("userId", "==", user.uid), 
-        where("status", "in", ["pending_review", "awaiting_lab_results", "pending_final_review", "awaiting_follow_up_visit"])
+function MiniLineChart({ data, color }: { data: { value: number }[], color: string }) {
+    return (
+        <ResponsiveContainer width="100%" height={40}>
+            <LineChart data={data}>
+                <Tooltip 
+                    contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: 'var(--radius)',
+                    }}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                />
+                <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={false} />
+            </LineChart>
+        </ResponsiveContainer>
     );
-    const unsubscribeCases = onSnapshot(casesQuery, (snapshot) => {
-      setActiveCases(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investigation)));
-    }, (error) => {
-        console.error("Error fetching cases:", error);
-        toast({ variant: 'destructive', title: "Error", description: "Could not fetch clinic cases." });
-    });
+}
 
-    // --- Fetch and Process Vitals ---
-    const fetchVitals = async () => {
-        try {
-            const vitalsQuery = query(collection(db, `users/${user.uid}/vitals`), orderBy('date', 'desc'), limit(50));
-            const snapshot = await getDocs(vitalsQuery);
-            const history = snapshot.docs.map(doc => doc.data() as Vital);
+const TrendIndicator = ({ trend, value }: { trend: 'up' | 'down' | 'stable', value: string }) => {
+    const isUp = trend === 'up';
+    const isDown = trend === 'down';
+    const Icon = isUp ? TrendingUp : isDown ? TrendingDown : Minus;
+    const color = isUp ? 'text-destructive' : isDown ? 'text-primary' : 'text-muted-foreground';
+    if (trend === 'stable') return <span className="text-sm text-muted-foreground">No recent change</span>
+    return (
+        <div className="flex items-center gap-1">
+            <Icon className={cn("h-4 w-4", color)} />
+            <span className={cn("font-bold", color)}>{value}</span>
+            <span className="text-muted-foreground text-xs">vs last month</span>
+        </div>
+    )
+};
 
-            const latestReadings = new Map<VitalType, {current: Vital, previous: Vital | null}>();
 
-            // This loop ensures we find the latest reading and its preceding one for trend calculation
-            for (const type of Object.keys(vitalConfig) as VitalType[]) {
-                const readingsForType = history.filter(v => {
-                    if (type === 'blood_pressure') return v.systolic && v.diastolic;
-                    if (type === 'blood_sugar') return v.bloodSugar;
-                    if (type === 'oxygen_saturation') return v.oxygenSaturation;
-                    if (type === 'temperature') return v.temperature;
-                    if (type === 'pulse_rate') return v.pulseRate;
-                    return false;
-                });
+export function Dashboard() {
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const [latestVitals, setLatestVitals] = useState<LatestVital[]>([]);
+    const [bpHistory, setBpHistory] = useState<{name: string, systolic: number, diastolic: number}[]>([]);
+    const [trendsHistory, setTrendsHistory] = useState<{name: string, blood_sugar?: number, oxygen_saturation?: number, pulse_rate?: number}[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const firstName = user?.displayName?.split(' ')[0] || 'User';
 
-                if (readingsForType.length > 0) {
-                    latestReadings.set(type, {
-                        current: readingsForType[0],
-                        previous: readingsForType.length > 1 ? readingsForType[1] : null,
-                    });
-                }
-            }
+    useEffect(() => {
+        if (!user?.uid) {
+            setIsLoading(false);
+            return;
+        }
 
-            const vitalsToShow = Array.from(latestReadings.entries()).map(([type, data]) => {
-                const { current, previous } = data;
-                let value: string, currentValue: number, prevValue: number | null, trend: 'up' | 'down' | 'stable' = 'stable', status: 'Good' | 'Moderate' | 'Critical' = 'Good';
+        const fetchData = async () => {
+            setIsLoading(true);
+            try {
+                const vitalsQuery = query(collection(db, `users/${user.uid}/vitals`), orderBy('date', 'desc'), limit(50));
+                const snapshot = await getDocs(vitalsQuery);
+                const history = snapshot.docs.map(doc => ({...doc.data(), date: doc.data().date ? parseISO(doc.data().date) : new Date()}));
+                
+                const processedVitals = (Object.keys(vitalConfig) as VitalType[]).map(type => {
+                    let readingsForType: any[] = [];
+                    if(type === 'blood_pressure') {
+                        readingsForType = history.filter(v => v.systolic && v.diastolic);
+                    } else if (type === 'blood_sugar') {
+                        readingsForType = history.filter(v => v.bloodSugar);
+                    } else if (type === 'oxygen_saturation') {
+                         readingsForType = history.filter(v => v.oxygenSaturation);
+                    } else if (type === 'pulse_rate') {
+                         readingsForType = history.filter(v => v.pulseRate);
+                    }
+                    
+                    if (readingsForType.length < 2) return null;
 
-                switch(type) {
-                    case 'blood_pressure':
-                        value = `${current.systolic}/${current.diastolic}`;
-                        currentValue = parseFloat(current.systolic!);
-                        prevValue = previous ? parseFloat(previous.systolic!) : null;
-                        
-                        const s = parseFloat(current.systolic!);
-                        const d = parseFloat(current.diastolic!);
-                        if (s >= 130 || d >= 80) status = 'Critical';
-                        else if (s >= 120 && s < 130 && d < 80) status = 'Moderate';
-                        else if (s < 90 || d < 60) status = 'Critical';
-                        else status = 'Good';
-                        break;
-                    case 'blood_sugar':
-                        value = current.bloodSugar!;
-                        currentValue = parseFloat(value);
-                        prevValue = previous ? parseFloat(previous.bloodSugar!) : null;
-                        if (currentValue > 180 || currentValue < 70) status = 'Critical';
-                        else if (currentValue > 140) status = 'Moderate';
-                        break;
-                    case 'oxygen_saturation':
-                        value = current.oxygenSaturation!;
-                        currentValue = parseFloat(value);
-                        prevValue = previous ? parseFloat(previous.oxygenSaturation!) : null;
-                        if (currentValue < 92) status = 'Critical';
-                        else if (currentValue < 95) status = 'Moderate';
-                        break;
-                    case 'temperature':
-                        value = current.temperature!;
-                        currentValue = parseFloat(value);
-                        prevValue = previous ? parseFloat(previous.temperature!) : null;
-                        if (currentValue > 100.4 || currentValue < 97) status = 'Critical';
-                        else if (currentValue > 99.5) status = 'Moderate';
-                        break;
-                    case 'pulse_rate':
-                        value = current.pulseRate!;
-                        currentValue = parseFloat(value);
-                        prevValue = previous ? parseFloat(previous.pulseRate!) : null;
-                        if (currentValue > 100 || currentValue < 60) status = 'Critical';
-                        else if (currentValue > 90) status = 'Moderate';
-                        break;
-                    default:
-                      return null;
-                }
+                    const latest = readingsForType[0];
+                    const previous = readingsForType[1];
+                    let value = '', currentValue = 0, prevValue = 0, trend: 'up' | 'down' | 'stable' = 'stable', status: 'Good' | 'Moderate' | 'Critical' = 'Good';
 
-                if (prevValue !== null && !isNaN(currentValue) && !isNaN(prevValue)) {
+                    switch(type) {
+                        case 'blood_pressure':
+                            value = `${latest.systolic}/${latest.diastolic}`;
+                            currentValue = parseFloat(latest.systolic);
+                            prevValue = parseFloat(previous.systolic);
+                            const s = parseFloat(latest.systolic);
+                            const d = parseFloat(latest.diastolic);
+                            if (s >= 130 || d >= 80) status = 'Critical';
+                            else if (s >= 120) status = 'Moderate';
+                            else status = 'Good';
+                            break;
+                        case 'blood_sugar':
+                            value = latest.bloodSugar;
+                            currentValue = parseFloat(value);
+                            prevValue = parseFloat(previous.bloodSugar);
+                            if (currentValue > 180 || currentValue < 70) status = 'Critical';
+                            else if (currentValue > 140) status = 'Moderate';
+                            break;
+                        case 'oxygen_saturation':
+                            value = latest.oxygenSaturation;
+                            currentValue = parseFloat(value);
+                            prevValue = parseFloat(previous.oxygenSaturation);
+                            if (currentValue < 92) status = 'Critical';
+                            else if (currentValue < 95) status = 'Moderate';
+                            break;
+                        case 'pulse_rate':
+                            value = latest.pulseRate;
+                            currentValue = parseFloat(value);
+                            prevValue = parseFloat(previous.pulseRate);
+                            if (currentValue > 100 || currentValue < 60) status = 'Critical';
+                            else if (currentValue > 90) status = 'Moderate';
+                            break;
+                    }
+                    
                     if (currentValue > prevValue) trend = 'up';
                     else if (currentValue < prevValue) trend = 'down';
-                }
+                    
+                    const change = Math.abs(currentValue - prevValue);
+                    const trendValue = `${change.toFixed(type === 'blood_pressure' ? 0 : 1)}${vitalConfig[type].unit}`;
 
-                return { type, value, unit: vitalConfig[type].unit, status, trend };
-            }).filter(v => v !== null) as LatestVital[];
+                    const historyForChart = readingsForType.slice(0, 10).reverse().map(d => ({ value: type === 'blood_pressure' ? parseFloat(d.systolic) : parseFloat(d[type.replace('_', '')] || d[type] || '0') }));
+                    
+                    return { type, value, unit: vitalConfig[type].unit, status, trend, trendValue, history: historyForChart };
 
-            setLatestVitals(vitalsToShow);
+                }).filter(Boolean) as LatestVital[];
+                
+                setLatestVitals(processedVitals);
 
-        } catch (error) {
-            console.error("Error processing vitals:", error);
-            toast({ variant: 'destructive', title: "Error", description: "Could not load health snapshot." });
-        } finally {
-            setIsLoading(false);
-        }
-    };
+                const bpHistoryForChart = history
+                    .filter(v => v.systolic && v.diastolic)
+                    .slice(0, 7)
+                    .reverse()
+                    .map(d => ({ name: format(d.date, 'eee'), systolic: parseFloat(d.systolic), diastolic: parseFloat(d.diastolic) }));
+                setBpHistory(bpHistoryForChart);
 
-    fetchVitals();
+                const trendsHistoryForChart = history
+                    .slice(0, 7)
+                    .reverse()
+                    .map(d => ({
+                        name: format(d.date, 'eee'),
+                        blood_sugar: d.bloodSugar ? parseFloat(d.bloodSugar) : undefined,
+                        oxygen_saturation: d.oxygenSaturation ? parseFloat(d.oxygenSaturation) : undefined,
+                        pulse_rate: d.pulseRate ? parseFloat(d.pulseRate) : undefined,
+                    }));
+                setTrendsHistory(trendsHistoryForChart);
 
-    return () => {
-      unsubscribeCases();
-    };
-  }, [user, toast]);
 
-  const TrendIcon = ({ trend }: { trend: 'up' | 'down' | 'stable' }) => {
-    if (trend === 'up') return <ArrowUp className="w-4 h-4 text-destructive" />;
-    if (trend === 'down') return <ArrowDown className="w-4 h-4 text-green-500" />;
-    return <Minus className="w-4 h-4 text-muted-foreground" />;
-  };
+            } catch (error) {
+                console.error("Error processing vitals:", error);
+                toast({ variant: 'destructive', title: "Error", description: "Could not load dashboard data." });
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-  const statusColorMap = {
-      Good: 'text-green-400',
-      Moderate: 'text-yellow-400',
-      Critical: 'text-red-400'
-  }
+        fetchData();
+    }, [user, toast]);
 
-  return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="space-y-2">
-        <h1 className="text-3xl md:text-4xl font-bold text-foreground">Welcome, {firstName}</h1>
-        <p className="text-lg text-muted-foreground">This is your health mission control.</p>
-      </div>
+    const VitalCard = ({ vital }: { vital: LatestVital }) => {
+        const config = vitalConfig[vital.type];
+        const statusConfig = {
+            'Good': 'text-primary border-primary/20 bg-primary/10',
+            'Moderate': 'text-yellow-400 border-yellow-400/20 bg-yellow-400/10',
+            'Critical': 'text-red-400 border-red-400/20 bg-red-400/10'
+        };
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <Card className="lg:col-span-2">
-           <CardHeader>
-                <CardTitle>Vitals at a Glance</CardTitle>
-                <CardDescription>Your most recent key health metrics and their trends.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                {isLoading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" />
-                        <Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" />
+        return (
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-base font-medium text-muted-foreground">{config.title}</CardTitle>
+                        <config.icon className={cn("w-6 h-6", config.color)} />
                     </div>
-                ) : latestVitals.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {latestVitals.map((vital) => {
-                            const Icon = vitalConfig[vital.type].icon;
-                            return (
-                                <div key={vital.type} className="p-4 rounded-lg bg-secondary/50 flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <Icon className={cn("w-8 h-8", statusColorMap[vital.status])}/>
-                                        <div>
-                                            <p className="text-sm text-muted-foreground">{vitalConfig[vital.type].title}</p>
-                                            <p className="text-2xl font-bold">{vital.value} <span className="text-base font-normal text-muted-foreground">{vital.unit}</span></p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <TrendIcon trend={vital.trend} />
-                                        <Badge variant={vital.status === 'Good' ? 'default' : 'destructive'} className={cn(
-                                            {'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30': vital.status === 'Good'},
-                                            {'bg-yellow-500/20 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/30': vital.status === 'Moderate'},
-                                            {'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30': vital.status === 'Critical'},
-                                        )}>{vital.status}</Badge>
-                                    </div>
-                                </div>
-                            )
-                        })}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex items-baseline gap-2">
+                        <p className="text-4xl font-bold">{vital.value}</p>
+                        <p className="text-muted-foreground">{vital.unit}</p>
                     </div>
-                ) : (
-                    <div className="text-center py-10">
-                        <Heart className="mx-auto h-12 w-12 text-muted-foreground" />
-                        <h3 className="mt-4 text-lg font-semibold">No Recent Vitals</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">Use the AI Logger to start tracking your health data.</p>
-                        <Button asChild className="mt-4">
-                            <Link href="/log">Log Vitals</Link>
-                        </Button>
+                    <TrendIndicator trend={vital.trend} value={vital.trendValue}/>
+                    <div className="h-10">
+                        <MiniLineChart data={vital.history} color={config.color} />
                     </div>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    if (isLoading) {
+        return (
+             <div className="space-y-8 animate-fade-in">
+                <div className="flex justify-between items-center">
+                    <Skeleton className="h-10 w-64" />
+                </div>
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                    <Skeleton className="h-48" /><Skeleton className="h-48" />
+                    <Skeleton className="h-48" /><Skeleton className="h-48" />
+                </div>
+                <div className="grid gap-6 lg:grid-cols-2">
+                    <Skeleton className="h-80" />
+                    <Skeleton className="h-80" />
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="space-y-8 animate-fade-in">
+            <div>
+                <h1 className="text-3xl font-bold">Welcome back, {firstName}</h1>
+                <p className="text-muted-foreground">Here’s what’s happening with your health today.</p>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                {latestVitals.map(v => <VitalCard key={v.type} vital={v} />)}
+                {latestVitals.length === 0 && (
+                    <Card className="md:col-span-2 lg:col-span-4">
+                        <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+                            <AlertCircle className="w-12 h-12 text-muted-foreground mb-4"/>
+                            <h3 className="text-lg font-bold">Not Enough Data</h3>
+                            <p className="text-muted-foreground">Log your vitals for at least two days to see your dashboard cards.</p>
+                            <Button asChild className="mt-4"><Link href="/log">Go to Logger</Link></Button>
+                        </CardContent>
+                    </Card>
                 )}
-            </CardContent>
-        </Card>
+            </div>
 
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="text-primary" /> Active Clinic Cases
-            </CardTitle>
-             <CardDescription>An overview of your ongoing health investigations.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="space-y-2"><Skeleton className="h-12 w-full" /></div>
-            ) : activeCases.length > 0 ? (
-              <div className="space-y-4">
-                {activeCases.map((c) => {
-                  const config = caseStatusConfig[c.status];
-                  const createdAtDate = parseISO(c.createdAt);
-                  const formattedDate = isValid(createdAtDate) ? format(createdAtDate, 'MMM d, yyyy') : 'Invalid Date';
-                  return (
-                    <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-                      <div>
-                        <p className="font-bold">Case from {formattedDate}</p>
-                        <Badge className={cn('mt-1 text-white', config.color)}>{config.text}</Badge>
-                      </div>
-                      <Button asChild variant="outline" size="sm">
-                        <Link href="/clinic">
-                          View Case <ArrowRight className="ml-2 h-4 w-4" />
-                        </Link>
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-semibold">No Active Cases</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Start a new case in the clinic if you have any health concerns.
-                </p>
-                <Button asChild className="mt-4">
-                  <Link href="/clinic">Go to Clinic</Link>
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
+            <div className="grid gap-6 lg:grid-cols-2">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Blood Pressure Over Time</CardTitle>
+                        <CardDescription>Your last 7 BP readings.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={bpHistory}>
+                                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                                <Tooltip
+                                    contentStyle={{ 
+                                        backgroundColor: 'hsl(var(--background))',
+                                        border: '1px solid hsl(var(--border))',
+                                        borderRadius: 'var(--radius)',
+                                    }}
+                                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                                    cursor={{fill: 'hsl(var(--muted) / 0.3)'}}
+                                />
+                                <Bar dataKey="systolic" fill="hsl(var(--chart-1))" name="Systolic" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="diastolic" fill="hsl(var(--chart-2))" name="Diastolic" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Vitals Trend Analysis</CardTitle>
+                         <CardDescription>Your last 7 readings for other key vitals.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         <ResponsiveContainer width="100%" height={300}>
+                            <LineChart data={trendsHistory}>
+                                 <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                                 <Tooltip
+                                    contentStyle={{ 
+                                        backgroundColor: 'hsl(var(--background))',
+                                        border: '1px solid hsl(var(--border))',
+                                        borderRadius: 'var(--radius)',
+                                    }}
+                                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                                    cursor={{stroke: 'hsl(var(--primary))', strokeWidth: 1, strokeDasharray: '3 3'}}
+                                />
+                                <Line type="monotone" dataKey="blood_sugar" name="Blood Sugar" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 4 }} />
+                                <Line type="monotone" dataKey="oxygen_saturation" name="Oxygen Sat." stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 4 }} />
+                                <Line type="monotone" dataKey="pulse_rate" name="Pulse Rate" stroke="hsl(var(--chart-4))" strokeWidth={2} dot={{ r: 4 }} />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
 }
