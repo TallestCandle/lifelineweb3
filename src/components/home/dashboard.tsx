@@ -114,8 +114,9 @@ export function Dashboard() {
                 if (!recent) return null;
                 
                 const prev = vitalsHistory.find(v => v[key] && v.date < recent.date);
-                const currentValue = secondKey && recent[secondKey] ? parseFloat(recent[key]!) + parseFloat(recent[secondKey]!) : parseFloat(recent[key]!);
-                const prevValue = prev && prev[key] ? (secondKey && prev[secondKey] ? parseFloat(prev[key]!) + parseFloat(prev[secondKey]!) : parseFloat(prev[key]!)) : null;
+                
+                const currentValue = parseFloat(recent[key]!);
+                const prevValue = prev && prev[key] ? parseFloat(prev[key]!) : null;
 
                 let trend: 'up' | 'down' | 'stable' = 'stable';
                 if (prevValue !== null && !isNaN(currentValue) && !isNaN(prevValue)) {
@@ -134,7 +135,7 @@ export function Dashboard() {
                 switch(type) {
                     case 'blood_pressure':
                         if (s >= 140 || d >= 90 || s < 90 || d < 60) status = 'Critical';
-                        else if ((s >= 120 && s <= 139) || (d >= 80 && d <= 89)) status = 'Moderate';
+                        else if ((s >= 120 && s < 140) || (d >= 80 && d < 90)) status = 'Moderate';
                         else status = 'Good';
                         break;
                     case 'blood_sugar':
