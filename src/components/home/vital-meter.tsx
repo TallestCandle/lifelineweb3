@@ -132,4 +132,3 @@ export const VitalMeter: React.FC<VitalMeterProps> = ({
     </Card>
   );
 };
-
