@@ -75,49 +75,49 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Sidebar>
-        {/* This is the mobile-only sidebar content */}
         <SidebarContent className="md:hidden">
-          <SidebarMenu>
-            {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SheetClose asChild>
-                   <Link href={item.href}>
-                    <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} icon={<item.icon/>}>
-                      <span>{item.label}</span>
+            {/* This is the mobile-only sidebar content */}
+            <SidebarMenu>
+                {menuItems.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                        <SheetClose asChild>
+                            <Link href={item.href}>
+                                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} icon={<item.icon/>}>
+                                    <span>{item.label}</span>
+                                </SidebarMenuButton>
+                            </Link>
+                        </SheetClose>
+                    </SidebarMenuItem>
+                ))}
+                <SidebarSeparator className="my-2" />
+                <SidebarMenuItem>
+                    <SheetClose asChild>
+                        <Link href="/emergency">
+                            <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
+                                <span>Emergency</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </SheetClose>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                    <SheetClose asChild>
+                        <Link href="/profiles">
+                            <SidebarMenuButton asChild isActive={pathname === '/profiles'} tooltip="Settings" icon={<Settings/>}>
+                                <span>Settings</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </SheetClose>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                    <SidebarMenuButton onClick={handleLogout} tooltip="Logout" icon={<LogOut/>}>
+                        Logout
                     </SidebarMenuButton>
-                  </Link>
-                </SheetClose>
-              </SidebarMenuItem>
-            ))}
-            <SidebarSeparator className="my-2" />
-            <SidebarMenuItem>
-              <SheetClose asChild>
-                <Link href="/emergency">
-                  <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
-                    <span>Emergency</span>
-                  </SidebarMenuButton>
-                </Link>
-              </SheetClose>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SheetClose asChild>
-                 <Link href="/profiles">
-                  <SidebarMenuButton asChild isActive={pathname === '/profiles'} tooltip="Settings" icon={<Settings/>}>
-                    <span>Settings</span>
-                  </SidebarMenuButton>
-                </Link>
-              </SheetClose>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={handleLogout} tooltip="Logout" icon={<LogOut/>}>
-                Logout
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+                </SidebarMenuItem>
+            </SidebarMenu>
         </SidebarContent>
 
-        {/* This is the desktop-only sidebar content */}
         <SidebarContent className="hidden md:flex md:flex-col">
+          {/* This is the desktop-only sidebar content */}
           <SidebarMenu>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
