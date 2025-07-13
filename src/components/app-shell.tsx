@@ -19,7 +19,6 @@ import {
   LogOut,
   Settings,
   Bell,
-  ChevronLeft,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
@@ -35,15 +34,12 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import {
   SidebarProvider,
   Sidebar,
-  SidebarFooter,
-  SidebarContent,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarTrigger,
   SidebarInset,
   SidebarSeparator,
-  useSidebar,
 } from '@/components/ui/sidebar';
 import { SheetClose } from './ui/sheet';
 
@@ -60,7 +56,6 @@ const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
 function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { toggleSidebar } = useSidebar();
 
   const handleLogout = async () => {
     try {
@@ -72,93 +67,58 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  return (
-    <>
-      <Sidebar>
-        {/* Mobile Sidebar Content */}
-        <SidebarContent className="md:hidden">
-            <SidebarMenu>
-                {menuItems.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                        <SheetClose asChild>
-                            <Link href={item.href}>
-                                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} icon={<item.icon/>}>
-                                    <span>{item.label}</span>
-                                </SidebarMenuButton>
-                            </Link>
-                        </SheetClose>
-                    </SidebarMenuItem>
-                ))}
-                <SidebarSeparator className="my-2" />
-                <SidebarMenuItem>
-                    <SheetClose asChild>
-                        <Link href="/emergency">
-                            <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
-                                <span>Emergency</span>
-                            </SidebarMenuButton>
-                        </Link>
-                    </SheetClose>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                    <SheetClose asChild>
-                        <Link href="/profiles">
-                            <SidebarMenuButton asChild isActive={pathname === '/profiles'} tooltip="Settings" icon={<Settings/>}>
-                                <span>Settings</span>
-                            </SidebarMenuButton>
-                        </Link>
-                    </SheetClose>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                    <SidebarMenuButton onClick={handleLogout} tooltip="Logout" icon={<LogOut/>}>
-                        Logout
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
-            </SidebarMenu>
-        </SidebarContent>
-
-        {/* Desktop Sidebar Content */}
-        <SidebarContent className="hidden md:flex md:flex-col">
-          <SidebarMenu>
+  const sidebarMenu = (isMobile: boolean) => {
+    const Wrapper = isMobile ? SheetClose : React.Fragment;
+    const wrapperProps = isMobile ? { asChild: true } : {};
+    
+    return (
+        <SidebarMenu>
             {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} icon={<item.icon/>}>
-                  <Link href={item.href}>{item.label}</Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+                <SidebarMenuItem key={item.href}>
+                    <Wrapper {...wrapperProps}>
+                        <Link href={item.href}>
+                            <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} icon={<item.icon/>}>
+                                <span>{item.label}</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </Wrapper>
+                </SidebarMenuItem>
             ))}
             <SidebarSeparator className="my-2" />
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
-                <Link href="/emergency">Emergency</Link>
-              </SidebarMenuButton>
+                <Wrapper {...wrapperProps}>
+                    <Link href="/emergency">
+                        <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
+                            <span>Emergency</span>
+                        </SidebarMenuButton>
+                    </Link>
+                </Wrapper>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname === '/profiles'} tooltip="Settings" icon={<Settings/>}>
-                <Link href="/profiles">Settings</Link>
-              </SidebarMenuButton>
+                <Wrapper {...wrapperProps}>
+                    <Link href="/profiles">
+                        <SidebarMenuButton asChild isActive={pathname === '/profiles'} tooltip="Settings" icon={<Settings/>}>
+                            <span>Settings</span>
+                        </SidebarMenuButton>
+                    </Link>
+                </Wrapper>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={handleLogout} tooltip="Logout" icon={<LogOut/>}>
-                Logout
-              </SidebarMenuButton>
+                <SidebarMenuButton onClick={handleLogout} tooltip="Logout" icon={<LogOut/>}>
+                    Logout
+                </SidebarMenuButton>
             </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarContent>
+        </SidebarMenu>
+    );
+  }
 
-        <SidebarFooter>
-             <SidebarMenu>
-                <SidebarMenuItem className="hidden md:block">
-                  <SidebarMenuButton onClick={toggleSidebar} tooltip="Collapse" icon={<ChevronLeft className="transition-transform duration-300 group-data-[state=collapsed]:rotate-180"/>}>
-                    Collapse
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-             </SidebarMenu>
-        </SidebarFooter>
-      </Sidebar>
+  return (
+    <>
+      <Sidebar menu={sidebarMenu} />
       
       <SidebarInset>
         <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
-            <SidebarTrigger className="md:hidden shrink-0"/>
+            <SidebarTrigger className="shrink-0"/>
             
             <div className="flex items-center gap-2">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary">
