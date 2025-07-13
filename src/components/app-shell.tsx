@@ -75,8 +75,8 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Sidebar>
+        {/* Mobile Sidebar Content */}
         <SidebarContent className="md:hidden">
-            {/* This is the mobile-only sidebar content */}
             <SidebarMenu>
                 {menuItems.map((item) => (
                     <SidebarMenuItem key={item.href}>
@@ -116,8 +116,8 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             </SidebarMenu>
         </SidebarContent>
 
+        {/* Desktop Sidebar Content */}
         <SidebarContent className="hidden md:flex md:flex-col">
-          {/* This is the desktop-only sidebar content */}
           <SidebarMenu>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
