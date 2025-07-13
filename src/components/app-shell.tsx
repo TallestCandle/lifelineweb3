@@ -45,7 +45,6 @@ import {
   SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { cn } from '@/lib/utils';
 import { SheetClose } from './ui/sheet';
 
 const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
@@ -61,7 +60,7 @@ const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
 function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { isMobile, toggleSidebar } = useSidebar();
+  const { toggleSidebar } = useSidebar();
 
   const handleLogout = async () => {
     try {
@@ -73,44 +72,69 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const SidebarItems = () => (
+  return (
     <>
-        <SidebarContent>
+      <Sidebar>
+        {/* This is the mobile-only sidebar content */}
+        <SidebarContent className="md:hidden">
+          <SidebarMenu>
+            {menuItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <SheetClose asChild>
+                   <Link href={item.href}>
+                    <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} icon={<item.icon/>}>
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SheetClose>
+              </SidebarMenuItem>
+            ))}
+            <SidebarSeparator className="my-2" />
+            <SidebarMenuItem>
+              <SheetClose asChild>
+                <Link href="/emergency">
+                  <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
+                    <span>Emergency</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SheetClose>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SheetClose asChild>
+                 <Link href="/profiles">
+                  <SidebarMenuButton asChild isActive={pathname === '/profiles'} tooltip="Settings" icon={<Settings/>}>
+                    <span>Settings</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SheetClose>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={handleLogout} tooltip="Logout" icon={<LogOut/>}>
+                Logout
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarContent>
+
+        {/* This is the desktop-only sidebar content */}
+        <SidebarContent className="hidden md:flex md:flex-col">
           <SidebarMenu>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} icon={<item.icon/>}>
-                  {isMobile ? (
-                    <SheetClose asChild>
-                      <Link href={item.href}>{item.label}</Link>
-                    </SheetClose>
-                  ) : (
-                    <Link href={item.href}>{item.label}</Link>
-                  )}
+                  <Link href={item.href}>{item.label}</Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
             <SidebarSeparator className="my-2" />
-             <SidebarMenuItem>
+            <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
-                {isMobile ? (
-                  <SheetClose asChild>
-                    <Link href="/emergency">Emergency</Link>
-                  </SheetClose>
-                ) : (
-                  <Link href="/emergency">Emergency</Link>
-                )}
+                <Link href="/emergency">Emergency</Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-             <SidebarMenuItem>
+            <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === '/profiles'} tooltip="Settings" icon={<Settings/>}>
-                {isMobile ? (
-                  <SheetClose asChild>
-                    <Link href="/profiles">Settings</Link>
-                  </SheetClose>
-                ) : (
-                  <Link href="/profiles">Settings</Link>
-                )}
+                <Link href="/profiles">Settings</Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -120,6 +144,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarContent>
+
         <SidebarFooter>
              <SidebarMenu>
                 <SidebarMenuItem className="hidden md:block">
@@ -129,37 +154,25 @@ function AppLayout({ children }: { children: React.ReactNode }) {
                 </SidebarMenuItem>
              </SidebarMenu>
         </SidebarFooter>
-    </>
-  )
-
-  return (
-    <>
-      <Sidebar>
-        <div className="flex flex-col h-full">
-            <SidebarItems/>
-        </div>
       </Sidebar>
       
       <SidebarInset>
-        {/* Header */}
         <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
             <SidebarTrigger className="md:hidden shrink-0"/>
             
             <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-primary text-primary-foreground">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M12 19L12 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M5 12H2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M22 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M19.0711 4.92896L16.9497 7.05028" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M7.05023 16.9497L4.92892 19.0711" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M19.0711 19.0711L16.9497 16.9497" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M7.05023 7.05028L4.92892 4.92896" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M15.9546 15.2234L15.3486 14.6174C16.3213 13.6446 16.3213 12.0696 15.3486 11.0968L12.9038 8.65198C11.9311 7.67925 10.3561 7.67925 9.38334 8.65198L8.64861 9.38671" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M8.77661 8.04541L8.04188 8.78014C7.06915 9.75287 7.06915 11.3279 8.04188 12.3006L10.4867 14.7454C11.4594 15.7182 13.0344 15.7182 14.0071 14.7454L14.6514 14.1011" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                </div>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary">
+                    <path d="M12 2L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M12 19L12 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M5 12H2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M22 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M19.0711 4.92896L16.9497 7.05028" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M7.05023 16.9497L4.92892 19.0711" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M19.0711 19.0711L16.9497 16.9497" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M7.05023 7.05028L4.92892 4.92896" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M15.9546 15.2234L15.3486 14.6174C16.3213 13.6446 16.3213 12.0696 15.3486 11.0968L12.9038 8.65198C11.9311 7.67925 10.3561 7.67925 9.38334 8.65198L8.64861 9.38671" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M8.77661 8.04541L8.04188 8.78014C7.06915 9.75287 7.06915 11.3279 8.04188 12.3006L10.4867 14.7454C11.4594 15.7182 13.0344 15.7182 14.0071 14.7454L14.6514 14.1011" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
                 <span className="font-bold text-xl">Lifeline AI</span>
             </div>
 
@@ -188,7 +201,6 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
         </header>
         
-        {/* Main Content */}
         <main className="flex-1 p-4 sm:p-6">
             {children}
         </main>
