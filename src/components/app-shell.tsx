@@ -61,7 +61,7 @@ const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
 function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { toggleSidebar } = useSidebar();
+  const { isMobile, toggleSidebar } = useSidebar();
 
   const handleLogout = async () => {
     try {
@@ -80,25 +80,37 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} icon={<item.icon/>}>
-                  <Link href={item.href}>
-                    {item.label}
-                  </Link>
+                  {isMobile ? (
+                    <SheetClose asChild>
+                      <Link href={item.href}>{item.label}</Link>
+                    </SheetClose>
+                  ) : (
+                    <Link href={item.href}>{item.label}</Link>
+                  )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
             <SidebarSeparator className="my-2" />
              <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
-                <Link href="/emergency">
-                  Emergency
-                </Link>
+                {isMobile ? (
+                  <SheetClose asChild>
+                    <Link href="/emergency">Emergency</Link>
+                  </SheetClose>
+                ) : (
+                  <Link href="/emergency">Emergency</Link>
+                )}
               </SidebarMenuButton>
             </SidebarMenuItem>
              <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname === '/profiles'} tooltip="Settings" icon={<Settings/>}>
-                <Link href="/profiles">
-                  Settings
-                </Link>
+                {isMobile ? (
+                  <SheetClose asChild>
+                    <Link href="/profiles">Settings</Link>
+                  </SheetClose>
+                ) : (
+                  <Link href="/profiles">Settings</Link>
+                )}
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
