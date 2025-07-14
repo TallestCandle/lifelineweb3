@@ -9,17 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Stethoscope, User } from 'lucide-react';
 
 export function RoleSelection() {
-  const [role, setRole] = useState<'patient' | 'doctor' | null>(null);
+  const [role, setRole] = useState<'patient' | null>(null);
   const router = useRouter();
+
+  const handleDoctorClick = () => {
+    router.push('/doctor/auth');
+  };
 
   if (role === 'patient') {
     return <AuthForm onBack={() => setRole(null)} />;
-  }
-  
-  // For doctors, we redirect to their dedicated auth page.
-  if (role === 'doctor') {
-      router.push('/doctor/auth');
-      return null; // or a loader
   }
 
   return (
@@ -39,7 +37,7 @@ export function RoleSelection() {
             <User className="w-8 h-8"/>
             I am a Patient
           </Button>
-          <Button variant="outline" className="w-full h-24 flex-col gap-2" onClick={() => setRole('doctor')}>
+          <Button variant="outline" className="w-full h-24 flex-col gap-2" onClick={handleDoctorClick}>
             <Stethoscope className="w-8 h-8"/>
             I am a Doctor
           </Button>
