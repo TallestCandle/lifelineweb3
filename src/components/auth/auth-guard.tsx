@@ -41,7 +41,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 if (isDoctorRoute && role !== 'doctor') {
                     // Patient trying to access doctor routes
                     router.replace('/');
-                } else if (!isDoctorRoute && role !== 'patient') {
+                } else if (!isDoctorRoute && role === 'doctor') {
                     // Doctor trying to access patient routes
                     router.replace('/doctor/dashboard');
                 }
@@ -49,8 +49,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             
             // User is trying to access a public route
             if (isPublicRoute) {
-                if (PUBLIC_DOCTOR_ROUTES.includes(pathname)) {
-                    router.replace('/doctor/dashboard');
+                if (role === 'doctor') {
+                     router.replace('/doctor/dashboard');
                 } else {
                     router.replace('/');
                 }
