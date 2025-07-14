@@ -33,7 +33,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 if (isDoctorRoute) {
                     router.replace('/doctor/auth');
                 } else {
-                    router.replace('/auth');
+                    router.replace('/landing');
                 }
             }
         // User is logged in
