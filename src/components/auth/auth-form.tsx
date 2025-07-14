@@ -7,7 +7,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
@@ -16,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Stethoscope, ArrowLeft } from 'lucide-react';
 import { Loader } from '../ui/loader';
+import type { UserRole } from '@/context/auth-provider';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -45,7 +48,17 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
     }
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, data.email, data.password);
+        const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+        
+        // Verify user role
+        const userDocRef = doc(db, 'users', userCredential.user.uid);
+        const docSnap = await getDoc(userDocRef);
+
+        if (!docSnap.exists() || docSnap.data().role !== 'patient') {
+          await auth.signOut(); // Log out the user
+          throw new Error("This is not a patient account. Please use the doctor portal to log in.");
+        }
+        
         toast({ title: "Login Successful", description: "Welcome back!" });
         router.push('/');
       } else {
@@ -58,16 +71,19 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
         const user = userCredential.user;
         
         await updateProfile(user, { displayName: data.name });
+
+        // Set user role in Firestore
+        const userDocRef = doc(db, 'users', user.uid);
+        await setDoc(userDocRef, { role: 'patient' as UserRole });
         
         toast({ title: "Sign Up Successful", description: "Your account has been created. Let's set up your profile." });
         router.push('/');
       }
     } catch (error: any) {
-      const errorCode = error.code;
-      let errorMessage = "An unexpected error occurred. Please try again.";
-      if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
+      let errorMessage = error.message || "An unexpected error occurred. Please try again.";
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
           errorMessage = "Invalid email or password.";
-      } else if (errorCode === 'auth/email-already-in-use') {
+      } else if (error.code === 'auth/email-already-in-use') {
           errorMessage = "This email address is already in use.";
       }
       toast({ variant: "destructive", title: "Authentication Failed", description: errorMessage });

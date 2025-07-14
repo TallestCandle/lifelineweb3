@@ -12,11 +12,10 @@ import { ProfileProvider } from '@/context/profile-provider';
 
 const PUBLIC_USER_ROUTES = ['/auth', '/landing'];
 const PUBLIC_DOCTOR_ROUTES = ['/doctor/auth'];
-
 const ALL_PUBLIC_ROUTES = [...PUBLIC_USER_ROUTES, ...PUBLIC_DOCTOR_ROUTES];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-    const { user, loading: authLoading } = useAuth();
+    const { user, role, loading: authLoading } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
 
@@ -28,7 +27,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
         // User is not logged in
         if (!user) {
-            // And is trying to access a protected route
             if (!isPublicRoute) {
                 if (isDoctorRoute) {
                     router.replace('/doctor/auth');
@@ -38,7 +36,18 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             }
         // User is logged in
         } else {
-            // And is trying to access a public route
+            // User has a role and is on a protected route
+            if (role) {
+                if (isDoctorRoute && role !== 'doctor') {
+                    // Patient trying to access doctor routes
+                    router.replace('/');
+                } else if (!isDoctorRoute && role !== 'patient') {
+                    // Doctor trying to access patient routes
+                    router.replace('/doctor/dashboard');
+                }
+            }
+            
+            // User is trying to access a public route
             if (isPublicRoute) {
                 if (PUBLIC_DOCTOR_ROUTES.includes(pathname)) {
                     router.replace('/doctor/dashboard');
@@ -47,14 +56,24 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 }
             }
         }
-    }, [authLoading, user, isPublicRoute, router, pathname, isDoctorRoute]);
+    }, [authLoading, user, role, isPublicRoute, router, pathname, isDoctorRoute]);
 
-    // Render a loader while authentication is in progress or a redirect is imminent
     if (authLoading || (!user && !isPublicRoute) || (user && isPublicRoute)) {
         return <Loader />;
     }
     
-    // If authenticated, render content with the appropriate shell
+    // Additional loader to prevent content flashing while role check is happening
+    if (user && !role) {
+        return <Loader />;
+    }
+    
+    if (user && role === 'doctor' && !isDoctorRoute) {
+        return <Loader />; // Doctor on patient route, waiting for redirect
+    }
+    if (user && role === 'patient' && isDoctorRoute) {
+        return <Loader />; // Patient on doctor route, waiting for redirect
+    }
+
     if (user) {
         if (isDoctorRoute) {
             return <DoctorAppShell>{children}</DoctorAppShell>;
@@ -70,6 +89,5 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         );
     }
 
-    // Render public pages without any shell
     return <>{children}</>;
 }
