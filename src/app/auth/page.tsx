@@ -1,5 +1,5 @@
-import { AuthForm } from '@/components/auth/auth-form';
+import { RoleSelection } from '@/components/auth/role-selection';
 
 export default function AuthPage() {
-  return <AuthForm />;
+  return <RoleSelection />;
 }

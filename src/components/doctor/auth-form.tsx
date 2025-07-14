@@ -14,7 +14,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Stethoscope } from 'lucide-react';
+import { Stethoscope, ArrowLeft } from 'lucide-react';
 import { Loader } from '../ui/loader';
 
 const formSchema = z.object({
@@ -87,8 +87,11 @@ export function DoctorAuthForm() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-secondary/50 animated-gradient-bg">
-      <Card className="w-full max-w-md mx-4">
-        <CardHeader className="text-center">
+      <Card className="w-full max-w-md mx-4 relative">
+         <Button variant="ghost" size="icon" className="absolute top-4 left-4" onClick={() => router.push('/auth')}>
+          <ArrowLeft />
+        </Button>
+        <CardHeader className="text-center pt-16">
             <div className="flex justify-center items-center gap-2 mb-4">
                 <Stethoscope className="w-10 h-10 text-primary"/>
                 <h1 className="text-3xl font-bold">Lifeline AI</h1>
