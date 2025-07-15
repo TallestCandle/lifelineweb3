@@ -192,7 +192,7 @@ export function ProfileManager() {
 
                 <Button
                     className="w-full"
-                    onClick={() => initializePayment({onSuccess, onClose})}
+                    onClick={() => initializePayment(onSuccess, onClose)}
                     disabled={!user?.email}
                 >
                     <CreditCard className="mr-2"/>
