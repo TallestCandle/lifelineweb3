@@ -218,7 +218,7 @@ const Sidebar = React.forwardRef<
             side={side}
           >
             <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-            <div className="flex-1 overflow-y-auto p-2 pt-8 flex flex-col">
+            <div className="flex-1 overflow-y-auto p-2 pt-16 flex flex-col">
               {menu?.(true)}
             </div>
           </SheetContent>
@@ -367,7 +367,7 @@ const SidebarContent = React.forwardRef<
       ref={ref}
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-2 pt-8 group-data-[collapsible=icon]:overflow-hidden",
+        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-2 pt-16 group-data-[collapsible=icon]:overflow-hidden",
         className
       )}
       {...props}
