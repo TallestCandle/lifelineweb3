@@ -15,7 +15,7 @@ import {
   TrendingDown,
   TrendingUp,
   Minus,
-  Thermometer,
+  Wallet,
   AlertCircle
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
+import { useProfile } from '@/context/profile-provider';
 
 
 type VitalType = 'blood_pressure' | 'blood_sugar' | 'oxygen_saturation' | 'pulse_rate';
@@ -91,6 +92,7 @@ const TrendIndicator = ({ trend, value }: { trend: 'up' | 'down' | 'stable', val
 
 export function Dashboard() {
     const { user } = useAuth();
+    const { profile } = useProfile();
     const { toast } = useToast();
     const [latestVitals, setLatestVitals] = useState<LatestVital[]>([]);
     const [bpHistory, setBpHistory] = useState<{name: string, systolic: number, diastolic: number}[]>([]);
@@ -236,12 +238,7 @@ export function Dashboard() {
 
     const VitalCard = ({ vital }: { vital: LatestVital }) => {
         const config = vitalConfig[vital.type];
-        const statusConfig = {
-            'Good': 'text-primary border-primary/20 bg-primary/10',
-            'Moderate': 'text-yellow-400 border-yellow-400/20 bg-yellow-400/10',
-            'Critical': 'text-red-400 border-red-400/20 bg-red-400/10'
-        };
-
+        
         return (
             <Card>
                 <CardHeader>
@@ -263,6 +260,26 @@ export function Dashboard() {
             </Card>
         );
     }
+    
+    const WalletCard = () => (
+        <Card className="bg-gradient-to-br from-primary/20 to-secondary/20 border-primary/30">
+            <CardHeader>
+                <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-medium text-muted-foreground">My Wallet</CardTitle>
+                    <Wallet className="w-6 h-6 text-primary" />
+                </div>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between">
+                <div>
+                    <p className="text-sm text-muted-foreground">Available Credits</p>
+                    <p className="text-4xl font-bold">{profile?.credits ?? '...'}</p>
+                </div>
+                <Button asChild>
+                    <Link href="/profiles">Top Up</Link>
+                </Button>
+            </CardContent>
+        </Card>
+    );
 
     if (isLoading) {
         return (
@@ -270,12 +287,13 @@ export function Dashboard() {
                 <div className="flex justify-between items-center">
                     <Skeleton className="h-10 w-64" />
                 </div>
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                    <Skeleton className="h-48" /><Skeleton className="h-48" />
-                    <Skeleton className="h-48" /><Skeleton className="h-48" />
+                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                    <Skeleton className="h-48" />
+                    <Skeleton className="h-48" />
+                    <Skeleton className="h-48" />
+                    <Skeleton className="h-48" />
                 </div>
                 <div className="grid gap-6 lg:grid-cols-2">
-                    <Skeleton className="h-80" />
                     <Skeleton className="h-80" />
                 </div>
             </div>
@@ -290,10 +308,11 @@ export function Dashboard() {
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                {latestVitals.map(v => <VitalCard key={v.type} vital={v} />)}
+                <WalletCard />
+                {latestVitals.slice(0, 3).map(v => <VitalCard key={v.type} vital={v} />)}
                 {latestVitals.length === 0 && (
-                    <Card className="md:col-span-2 lg:col-span-4">
-                        <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+                    <Card className="md:col-span-2 lg:col-span-3">
+                        <CardContent className="flex flex-col items-center justify-center p-12 text-center h-full">
                             <AlertCircle className="w-12 h-12 text-muted-foreground mb-4"/>
                             <h3 className="text-lg font-bold">Not Enough Data</h3>
                             <p className="text-muted-foreground">Log your vitals for at least two days to see your dashboard cards.</p>

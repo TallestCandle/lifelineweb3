@@ -10,6 +10,7 @@ import {
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, orderBy, where, addDoc } from 'firebase/firestore';
 import { useAuth } from '@/context/auth-provider';
+import { useProfile } from '@/context/profile-provider';
 import { useToast } from '@/hooks/use-toast';
 import { addDays, format, startOfDay, subDays, parseISO } from 'date-fns';
 
@@ -24,6 +25,9 @@ import { Loader2, Lightbulb, BrainCircuit, Calendar as CalendarIcon, Zap, FileCl
 import { cn } from '@/lib/utils';
 import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
+const ANALYSIS_COST = 50;
 
 interface DeepDiveRecord {
     id: string;
@@ -40,6 +44,7 @@ const UrgencyConfig: Record<string, { color: string; text: string }> = {
 
 export function DeepDiveAnalyzer() {
     const { user } = useAuth();
+    const { profile, updateCredits } = useProfile();
     const { toast } = useToast();
 
     const [date, setDate] = useState<DateRange | undefined>({ from: subDays(new Date(), 7), to: new Date() });
@@ -100,6 +105,8 @@ export function DeepDiveAnalyzer() {
         setAnalysisResult(null);
 
         try {
+            await updateCredits(-ANALYSIS_COST);
+            
             const startDate = startOfDay(date.from);
             const endDate = startOfDay(addDays(date.to, 1));
             const basePath = `users/${user.uid}`;
@@ -122,6 +129,7 @@ export function DeepDiveAnalyzer() {
 
             if (vitalsSnap.empty && stripsSnap.empty && analysesSnap.empty) {
                 toast({ variant: 'destructive', title: 'Not Enough Data', description: 'There is no historical data for the selected period.' });
+                await updateCredits(ANALYSIS_COST); // Refund
                 setIsLoading(false);
                 return;
             }
@@ -142,6 +150,7 @@ export function DeepDiveAnalyzer() {
 
         } catch (error) {
             console.error("Comprehensive analysis failed:", error);
+            await updateCredits(ANALYSIS_COST); // Refund
             toast({
                 variant: 'destructive', title: 'Analysis Failed',
                 description: 'Could not perform the analysis. Please try again later.',
@@ -150,6 +159,8 @@ export function DeepDiveAnalyzer() {
             setIsLoading(false);
         }
     };
+    
+    const hasSufficientCredits = (profile?.credits ?? 0) >= ANALYSIS_COST;
 
     const renderResult = (result: ComprehensiveAnalysisOutput | null) => {
         if (!result) return null;
@@ -266,10 +277,28 @@ export function DeepDiveAnalyzer() {
 
                     <div className="flex-grow hidden sm:block" />
 
-                    <Button onClick={handleRunAnalysis} disabled={isLoading} className="w-full sm:w-auto">
-                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
-                        Run Deep Analysis
-                    </Button>
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                             <Button disabled={isLoading} className="w-full sm:w-auto">
+                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
+                                Run Analysis ({ANALYSIS_COST} Credits)
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Confirm Deep Dive Analysis</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will use {ANALYSIS_COST} credits from your wallet. This is a comprehensive analysis and is more expensive than a standard log analysis. Proceed?
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleRunAnalysis} disabled={!hasSufficientCredits}>
+                                    {hasSufficientCredits ? 'Confirm & Run' : 'Insufficient Credits'}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </CardContent>
             </Card>
 

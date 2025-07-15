@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/auth-provider';
+import { useProfile } from '@/context/profile-provider';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -32,11 +33,13 @@ import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
+const SUBMISSION_COST = 100;
 
 // Types
 interface Message {
   role: 'user' | 'model';
-  content: string;
 }
 
 type InvestigationStatus = 'pending_review' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
@@ -214,6 +217,7 @@ function CaseDetails({ investigation, onImageClick }: { investigation: Investiga
 
 export function HealthClinic() {
   const { user } = useAuth();
+  const { profile, updateCredits } = useProfile();
   const { toast } = useToast();
   
   const [activeView, setActiveView] = useState<'list' | 'chat'>('list');
@@ -316,6 +320,7 @@ export function HealthClinic() {
     if (!user) return;
     setInterviewState('submitting');
     try {
+      await updateCredits(-SUBMISSION_COST);
       const chatTranscript = messages.map(m => `${m.role === 'user' ? 'Patient' : 'AI Assistant'}: ${m.content}`).join('\n\n');
       const result = await startInvestigation({
         userId: user.uid,
@@ -333,6 +338,7 @@ export function HealthClinic() {
       }
     } catch (error) {
       console.error("Failed to submit investigation:", error);
+      await updateCredits(SUBMISSION_COST); // Refund
       toast({ variant: 'destructive', title: 'Submission Failed', description: 'Could not submit your case. Please try again.' });
       setInterviewState('awaiting_upload');
     }
@@ -370,6 +376,8 @@ export function HealthClinic() {
       });
     }
   };
+  
+  const hasSufficientCredits = (profile?.credits ?? 0) >= SUBMISSION_COST;
 
   const ChatInterface = () => (
     <Card>
@@ -424,7 +432,25 @@ export function HealthClinic() {
                 </div>
               )}
               <div className="flex-grow"/>
-              <Button className="w-full sm:w-auto" onClick={handleFinalSubmission}>Submit Case for Review</Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button className="w-full sm:w-auto">Submit Case ({SUBMISSION_COST} Credits)</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirm Case Submission</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will use {SUBMISSION_COST} credits from your wallet to submit this case for a doctor's review. Are you sure?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleFinalSubmission} disabled={!hasSufficientCredits}>
+                            {hasSufficientCredits ? 'Confirm & Submit' : 'Insufficient Credits'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         ) : (
