@@ -73,6 +73,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     
     return (
         <SidebarMenu>
+            <SidebarSeparator className="mb-2" />
             {menuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                     <Wrapper {...wrapperProps}>
