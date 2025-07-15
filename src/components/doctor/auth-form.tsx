@@ -101,8 +101,9 @@ export function DoctorAuthForm() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-secondary/50 animated-gradient-bg">
-      <Card className="w-full max-w-md mx-4 relative">
+    <div className="flex items-center justify-center min-h-screen bg-secondary/50">
+      <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[radial-gradient(hsl(var(--primary)/0.15)_1px,transparent_1px)] [background-size:32px_32px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_60%,transparent_100%)]"></div>
+      <Card className="w-full max-w-md mx-4 relative bg-card/80 backdrop-blur-sm border-primary/20">
          <Button variant="ghost" size="icon" className="absolute top-4 left-4" onClick={() => router.push('/auth')}>
           <ArrowLeft />
         </Button>
@@ -176,3 +177,5 @@ export function DoctorAuthForm() {
     </div>
   );
 }
+
+    

@@ -15,7 +15,6 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '../ui/form'
 import { askLifeline, type AskLifelineOutput } from '@/ai/flows/lifeline-ai-flow';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
 
 const askSchema = z.object({
   question: z.string().min(10, { message: "Please ask a more detailed question." }),
@@ -202,3 +201,5 @@ const FeatureCard = ({ icon: Icon, title, description }: { icon: LucideIcon, tit
         <p className="text-muted-foreground">{description}</p>
     </Card>
 );
+
+    
