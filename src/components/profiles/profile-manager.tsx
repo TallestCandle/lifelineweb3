@@ -63,7 +63,7 @@ export function ProfileManager() {
 
   const paystackConfig = {
     reference: (new Date()).getTime().toString(),
-    email: user?.email || '',
+    email: user?.email || 'user@example.com', // Provide a valid fallback
     amount: selectedPackage.amount * 100, // Amount in kobo
     publicKey: 'pk_test_2e295c0f33bc3198fe95dc1db020d03c82be94cb',
   };
@@ -190,7 +190,11 @@ export function ProfileManager() {
                     </div>
                 </div>
 
-                <Button className="w-full" onClick={() => initializePayment({onSuccess, onClose})}>
+                <Button
+                    className="w-full"
+                    onClick={() => initializePayment({onSuccess, onClose})}
+                    disabled={!user?.email}
+                >
                     <CreditCard className="mr-2"/>
                     Pay {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(selectedPackage.amount)} with Paystack
                 </Button>
