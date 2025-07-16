@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { usePaystackPayment } from 'react-paystack';
+import { usePaystackPayment, PaystackProps } from 'react-paystack';
 import { useProfile } from '@/context/profile-provider';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,12 +45,13 @@ export function WalletManager() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isTxLoading, setIsTxLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
-
+  
   const paystackConfig = useMemo(() => ({
     publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
     email: user?.email || '',
     amount: selectedPackage.amount * 100, // Amount in Kobo
-  }), [user?.email, selectedPackage.amount]);
+    reference: (new Date()).getTime().toString(),
+  }), [user, selectedPackage]);
 
   const initializePayment = usePaystackPayment(paystackConfig);
 
@@ -123,11 +124,16 @@ export function WalletManager() {
     const q = query(txCollectionRef, orderBy('timestamp', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setTransactions(snapshot.docs.map(doc => ({ 
-        id: doc.id,
-        timestamp: doc.data().timestamp, 
-        ...doc.data() 
-      } as Transaction)));
+      setTransactions(snapshot.docs.map(doc => {
+        const data = doc.data();
+        // Handle both Firestore Timestamp and ISO string
+        const timestamp = data.timestamp?.toDate ? data.timestamp.toDate().toISOString() : data.timestamp;
+        return { 
+          id: doc.id,
+          ...data,
+          timestamp,
+        } as Transaction;
+      }));
       setIsTxLoading(false);
     }, (error) => {
       console.error("Error fetching transactions: ", error);
