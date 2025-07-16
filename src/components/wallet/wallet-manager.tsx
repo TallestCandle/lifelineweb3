@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { usePaystackPayment } from 'react-paystack';
 import { useProfile } from '@/context/profile-provider';
 import { Button } from "@/components/ui/button";
@@ -38,8 +38,8 @@ export function WalletManager() {
   const [selectedPackage, setSelectedPackage] = useState(topUpPackages[0]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isTxLoading, setIsTxLoading] = useState(true);
-
-  const onSuccess = async () => {
+  
+  const onSuccess = useCallback(async () => {
     try {
         const description = `Purchased ${selectedPackage.credits} credits`;
         await updateCredits(selectedPackage.credits, description);
@@ -51,11 +51,11 @@ export function WalletManager() {
         console.error("Credit update error:", error);
         toast({ variant: 'destructive', title: "Credit Update Failed", description: "Your payment was successful but we failed to update your credits. Please contact support." });
     }
-  };
+  }, [selectedPackage.credits, toast, updateCredits]);
 
-  const onClose = () => {
+  const onClose = useCallback(() => {
     // User closed the popup
-  };
+  }, []);
   
   const paystackConfig = useMemo(() => ({
     reference: (new Date()).getTime().toString(),
@@ -67,7 +67,7 @@ export function WalletManager() {
   const initializePayment = usePaystackPayment(paystackConfig);
 
   const handlePayment = () => {
-    initializePayment(onSuccess, onClose);
+    initializePayment({onSuccess, onClose});
   };
 
   useEffect(() => {
