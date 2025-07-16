@@ -9,7 +9,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { db } from '@/lib/firebase';
-import { doc, collection, addDoc, updateDoc, increment } from 'firebase/firestore';
+import { doc, collection, addDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 
 const VerifyPaymentInputSchema = z.object({
   transactionReference: z.string().describe("The transaction reference from Paystack."),
@@ -90,8 +90,12 @@ const verifyPaymentFlow = ai.defineFlow(
         addDoc(txCollectionRef, {
             type: 'credit',
             amount: creditsToAdd,
-            description: `Purchased ${creditsToAdd} credits via Paystack (Ref: ${transactionReference})`,
-            timestamp: new Date().toISOString(),
+            description: `Purchased ${creditsToAdd} credits via Paystack`,
+            metadata: {
+                reference: transactionReference,
+                gateway: 'Paystack'
+            },
+            timestamp: serverTimestamp(),
         })
       ]);
       

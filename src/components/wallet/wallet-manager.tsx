@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { usePaystackPayment } from 'react-paystack';
 import { useProfile } from '@/context/profile-provider';
 import { Button } from "@/components/ui/button";
@@ -40,11 +40,11 @@ export function WalletManager() {
   const [isTxLoading, setIsTxLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  const config = {
-      publicKey: 'pk_test_2e295c0f33bc3198fe95dc1db020d03c82be94cb',
+  const paystackConfig = {
+      publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
   };
   
-  const initializePayment = usePaystackPayment(config);
+  const initializePayment = usePaystackPayment(paystackConfig);
 
   const onSuccess = useCallback(async (transaction: { reference: string }) => {
     if (!user) return;
@@ -94,7 +94,6 @@ export function WalletManager() {
             reference: (new Date()).getTime().toString(),
             email: user.email,
             amount: selectedPackage.amount * 100,
-            publicKey: 'pk_test_2e295c0f33bc3198fe95dc1db020d03c82be94cb',
         }
     });
   };
@@ -155,7 +154,7 @@ export function WalletManager() {
                 <Button
                     className="w-full"
                     onClick={handlePayment}
-                    disabled={!user?.email || profileLoading || isVerifying}
+                    disabled={!user?.email || profileLoading || isVerifying || !paystackConfig.publicKey}
                 >
                     {isVerifying ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
