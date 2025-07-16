@@ -15,7 +15,6 @@ import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '../ui/skeleton';
-import { verifyPayment } from '@/ai/flows/verify-payment-flow';
 
 interface TopUpPackage {
   amount: number;
@@ -64,20 +63,26 @@ export function WalletManager() {
     }
     setIsVerifying(true);
     try {
-      const result = await verifyPayment({
-        transactionReference: transaction.reference,
-        userId: user.uid,
-        creditsToAdd: selectedPackage.credits,
-        amountPaid: selectedPackage.amount,
+      const response = await fetch('/api/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transactionReference: transaction.reference,
+          userId: user.uid,
+          creditsToAdd: selectedPackage.credits,
+          amountPaid: selectedPackage.amount,
+        }),
       });
 
-      if (result.success) {
+      const result = await response.json();
+
+      if (response.ok && result.success) {
         toast({
           title: "Top-up Successful!",
           description: `${selectedPackage.credits} credits have been added to your wallet.`,
         });
       } else {
-        throw new Error(result.message || "Payment verification failed on the server.");
+        throw new Error(result.message || "Payment verification failed.");
       }
     } catch (error: any) {
       console.error("Verification error:", error);
@@ -110,7 +115,7 @@ export function WalletManager() {
       });
       return;
     }
-    initializePayment(onSuccess, onClose);
+    initializePayment({onSuccess, onClose});
   };
   
 
@@ -127,7 +132,6 @@ export function WalletManager() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setTransactions(snapshot.docs.map(doc => {
         const data = doc.data();
-        // Handle both Firestore Timestamp and ISO string
         const timestamp = data.timestamp?.toDate ? data.timestamp.toDate().toISOString() : data.timestamp;
         return { 
           id: doc.id,
