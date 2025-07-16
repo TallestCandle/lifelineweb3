@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { usePaystackPayment, type PaystackHookConfig } from 'react-paystack';
+import { useEffect, useState, useCallback } from 'react';
+import { usePaystackPayment } from 'react-paystack';
 import { useProfile } from '@/context/profile-provider';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,13 +44,10 @@ export function WalletManager() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isTxLoading, setIsTxLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
-  
-  const paystackConfig: PaystackHookConfig = useMemo(() => ({
+
+  const initializePayment = usePaystackPayment({
     publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
-    email: user?.email || '',
-    amount: selectedPackage.amount * 100, // Amount in Kobo
-    reference: (new Date()).getTime().toString(),
-  }), [user, selectedPackage]);
+  });
 
   const onSuccess = useCallback(async (transaction: { reference: string }) => {
     if (!user) {
@@ -103,11 +100,13 @@ export function WalletManager() {
       description: "You closed the payment window. No credits were added.",
     });
   }, [toast]);
-  
-  const initializePayment = usePaystackPayment(paystackConfig);
 
   const handlePayment = () => {
-    if (!paystackConfig.publicKey) {
+    if (!user || !profile) {
+        toast({variant: 'destructive', title: 'Error', description: 'Please wait for your profile to load.'});
+        return;
+    }
+    if (!process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY) {
       toast({
         variant: 'destructive',
         title: 'Configuration Error',
@@ -115,9 +114,17 @@ export function WalletManager() {
       });
       return;
     }
-    initializePayment({onSuccess, onClose});
+    
+    initializePayment({
+      onSuccess,
+      onClose,
+      config: {
+        email: user.email!,
+        amount: selectedPackage.amount * 100, // Amount in Kobo
+        reference: (new Date()).getTime().toString(),
+      }
+    });
   };
-  
 
   useEffect(() => {
     if (!user) {
@@ -149,7 +156,7 @@ export function WalletManager() {
     return () => unsubscribe();
   }, [user, toast]);
 
-  const payButtonDisabled = profileLoading || isVerifying || !paystackConfig.publicKey;
+  const payButtonDisabled = profileLoading || isVerifying || !process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
 
   return (
     <div className="grid lg:grid-cols-2 gap-8 items-start">
