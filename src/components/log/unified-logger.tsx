@@ -169,10 +169,19 @@ export function UnifiedLogger() {
             };
             
             const result = await analyzeHealth(input);
+            
+            // Create a sanitized object for Firestore to avoid 'undefined' errors.
+            const sanitizedInput: AnalyzeHealthInput = {};
+            for (const key in input) {
+                if (input[key as keyof AnalyzeHealthInput] !== undefined) {
+                    sanitizedInput[key as keyof AnalyzeHealthInput] = input[key as keyof AnalyzeHealthInput];
+                }
+            }
+
             const analysesCol = collection(db, `users/${user.uid}/health_analyses`);
             await addDoc(analysesCol, {
                 timestamp: new Date().toISOString(),
-                inputData: input,
+                inputData: sanitizedInput,
                 analysisResult: result,
             });
 
