@@ -66,9 +66,9 @@ export function WalletManager() {
   }, []);
 
   const handlePayment = () => {
-    initializePayment({ 
-      onSuccess, 
-      onClose 
+    initializePayment({
+        onSuccess,
+        onClose,
     });
   };
 
