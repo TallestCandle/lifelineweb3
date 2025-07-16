@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { usePaystackPayment } from 'react-paystack';
 import type { PaystackHookConfig } from 'react-paystack/dist/types';
 
@@ -17,12 +17,8 @@ import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '../ui/skeleton';
-
-interface TopUpPackage {
-  amount: number;
-  credits: number;
-  label: string;
-}
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 
 interface Transaction {
   id: string;
@@ -32,37 +28,37 @@ interface Transaction {
   timestamp: string;
 }
 
-const topUpPackages: TopUpPackage[] = [
-  { amount: 1000, credits: 100, label: '₦1,000 for 100 Credits' },
-  { amount: 2500, credits: 300, label: '₦2,500 for 300 Credits (20% Bonus)' },
-  { amount: 5000, credits: 750, label: '₦5,000 for 750 Credits (50% Bonus)' },
-];
+const predefinedAmounts = [500, 1000, 2500, 5000, 10000];
+const CREDIT_RATE = 10; // 1 credit per 10 NGN
 
 export function WalletManager() {
   const { user } = useAuth();
   const { profile, loading: profileLoading } = useProfile();
   const { toast } = useToast();
-  const [selectedPackage, setSelectedPackage] = useState<TopUpPackage>(topUpPackages[0]);
+  const [customAmount, setCustomAmount] = useState<number | string>(1000);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isTxLoading, setIsTxLoading] = useState(true);
+
+  const amountInNaira = typeof customAmount === 'string' ? parseFloat(customAmount) || 0 : customAmount;
+  const creditsToAdd = Math.floor(amountInNaira / CREDIT_RATE);
 
   const config: PaystackHookConfig = {
     publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
     reference: (new Date()).getTime().toString(),
     email: user?.email || '',
-    amount: selectedPackage.amount * 100, // Amount in Kobo
+    amount: amountInNaira * 100, // Amount in Kobo
     metadata: {
       user_id: user?.uid,
-      credits_to_add: selectedPackage.credits,
+      credits_to_add: creditsToAdd,
     }
   };
 
   const initializePayment = usePaystackPayment(config);
 
-  const onSuccess = (transaction: { reference: string }) => {
+  const onSuccess = () => {
     toast({
-      title: "Payment Initiated!",
-      description: "Your transaction is being processed. Your wallet will be updated shortly.",
+      title: "Payment Successful!",
+      description: "Your transaction is being processed and your wallet will be updated shortly via our secure webhook.",
     });
   };
 
@@ -84,6 +80,14 @@ export function WalletManager() {
         variant: 'destructive',
         title: 'Configuration Error',
         description: 'Payment system is not available at the moment.',
+      });
+      return;
+    }
+     if (amountInNaira < 100) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Amount',
+        description: 'The minimum top-up amount is ₦100.',
       });
       return;
     }
@@ -138,23 +142,33 @@ export function WalletManager() {
 
           <Separator />
 
-          <div>
-            <h3 className="font-bold mb-2">Top-up Packages</h3>
-            <div className="space-y-2">
-              {topUpPackages.map((pkg) => (
-                <button
-                  key={pkg.amount}
-                  onClick={() => setSelectedPackage(pkg)}
+          <div className="space-y-4">
+            <Label htmlFor="custom-amount">Enter Amount (NGN)</Label>
+             <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
+              {predefinedAmounts.map((amount) => (
+                <Button
+                  key={amount}
+                  variant="outline"
+                  onClick={() => setCustomAmount(amount)}
                   className={cn(
-                    'w-full p-3 rounded-md text-left transition-all border-2',
-                    selectedPackage.amount === pkg.amount ? 'border-primary bg-primary/10' : 'border-transparent bg-secondary/50 hover:bg-secondary'
+                    amount === amountInNaira && "border-primary text-primary"
                   )}
                 >
-                  <p className="font-bold">{pkg.label}</p>
-                  <p className="text-sm text-muted-foreground">{pkg.credits} credits will be added to your wallet.</p>
-                </button>
+                  ₦{amount}
+                </Button>
               ))}
             </div>
+            <Input
+              id="custom-amount"
+              type="number"
+              placeholder="e.g., 1500"
+              value={customAmount}
+              onChange={(e) => setCustomAmount(e.target.value)}
+              min="100"
+            />
+            <p className="text-sm text-center text-muted-foreground">
+                You will receive <span className="font-bold text-primary">{creditsToAdd} credits</span> for ₦{amountInNaira}.
+            </p>
           </div>
 
           <Button
@@ -163,7 +177,7 @@ export function WalletManager() {
             disabled={payButtonDisabled}
           >
             <CreditCard className="mr-2" />
-            {`Pay ${new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(selectedPackage.amount)} with Paystack`}
+            {`Proceed to Pay ₦${amountInNaira}`}
           </Button>
         </CardContent>
       </Card>
