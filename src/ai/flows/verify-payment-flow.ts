@@ -54,32 +54,35 @@ const verifyPaymentFlow = ai.defineFlow(
       });
       
       if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`Paystack API returned status ${response.status}: ${errorBody}`);
         throw new Error(`Paystack API returned status ${response.status}`);
       }
 
       const verificationData = await response.json();
 
-      // --- Security Checks ---
       if (verificationData.status !== true || !verificationData.data) {
+        console.error("Paystack verification failed. Data:", verificationData);
         return { success: false, message: "Transaction verification failed." };
       }
       
       const { status, amount, currency } = verificationData.data;
 
       if (status !== 'success') {
+        console.error(`Transaction was not successful. Status: ${status}`);
         return { success: false, message: `Transaction was not successful. Status: ${status}` };
       }
       
-      // Paystack returns amount in kobo, so we divide by 100
       if (amount / 100 !== amountPaid) {
+        console.error(`Amount mismatch. Paid: ${amount / 100}, Expected: ${amountPaid}`);
         return { success: false, message: `Amount paid (${amount / 100}) does not match expected amount (${amountPaid}).` };
       }
       
       if (currency !== 'NGN') {
+        console.error(`Incorrect currency. Expected NGN, got ${currency}.`);
         return { success: false, message: `Incorrect currency. Expected NGN, got ${currency}.` };
       }
       
-      // --- All checks passed, update Firestore ---
       const profileDocRef = doc(db, 'profiles', userId);
       const txCollectionRef = collection(db, `users/${userId}/transactions`);
 
@@ -102,8 +105,8 @@ const verifyPaymentFlow = ai.defineFlow(
       return { success: true, message: "Payment verified and credits awarded." };
 
     } catch (error) {
-      console.error('Error during Paystack verification:', error);
-      return { success: false, message: error instanceof Error ? error.message : "An unknown error occurred." };
+      console.error('Error during Paystack verification flow:', error);
+      return { success: false, message: error instanceof Error ? error.message : "An unknown error occurred during verification." };
     }
   }
 );
