@@ -7,7 +7,7 @@ import { useProfile } from '@/context/profile-provider';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Wallet, CreditCard, PlusCircle, MinusCircle } from "lucide-react";
+import { Wallet, CreditCard, PlusCircle, MinusCircle, Loader2 } from "lucide-react";
 import { useAuth } from '@/context/auth-provider';
 import { Separator } from '../ui/separator';
 import { db } from '@/lib/firebase';
@@ -15,6 +15,7 @@ import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '../ui/skeleton';
+import { verifyPayment } from '@/ai/flows/verify-payment-flow';
 
 const topUpPackages = [
     { amount: 1000, credits: 100, label: '₦1,000 for 100 Credits' },
@@ -32,41 +33,60 @@ interface Transaction {
 
 export function WalletManager() {
   const { user } = useAuth();
-  const { profile, updateCredits, loading: profileLoading } = useProfile();
+  const { profile, loading: profileLoading } = useProfile();
   const { toast } = useToast();
   const [selectedPackage, setSelectedPackage] = useState(topUpPackages[0]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isTxLoading, setIsTxLoading] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  const config = useMemo(() => ({
+  const paystackConfig = useMemo(() => ({
     reference: (new Date()).getTime().toString(),
     email: user?.email || '',
     amount: selectedPackage.amount * 100, // Amount in kobo
     publicKey: 'pk_test_2e295c0f33bc3198fe95dc1db020d03c82be94cb',
   }), [user?.email, selectedPackage.amount]);
 
-  const initializePayment = usePaystackPayment(config);
+  const initializePayment = usePaystackPayment(paystackConfig);
 
-  const onSuccess = useCallback(async () => {
+  const onSuccess = useCallback(async (transaction: { reference: string }) => {
+    if (!user) return;
+    setIsVerifying(true);
     try {
-        const description = `Purchased ${selectedPackage.credits} credits`;
-        await updateCredits(selectedPackage.credits, description);
-        toast({
-            title: "Top-up Successful!",
-            description: `${selectedPackage.credits} credits have been added to your wallet.`,
+        const result = await verifyPayment({
+            transactionReference: transaction.reference,
+            userId: user.uid,
+            creditsToAdd: selectedPackage.credits,
+            amountPaid: selectedPackage.amount,
         });
-    } catch (error) {
-        console.error("Credit update error:", error);
-        toast({ variant: 'destructive', title: "Credit Update Failed", description: "Your payment was successful but we failed to update your credits. Please contact support." });
+
+        if (result.success) {
+            toast({
+                title: "Top-up Successful!",
+                description: `${selectedPackage.credits} credits have been added to your wallet.`,
+            });
+        } else {
+             throw new Error(result.message || "Verification failed on the server.");
+        }
+
+    } catch (error: any) {
+        console.error("Verification error:", error);
+        toast({ 
+            variant: 'destructive', 
+            title: "Verification Failed", 
+            description: error.message || "Your payment could not be verified. Please contact support." 
+        });
+    } finally {
+        setIsVerifying(false);
     }
-  }, [selectedPackage, toast, updateCredits]);
+  }, [user, selectedPackage, toast]);
 
   const onClose = useCallback(() => {
     // User closed the popup, no action needed
   }, []);
 
   const handlePayment = () => {
-    initializePayment(onSuccess, onClose);
+    initializePayment({onSuccess, onClose});
   };
   
   useEffect(() => {
@@ -125,10 +145,14 @@ export function WalletManager() {
                 <Button
                     className="w-full"
                     onClick={handlePayment}
-                    disabled={!user?.email || profileLoading}
+                    disabled={!user?.email || profileLoading || isVerifying}
                 >
-                    <CreditCard className="mr-2"/>
-                    Pay {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(selectedPackage.amount)} with Paystack
+                    {isVerifying ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                        <CreditCard className="mr-2"/>
+                    )}
+                    {isVerifying ? 'Verifying Payment...' : `Pay ${new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(selectedPackage.amount)} with Paystack`}
                 </Button>
             </CardContent>
         </Card>
