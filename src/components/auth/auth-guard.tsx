@@ -36,7 +36,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             }
         // User is logged in
         } else {
-            // User has a role and is on a protected route
+            // User has a role and is trying to access a protected route
             if (role) {
                 if (isDoctorRoute && role !== 'doctor') {
                     // Patient trying to access doctor routes
@@ -47,7 +47,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 }
             }
             
-            // User is trying to access a public route
+            // User is trying to access a public route (like /auth)
             if (isPublicRoute) {
                 if (role === 'doctor') {
                      router.replace('/doctor/dashboard');
@@ -58,7 +58,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         }
     }, [authLoading, user, role, isPublicRoute, router, pathname, isDoctorRoute]);
 
-    if (authLoading || (!user && !isPublicRoute) || (user && isPublicRoute)) {
+    if (authLoading || (!user && !isPublicRoute) || (user && isPublic_route)) {
         return <Loader />;
     }
     
