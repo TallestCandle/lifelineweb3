@@ -110,7 +110,7 @@ export function WalletManager() {
       });
       return;
     }
-    initializePayment({onSuccess, onClose});
+    initializePayment(onSuccess, onClose);
   };
   
 
