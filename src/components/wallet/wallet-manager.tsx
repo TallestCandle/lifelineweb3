@@ -46,6 +46,8 @@ export function WalletManager() {
     publicKey: 'pk_test_2e295c0f33bc3198fe95dc1db020d03c82be94cb',
   };
 
+  const initializePayment = usePaystackPayment(paystackConfig);
+
   const onSuccess = async () => {
     try {
         const description = `Purchased ${selectedPackage.credits} credits`;
@@ -63,7 +65,9 @@ export function WalletManager() {
     // User closed the popup
   };
 
-  const initializePayment = usePaystackPayment(paystackConfig);
+  const handlePayment = () => {
+    initializePayment(onSuccess, onClose);
+  };
 
   useEffect(() => {
     if (!user) {
@@ -120,7 +124,7 @@ export function WalletManager() {
 
                 <Button
                     className="w-full"
-                    onClick={() => initializePayment(onSuccess, onClose)}
+                    onClick={handlePayment}
                     disabled={!user?.email || profileLoading}
                 >
                     <CreditCard className="mr-2"/>
