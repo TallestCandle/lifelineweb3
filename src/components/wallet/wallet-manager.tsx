@@ -38,15 +38,15 @@ export function WalletManager() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isTxLoading, setIsTxLoading] = useState(true);
 
-  const paystackConfig = useMemo(() => ({
+  const config = useMemo(() => ({
     reference: (new Date()).getTime().toString(),
     email: user?.email || '',
     amount: selectedPackage.amount * 100, // Amount in kobo
     publicKey: 'pk_test_2e295c0f33bc3198fe95dc1db020d03c82be94cb',
   }), [user?.email, selectedPackage.amount]);
 
-  const initializePayment = usePaystackPayment(paystackConfig);
-  
+  const initializePayment = usePaystackPayment(config);
+
   const onSuccess = useCallback(async () => {
     try {
         const description = `Purchased ${selectedPackage.credits} credits`;
@@ -66,12 +66,9 @@ export function WalletManager() {
   }, []);
 
   const handlePayment = () => {
-    initializePayment({
-        onSuccess,
-        onClose,
-    });
+    initializePayment(onSuccess, onClose);
   };
-
+  
   useEffect(() => {
     if (!user) {
         setIsTxLoading(false);
