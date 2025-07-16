@@ -54,7 +54,7 @@ export function WalletManager() {
   }, [selectedPackage.credits, toast, updateCredits]);
 
   const onClose = useCallback(() => {
-    // User closed the popup
+    // User closed the popup, no action needed
   }, []);
   
   const paystackConfig = useMemo(() => ({
@@ -62,12 +62,14 @@ export function WalletManager() {
     email: user?.email || '',
     amount: selectedPackage.amount * 100, // Amount in kobo
     publicKey: 'pk_test_2e295c0f33bc3198fe95dc1db020d03c82be94cb',
-  }), [user?.email, selectedPackage.amount]);
+    onSuccess,
+    onClose,
+  }), [user?.email, selectedPackage.amount, onSuccess, onClose]);
 
   const initializePayment = usePaystackPayment(paystackConfig);
 
   const handlePayment = () => {
-    initializePayment({onSuccess, onClose});
+    initializePayment();
   };
 
   useEffect(() => {
