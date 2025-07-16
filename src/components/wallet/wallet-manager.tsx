@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { usePaystackPayment, PaystackProps } from 'react-paystack';
+import { usePaystackPayment, type PaystackHookConfig } from 'react-paystack';
 import { useProfile } from '@/context/profile-provider';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,14 +46,12 @@ export function WalletManager() {
   const [isTxLoading, setIsTxLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
   
-  const paystackConfig = useMemo(() => ({
+  const paystackConfig: PaystackHookConfig = useMemo(() => ({
     publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
     email: user?.email || '',
     amount: selectedPackage.amount * 100, // Amount in Kobo
     reference: (new Date()).getTime().toString(),
   }), [user, selectedPackage]);
-
-  const initializePayment = usePaystackPayment(paystackConfig);
 
   const onSuccess = useCallback(async (transaction: { reference: string }) => {
     if (!user) {
@@ -101,9 +99,11 @@ export function WalletManager() {
     });
   }, [toast]);
   
+  const initializePayment = usePaystackPayment(paystackConfig);
+
   const handlePayment = () => {
     if (!paystackConfig.publicKey) {
-       toast({
+      toast({
         variant: 'destructive',
         title: 'Configuration Error',
         description: 'Paystack public key is not configured. Payment cannot proceed.',
@@ -112,6 +112,7 @@ export function WalletManager() {
     }
     initializePayment({onSuccess, onClose});
   };
+  
 
   useEffect(() => {
     if (!user) {
@@ -213,7 +214,7 @@ export function WalletManager() {
                     {tx.type === 'credit' ? <PlusCircle className="w-5 h-5 text-green-500" /> : <MinusCircle className="w-5 h-5 text-red-500" />}
                     <div>
                       <p className="font-semibold text-sm">{tx.description}</p>
-                      <p className="text-xs text-muted-foreground">{format(parseISO(tx.timestamp), 'MMM d, yyyy, h:mm a')}</p>
+                      <p className="text-xs text-muted-foreground">{tx.timestamp ? format(parseISO(tx.timestamp), 'MMM d, yyyy, h:mm a') : 'Date unavailable'}</p>
                     </div>
                   </div>
                   <p className={cn("font-bold text-sm", tx.type === 'credit' ? 'text-green-500' : 'text-red-500')}>
