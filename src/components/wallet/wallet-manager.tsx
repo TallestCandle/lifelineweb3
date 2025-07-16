@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { usePaystackPayment } from 'react-paystack';
 import type { PaystackHookConfig } from 'react-paystack/dist/types';
 
@@ -9,7 +9,7 @@ import { useProfile } from '@/context/profile-provider';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Wallet, CreditCard, PlusCircle, MinusCircle, Loader2 } from "lucide-react";
+import { Wallet, CreditCard, PlusCircle, MinusCircle } from "lucide-react";
 import { useAuth } from '@/context/auth-provider';
 import { Separator } from '../ui/separator';
 import { db } from '@/lib/firebase';
@@ -19,6 +19,8 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '../ui/skeleton';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
 
 interface Transaction {
   id: string;
@@ -38,6 +40,8 @@ export function WalletManager() {
   const [customAmount, setCustomAmount] = useState<number | string>(1000);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isTxLoading, setIsTxLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'credit' | 'debit'>('all');
+
 
   const amountInNaira = typeof customAmount === 'string' ? parseFloat(customAmount) || 0 : customAmount;
   const creditsToAdd = Math.floor(amountInNaira / CREDIT_RATE);
@@ -57,8 +61,8 @@ export function WalletManager() {
 
   const onSuccess = () => {
     toast({
-      title: "Payment Successful!",
-      description: "Your transaction is being processed and your wallet will be updated shortly via our secure webhook.",
+      title: "Payment Processing",
+      description: "Your transaction is being verified and your wallet will be updated shortly.",
     });
   };
 
@@ -92,7 +96,7 @@ export function WalletManager() {
       return;
     }
     
-    initializePayment(onSuccess, onClose);
+    initializePayment({onSuccess, onClose});
   };
 
   useEffect(() => {
@@ -125,6 +129,14 @@ export function WalletManager() {
     return () => unsubscribe();
   }, [user, toast]);
 
+  const filteredTransactions = useMemo(() => {
+    if (filter === 'all') {
+      return transactions;
+    }
+    return transactions.filter(tx => tx.type === filter);
+  }, [transactions, filter]);
+
+
   const payButtonDisabled = profileLoading || !process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
 
   return (
@@ -143,7 +155,7 @@ export function WalletManager() {
           <Separator />
 
           <div className="space-y-4">
-            <Label htmlFor="custom-amount">Enter Amount (NGN)</Label>
+            <Label htmlFor="custom-amount">Select or Enter Amount (NGN)</Label>
              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-4">
               {predefinedAmounts.map((amount) => (
                 <Button
@@ -151,10 +163,10 @@ export function WalletManager() {
                   variant="outline"
                   onClick={() => setCustomAmount(amount)}
                   className={cn(
-                    amount === amountInNaira && "border-primary text-primary"
+                    amount === amountInNaira && "border-primary text-primary ring-2 ring-primary"
                   )}
                 >
-                  ₦{amount}
+                  ₦{amount.toLocaleString()}
                 </Button>
               ))}
             </div>
@@ -167,7 +179,7 @@ export function WalletManager() {
               min="100"
             />
             <p className="text-sm text-center text-muted-foreground">
-                You will receive <span className="font-bold text-primary">{creditsToAdd} credits</span> for ₦{amountInNaira}.
+                You will receive <span className="font-bold text-primary">{creditsToAdd} credits</span> for ₦{amountInNaira.toLocaleString()}.
             </p>
           </div>
 
@@ -177,7 +189,7 @@ export function WalletManager() {
             disabled={payButtonDisabled}
           >
             <CreditCard className="mr-2" />
-            {`Proceed to Pay ₦${amountInNaira}`}
+            {`Proceed to Pay ₦${amountInNaira.toLocaleString()}`}
           </Button>
         </CardContent>
       </Card>
@@ -188,30 +200,37 @@ export function WalletManager() {
           <CardDescription>Your recent credit top-ups and usage.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-            {isTxLoading ? (
-              <div className="space-y-4">
-                {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-              </div>
-            ) : transactions.length > 0 ? (
-              transactions.map(tx => (
-                <div key={tx.id} className="flex items-center justify-between p-3 bg-secondary/50 rounded-md">
-                  <div className="flex items-center gap-3">
-                    {tx.type === 'credit' ? <PlusCircle className="w-5 h-5 text-green-500" /> : <MinusCircle className="w-5 h-5 text-red-500" />}
-                    <div>
-                      <p className="font-semibold text-sm">{tx.description}</p>
-                      <p className="text-xs text-muted-foreground">{tx.timestamp ? format(parseISO(tx.timestamp), 'MMM d, yyyy, h:mm a') : 'Date unavailable'}</p>
-                    </div>
-                  </div>
-                  <p className={cn("font-bold text-sm", tx.type === 'credit' ? 'text-green-500' : 'text-red-500')}>
-                    {tx.type === 'credit' ? '+' : '-'}{Math.abs(tx.amount)}
-                  </p>
+          <Tabs value={filter} onValueChange={(value) => setFilter(value as any)} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="credit">Credits</TabsTrigger>
+              <TabsTrigger value="debit">Debits</TabsTrigger>
+            </TabsList>
+            <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+              {isTxLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
                 </div>
-              ))
-            ) : (
-              <p className="text-center text-muted-foreground py-8">No transactions yet.</p>
-            )}
-          </div>
+              ) : filteredTransactions.length > 0 ? (
+                filteredTransactions.map(tx => (
+                  <div key={tx.id} className="flex items-center justify-between p-3 bg-secondary/50 rounded-md">
+                    <div className="flex items-center gap-3">
+                      {tx.type === 'credit' ? <PlusCircle className="w-5 h-5 text-green-500" /> : <MinusCircle className="w-5 h-5 text-red-500" />}
+                      <div>
+                        <p className="font-semibold text-sm">{tx.description}</p>
+                        <p className="text-xs text-muted-foreground">{tx.timestamp ? format(parseISO(tx.timestamp), 'MMM d, yyyy, h:mm a') : 'Date unavailable'}</p>
+                      </div>
+                    </div>
+                    <p className={cn("font-bold text-sm", tx.type === 'credit' ? 'text-green-500' : 'text-red-500')}>
+                      {tx.type === 'credit' ? '+' : '-'}{Math.abs(tx.amount)}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground py-8">No {filter !== 'all' ? filter : ''} transactions found.</p>
+              )}
+            </div>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
