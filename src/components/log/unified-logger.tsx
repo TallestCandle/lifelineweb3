@@ -149,7 +149,7 @@ export function UnifiedLogger() {
         
         setIsAnalyzing(true);
         try {
-            await updateCredits(-ANALYSIS_COST);
+            await updateCredits(-ANALYSIS_COST, `Standard AI Analysis`);
             const recentVitals = history.filter(item => item.type === 'vitals').slice(0, 1)[0] as Vital | undefined;
             const recentStrips = history.filter(item => item.type === 'strips').slice(0, 1)[0] as Strip | undefined;
 
@@ -181,7 +181,7 @@ export function UnifiedLogger() {
         } catch (error) {
             console.error("Error running analysis:", error);
             toast({ variant: 'destructive', title: 'Analysis Failed' });
-            await updateCredits(ANALYSIS_COST); // Refund credits on failure
+            await updateCredits(ANALYSIS_COST, `Refund for failed analysis`); // Refund credits on failure
         } finally {
             setIsAnalyzing(false);
         }

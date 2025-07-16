@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, updateDoc, increment, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, increment, onSnapshot, collection, addDoc } from 'firebase/firestore';
 import type { ThemeId } from './theme-provider';
 
 export interface Profile {
@@ -23,7 +23,7 @@ interface ProfileContextType {
   createProfile: (data: Omit<Profile, 'theme' | 'credits'>) => Promise<void>;
   updateProfile: (data: Partial<Omit<Profile, 'theme' | 'credits'>>) => Promise<void>;
   updateProfileTheme: (theme: ThemeId) => Promise<void>;
-  updateCredits: (amount: number) => Promise<void>;
+  updateCredits: (amount: number, description: string) => Promise<void>;
 }
 
 const ProfileContext = createContext<ProfileContextType | null>(null);
@@ -89,13 +89,24 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setProfile(prev => ({ ...prev!, theme }));
   }, [user, profile]);
 
-  const updateCredits = useCallback(async (amount: number) => {
+  const updateCredits = useCallback(async (amount: number, description: string) => {
     if (!user) throw new Error("User not authenticated");
+    
+    // Log the transaction
+    const txCollectionRef = collection(db, `users/${user.uid}/transactions`);
+    await addDoc(txCollectionRef, {
+        type: amount > 0 ? 'credit' : 'debit',
+        amount: amount,
+        description: description,
+        timestamp: new Date().toISOString()
+    });
+    
+    // Update the profile balance
     const profileDocRef = doc(db, 'profiles', user.uid);
     await updateDoc(profileDocRef, {
         credits: increment(amount)
     });
-    // The optimistic update is handled by the onSnapshot listener
+    // The optimistic update is handled by the onSnapshot listener for the profile
   }, [user]);
 
   const value = {

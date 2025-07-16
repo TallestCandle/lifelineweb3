@@ -40,6 +40,7 @@ const SUBMISSION_COST = 100;
 // Types
 interface Message {
   role: 'user' | 'model';
+  content: string;
 }
 
 type InvestigationStatus = 'pending_review' | 'awaiting_lab_results' | 'pending_final_review' | 'completed' | 'rejected' | 'awaiting_follow_up_visit';
@@ -320,7 +321,7 @@ export function HealthClinic() {
     if (!user) return;
     setInterviewState('submitting');
     try {
-      await updateCredits(-SUBMISSION_COST);
+      await updateCredits(-SUBMISSION_COST, `New Clinic Case`);
       const chatTranscript = messages.map(m => `${m.role === 'user' ? 'Patient' : 'AI Assistant'}: ${m.content}`).join('\n\n');
       const result = await startInvestigation({
         userId: user.uid,
@@ -338,7 +339,7 @@ export function HealthClinic() {
       }
     } catch (error) {
       console.error("Failed to submit investigation:", error);
-      await updateCredits(SUBMISSION_COST); // Refund
+      await updateCredits(SUBMISSION_COST, `Refund for failed case submission`); // Refund
       toast({ variant: 'destructive', title: 'Submission Failed', description: 'Could not submit your case. Please try again.' });
       setInterviewState('awaiting_upload');
     }

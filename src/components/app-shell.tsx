@@ -19,6 +19,7 @@ import {
   LogOut,
   Settings,
   Bell,
+  Wallet,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
@@ -88,18 +89,28 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarSeparator className="my-2" />
             <SidebarMenuItem>
                 <Wrapper {...wrapperProps}>
-                    <Link href="/emergency">
-                        <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
-                            <span>Emergency</span>
+                    <Link href="/wallet">
+                        <SidebarMenuButton asChild isActive={pathname === '/wallet'} tooltip="Wallet" icon={<Wallet/>}>
+                            <span>Wallet</span>
                         </SidebarMenuButton>
                     </Link>
                 </Wrapper>
             </SidebarMenuItem>
-            <SidebarMenuItem>
+             <SidebarMenuItem>
                 <Wrapper {...wrapperProps}>
                     <Link href="/profiles">
                         <SidebarMenuButton asChild isActive={pathname === '/profiles'} tooltip="Settings" icon={<Settings/>}>
                             <span>Settings</span>
+                        </SidebarMenuButton>
+                    </Link>
+                </Wrapper>
+            </SidebarMenuItem>
+            <SidebarSeparator className="my-2" />
+            <SidebarMenuItem>
+                <Wrapper {...wrapperProps}>
+                    <Link href="/emergency">
+                        <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
+                            <span>Emergency</span>
                         </SidebarMenuButton>
                     </Link>
                 </Wrapper>

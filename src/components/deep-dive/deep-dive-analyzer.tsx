@@ -105,7 +105,7 @@ export function DeepDiveAnalyzer() {
         setAnalysisResult(null);
 
         try {
-            await updateCredits(-ANALYSIS_COST);
+            await updateCredits(-ANALYSIS_COST, `Deep Dive Analysis`);
             
             const startDate = startOfDay(date.from);
             const endDate = startOfDay(addDays(date.to, 1));
@@ -129,7 +129,7 @@ export function DeepDiveAnalyzer() {
 
             if (vitalsSnap.empty && stripsSnap.empty && analysesSnap.empty) {
                 toast({ variant: 'destructive', title: 'Not Enough Data', description: 'There is no historical data for the selected period.' });
-                await updateCredits(ANALYSIS_COST); // Refund
+                await updateCredits(ANALYSIS_COST, `Refund for failed Deep Dive`); // Refund
                 setIsLoading(false);
                 return;
             }
@@ -150,7 +150,7 @@ export function DeepDiveAnalyzer() {
 
         } catch (error) {
             console.error("Comprehensive analysis failed:", error);
-            await updateCredits(ANALYSIS_COST); // Refund
+            await updateCredits(ANALYSIS_COST, `Refund for failed Deep Dive`); // Refund
             toast({
                 variant: 'destructive', title: 'Analysis Failed',
                 description: 'Could not perform the analysis. Please try again later.',

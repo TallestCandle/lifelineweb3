@@ -92,7 +92,7 @@ const TrendIndicator = ({ trend, value }: { trend: 'up' | 'down' | 'stable', val
 
 export function Dashboard() {
     const { user } = useAuth();
-    const { profile } = useProfile();
+    const { profile, loading: profileLoading } = useProfile();
     const { toast } = useToast();
     const [latestVitals, setLatestVitals] = useState<LatestVital[]>([]);
     const [bpHistory, setBpHistory] = useState<{name: string, systolic: number, diastolic: number}[]>([]);
@@ -272,10 +272,10 @@ export function Dashboard() {
             <CardContent className="flex items-center justify-between">
                 <div>
                     <p className="text-sm text-muted-foreground">Available Credits</p>
-                    <p className="text-4xl font-bold">{profile?.credits ?? '...'}</p>
+                    {profileLoading ? <Skeleton className="h-10 w-24 mt-1" /> : <p className="text-4xl font-bold">{profile?.credits ?? '0'}</p>}
                 </div>
                 <Button asChild>
-                    <Link href="/profiles">Top Up</Link>
+                    <Link href="/wallet">Top Up</Link>
                 </Button>
             </CardContent>
         </Card>

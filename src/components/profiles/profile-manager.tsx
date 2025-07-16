@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,12 +12,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { User, Edit, Wallet, CreditCard } from "lucide-react";
+import { User, Edit } from "lucide-react";
 import { useAuth } from '@/context/auth-provider';
 import { Textarea } from '../ui/textarea';
 import { useRouter } from 'next/navigation';
-import { usePaystackPayment } from 'react-paystack';
-import { Separator } from '../ui/separator';
 
 const profileSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -29,18 +27,11 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
-const topUpPackages = [
-    { amount: 1000, credits: 100, label: '₦1,000 for 100 Credits' },
-    { amount: 2500, credits: 300, label: '₦2,500 for 300 Credits (20% Bonus)' },
-    { amount: 5000, credits: 750, label: '₦5,000 for 750 Credits (50% Bonus)' },
-];
-
 export function ProfileManager() {
   const { user } = useAuth();
-  const { profile, createProfile, updateProfile, updateCredits } = useProfile();
+  const { profile, createProfile, updateProfile } = useProfile();
   const { toast } = useToast();
   const router = useRouter();
-  const [selectedPackage, setSelectedPackage] = useState(topUpPackages[0]);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -60,33 +51,7 @@ export function ProfileManager() {
       form.reset({ name: user.displayName, age: "", gender: undefined, phone: "", address: "" });
     }
   }, [profile, user, form]);
-
-  const paystackConfig = {
-    reference: (new Date()).getTime().toString(),
-    email: user?.email || 'user@example.com', // Provide a valid fallback
-    amount: selectedPackage.amount * 100, // Amount in kobo
-    publicKey: 'pk_test_2e295c0f33bc3198fe95dc1db020d03c82be94cb',
-  };
-
-  const onSuccess = async (reference: any) => {
-    console.log('Payment successful', reference);
-    try {
-        await updateCredits(selectedPackage.credits);
-        toast({
-            title: "Top-up Successful!",
-            description: `${selectedPackage.credits} credits have been added to your wallet.`,
-        });
-    } catch (error) {
-        toast({ variant: 'destructive', title: "Credit Update Failed", description: "Your payment was successful but we failed to update your credits. Please contact support." });
-    }
-  };
-
-  const onClose = () => {
-    console.log('Payment dialog closed');
-  };
-
-  const initializePayment = usePaystackPayment(paystackConfig);
-
+  
   const onSubmit = async (values: ProfileFormValues) => {
     try {
       if (profile) {
@@ -107,8 +72,8 @@ export function ProfileManager() {
   const buttonText = profile ? "Save Changes" : "Create Profile";
 
   return (
-    <div className="grid lg:grid-cols-2 gap-8 items-start">
-      <Card className="w-full">
+    <div className="flex items-center justify-center">
+      <Card className="w-full max-w-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             {profile ? <Edit /> : <User />}
@@ -159,48 +124,6 @@ export function ProfileManager() {
           </Form>
         </CardContent>
       </Card>
-      
-      {profile && (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Wallet/> My Wallet</CardTitle>
-                <CardDescription>Top up your credits to use Lifeline's AI features.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="p-4 rounded-lg bg-secondary/50 flex justify-between items-center">
-                    <p className="text-muted-foreground">Available Credits</p>
-                    <p className="text-2xl font-bold text-primary">{profile.credits}</p>
-                </div>
-
-                <Separator />
-                
-                <div>
-                    <h3 className="font-bold mb-2">Top-up Packages</h3>
-                    <div className="space-y-2">
-                        {topUpPackages.map((pkg) => (
-                            <button
-                                key={pkg.amount}
-                                onClick={() => setSelectedPackage(pkg)}
-                                className={`w-full p-3 rounded-md text-left transition-all border-2 ${selectedPackage.amount === pkg.amount ? 'border-primary bg-primary/10' : 'border-transparent bg-secondary/50 hover:bg-secondary'}`}
-                            >
-                                <p className="font-bold">{pkg.label}</p>
-                                <p className="text-sm text-muted-foreground">{pkg.credits} credits will be added to your wallet.</p>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <Button
-                    className="w-full"
-                    onClick={() => initializePayment(onSuccess, onClose)}
-                    disabled={!user?.email}
-                >
-                    <CreditCard className="mr-2"/>
-                    Pay {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(selectedPackage.amount)} with Paystack
-                </Button>
-            </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
