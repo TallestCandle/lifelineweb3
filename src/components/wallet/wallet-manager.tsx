@@ -3,6 +3,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { usePaystackPayment } from 'react-paystack';
+import type { PaystackHookConfig } from 'react-paystack/dist/types';
+
 import { useProfile } from '@/context/profile-provider';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,87 +45,50 @@ export function WalletManager() {
   const [selectedPackage, setSelectedPackage] = useState<TopUpPackage>(topUpPackages[0]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isTxLoading, setIsTxLoading] = useState(true);
-  const [isVerifying, setIsVerifying] = useState(false);
 
-  const initializePayment = usePaystackPayment({
+  const config: PaystackHookConfig = {
     publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
-  });
-
-  const onSuccess = useCallback(async (transaction: { reference: string }) => {
-    if (!user) {
-      toast({
-        variant: 'destructive',
-        title: 'Authentication Error',
-        description: 'User not found. Please log in again.',
-      });
-      return;
+    reference: (new Date()).getTime().toString(),
+    email: user?.email || '',
+    amount: selectedPackage.amount * 100, // Amount in Kobo
+    metadata: {
+      user_id: user?.uid,
+      credits_to_add: selectedPackage.credits,
     }
-    setIsVerifying(true);
-    try {
-      const response = await fetch('/api/verify-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transactionReference: transaction.reference,
-          userId: user.uid,
-          creditsToAdd: selectedPackage.credits,
-          amountPaid: selectedPackage.amount,
-        }),
-      });
+  };
 
-      const result = await response.json();
+  const initializePayment = usePaystackPayment(config);
 
-      if (response.ok && result.success) {
-        toast({
-          title: "Top-up Successful!",
-          description: `${selectedPackage.credits} credits have been added to your wallet.`,
-        });
-      } else {
-        throw new Error(result.message || "Payment verification failed.");
-      }
-    } catch (error: any) {
-      console.error("Verification error:", error);
-      toast({
-        variant: 'destructive',
-        title: "Verification Failed",
-        description: error.message || "Your payment could not be verified. Please contact support if you were charged.",
-      });
-    } finally {
-      setIsVerifying(false);
-    }
-  }, [user, selectedPackage, toast]);
+  const onSuccess = (transaction: { reference: string }) => {
+    toast({
+      title: "Payment Initiated!",
+      description: "Your transaction is being processed. Your wallet will be updated shortly.",
+    });
+  };
 
-  const onClose = useCallback(() => {
+  const onClose = () => {
     toast({
       variant: 'default',
       title: "Payment Cancelled",
-      description: "You closed the payment window. No credits were added.",
+      description: "You closed the payment window. No charge was made.",
     });
-  }, [toast]);
+  };
 
   const handlePayment = () => {
     if (!user || !profile) {
-        toast({variant: 'destructive', title: 'Error', description: 'Please wait for your profile to load.'});
-        return;
+      toast({variant: 'destructive', title: 'Error', description: 'Please wait for your profile to load.'});
+      return;
     }
     if (!process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY) {
       toast({
         variant: 'destructive',
         title: 'Configuration Error',
-        description: 'Paystack public key is not configured. Payment cannot proceed.',
+        description: 'Payment system is not available at the moment.',
       });
       return;
     }
     
-    initializePayment({
-      onSuccess,
-      onClose,
-      config: {
-        email: user.email!,
-        amount: selectedPackage.amount * 100, // Amount in Kobo
-        reference: (new Date()).getTime().toString(),
-      }
-    });
+    initializePayment(onSuccess, onClose);
   };
 
   useEffect(() => {
@@ -156,7 +121,7 @@ export function WalletManager() {
     return () => unsubscribe();
   }, [user, toast]);
 
-  const payButtonDisabled = profileLoading || isVerifying || !process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
+  const payButtonDisabled = profileLoading || !process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
 
   return (
     <div className="grid lg:grid-cols-2 gap-8 items-start">
@@ -197,12 +162,8 @@ export function WalletManager() {
             onClick={handlePayment}
             disabled={payButtonDisabled}
           >
-            {isVerifying ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <CreditCard className="mr-2" />
-            )}
-            {isVerifying ? 'Verifying Payment...' : `Pay ${new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(selectedPackage.amount)} with Paystack`}
+            <CreditCard className="mr-2" />
+            {`Pay ${new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(selectedPackage.amount)} with Paystack`}
           </Button>
         </CardContent>
       </Card>
