@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
-import { usePaystackPayment } from 'react-paystack';
+import { usePaystackPayment, type PaystackProps } from 'react-paystack';
 import { useProfile } from '@/context/profile-provider';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,13 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '../ui/skeleton';
 import { verifyPayment } from '@/ai/flows/verify-payment-flow';
 
-const topUpPackages = [
+interface TopUpPackage {
+    amount: number;
+    credits: number;
+    label: string;
+}
+
+const topUpPackages: TopUpPackage[] = [
     { amount: 1000, credits: 100, label: '₦1,000 for 100 Credits' },
     { amount: 2500, credits: 300, label: '₦2,500 for 300 Credits (20% Bonus)' },
     { amount: 5000, credits: 750, label: '₦5,000 for 750 Credits (50% Bonus)' },
@@ -42,6 +48,22 @@ export function WalletManager() {
 
   const paystackConfig = {
       publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
+      email: user?.email || '',
+      amount: selectedPackage.amount * 100,
+      metadata: {
+        custom_fields: [
+          {
+            display_name: "User ID",
+            variable_name: "user_id",
+            value: user?.uid || ''
+          },
+          {
+            display_name: "Package",
+            variable_name: "package",
+            value: selectedPackage.label
+          }
+        ]
+      }
   };
   
   const initializePayment = usePaystackPayment(paystackConfig);
@@ -81,22 +103,6 @@ export function WalletManager() {
   const onClose = useCallback(() => {
     // User closed the popup, no action needed
   }, []);
-
-  const handlePayment = () => {
-    if (!user?.email) {
-        toast({variant: 'destructive', title: 'Error', description: 'Could not find user email for payment.'})
-        return;
-    }
-    initializePayment({
-        onSuccess,
-        onClose,
-        config: {
-            reference: (new Date()).getTime().toString(),
-            email: user.email,
-            amount: selectedPackage.amount * 100,
-        }
-    });
-  };
   
   useEffect(() => {
     if (!user) {
@@ -153,7 +159,7 @@ export function WalletManager() {
 
                 <Button
                     className="w-full"
-                    onClick={handlePayment}
+                    onClick={() => initializePayment({onSuccess, onClose})}
                     disabled={!user?.email || profileLoading || isVerifying || !paystackConfig.publicKey}
                 >
                     {isVerifying ? (
