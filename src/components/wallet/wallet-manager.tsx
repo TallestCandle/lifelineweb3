@@ -40,14 +40,11 @@ export function WalletManager() {
   const [isTxLoading, setIsTxLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  const paystackConfig = useMemo(() => ({
-    reference: (new Date()).getTime().toString(),
-    email: user?.email || '',
-    amount: selectedPackage.amount * 100, // Amount in kobo
-    publicKey: 'pk_test_2e295c0f33bc3198fe95dc1db020d03c82be94cb',
-  }), [user?.email, selectedPackage.amount]);
-
-  const initializePayment = usePaystackPayment(paystackConfig);
+  const config = {
+      publicKey: 'pk_test_2e295c0f33bc3198fe95dc1db020d03c82be94cb',
+  };
+  
+  const initializePayment = usePaystackPayment(config);
 
   const onSuccess = useCallback(async (transaction: { reference: string }) => {
     if (!user) return;
@@ -86,7 +83,20 @@ export function WalletManager() {
   }, []);
 
   const handlePayment = () => {
-    initializePayment({onSuccess, onClose});
+    if (!user?.email) {
+        toast({variant: 'destructive', title: 'Error', description: 'Could not find user email for payment.'})
+        return;
+    }
+    initializePayment({
+        onSuccess,
+        onClose,
+        config: {
+            reference: (new Date()).getTime().toString(),
+            email: user.email,
+            amount: selectedPackage.amount * 100,
+            publicKey: 'pk_test_2e295c0f33bc3198fe95dc1db020d03c82be94cb',
+        }
+    });
   };
   
   useEffect(() => {
