@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { usePaystackPayment } from 'react-paystack';
 import { useProfile } from '@/context/profile-provider';
 import { Button } from "@/components/ui/button";
@@ -39,15 +39,6 @@ export function WalletManager() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isTxLoading, setIsTxLoading] = useState(true);
 
-  const paystackConfig = {
-    reference: (new Date()).getTime().toString(),
-    email: user?.email || '',
-    amount: selectedPackage.amount * 100, // Amount in kobo
-    publicKey: 'pk_test_2e295c0f33bc3198fe95dc1db020d03c82be94cb',
-  };
-
-  const initializePayment = usePaystackPayment(paystackConfig);
-
   const onSuccess = async () => {
     try {
         const description = `Purchased ${selectedPackage.credits} credits`;
@@ -57,6 +48,7 @@ export function WalletManager() {
             description: `${selectedPackage.credits} credits have been added to your wallet.`,
         });
     } catch (error) {
+        console.error("Credit update error:", error);
         toast({ variant: 'destructive', title: "Credit Update Failed", description: "Your payment was successful but we failed to update your credits. Please contact support." });
     }
   };
@@ -64,6 +56,15 @@ export function WalletManager() {
   const onClose = () => {
     // User closed the popup
   };
+  
+  const paystackConfig = useMemo(() => ({
+    reference: (new Date()).getTime().toString(),
+    email: user?.email || '',
+    amount: selectedPackage.amount * 100, // Amount in kobo
+    publicKey: 'pk_test_2e295c0f33bc3198fe95dc1db020d03c82be94cb',
+  }), [user?.email, selectedPackage.amount]);
+
+  const initializePayment = usePaystackPayment(paystackConfig);
 
   const handlePayment = () => {
     initializePayment(onSuccess, onClose);
