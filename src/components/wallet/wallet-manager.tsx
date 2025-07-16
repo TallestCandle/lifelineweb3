@@ -47,21 +47,19 @@ export function WalletManager() {
 
   const initializePayment = usePaystackPayment(paystackConfig);
   
-  const onSuccess = useCallback((pkg: typeof topUpPackages[number]) => {
-    return async () => {
-      try {
-          const description = `Purchased ${pkg.credits} credits`;
-          await updateCredits(pkg.credits, description);
-          toast({
-              title: "Top-up Successful!",
-              description: `${pkg.credits} credits have been added to your wallet.`,
-          });
-      } catch (error) {
-          console.error("Credit update error:", error);
-          toast({ variant: 'destructive', title: "Credit Update Failed", description: "Your payment was successful but we failed to update your credits. Please contact support." });
-      }
+  const onSuccess = useCallback(async () => {
+    try {
+        const description = `Purchased ${selectedPackage.credits} credits`;
+        await updateCredits(selectedPackage.credits, description);
+        toast({
+            title: "Top-up Successful!",
+            description: `${selectedPackage.credits} credits have been added to your wallet.`,
+        });
+    } catch (error) {
+        console.error("Credit update error:", error);
+        toast({ variant: 'destructive', title: "Credit Update Failed", description: "Your payment was successful but we failed to update your credits. Please contact support." });
     }
-  }, [toast, updateCredits]);
+  }, [selectedPackage, toast, updateCredits]);
 
   const onClose = useCallback(() => {
     // User closed the popup, no action needed
@@ -69,7 +67,7 @@ export function WalletManager() {
 
   const handlePayment = () => {
     initializePayment({ 
-      onSuccess: onSuccess(selectedPackage), 
+      onSuccess, 
       onClose 
     });
   };
