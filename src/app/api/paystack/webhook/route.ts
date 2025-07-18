@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         return new NextResponse("Transaction already processed.", { status: 200 });
       }
 
-      // Update user's balance and add to transaction history
+      // **FIX**: Target the 'profiles' collection, not 'users'
       const profileDocRef = doc(db, 'profiles', userId);
       
       await Promise.all([
