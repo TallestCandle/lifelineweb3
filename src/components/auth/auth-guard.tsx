@@ -7,7 +7,6 @@ import { useEffect } from 'react';
 import { Loader } from '../ui/loader';
 import { AppShell } from '../app-shell';
 import { DoctorAppShell } from '../doctor/doctor-app-shell';
-import { ProfileGuard } from './profile-guard';
 import { ProfileProvider } from '@/context/profile-provider';
 
 const PUBLIC_USER_ROUTES = ['/auth', '/landing'];
@@ -81,9 +80,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         return (
             <ProfileProvider>
                 <AppShell>
-                    <ProfileGuard>
-                        {children}
-                    </ProfileGuard>
+                    {children}
                 </AppShell>
             </ProfileProvider>
         );
