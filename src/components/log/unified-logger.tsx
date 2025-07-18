@@ -9,7 +9,6 @@ import { format, parseISO } from 'date-fns';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import { useAuth } from '@/context/auth-provider';
-import { useProfile } from '@/context/profile-provider';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
@@ -19,13 +18,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { HeartPulse, Droplets, Wind, Thermometer, Scale, Beaker, FileClock, Trash2, ArrowLeft, Loader2, BrainCircuit } from 'lucide-react';
+import { HeartPulse, Droplets, Wind, Thermometer, Scale, Beaker, FileClock, Trash2, ArrowLeft, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Separator } from '../ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { analyzeHealth, AnalyzeHealthInput } from '@/ai/flows/analyze-health-flow';
-
-const ANALYSIS_COST = 100; // Cost in Naira
 
 // --- Schemas & Types ---
 const bpSchema = z.object({
@@ -68,13 +63,11 @@ const phLevels = ["5.0", "6.0", "6.5", "7.0", "7.5", "8.0", "9.0"];
 // --- Main Component ---
 export function UnifiedLogger() {
     const { user } = useAuth();
-    const { profile, updateBalance } = useProfile();
     const { toast } = useToast();
 
     const [activeForm, setActiveForm] = useState<typeof vitalOptions[number] | null>(null);
     const [history, setHistory] = useState<HistoryItem[]>([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(true);
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
 
     const form = useForm({
         resolver: activeForm ? zodResolver(activeForm.schema) : undefined,
@@ -143,58 +136,6 @@ export function UnifiedLogger() {
             toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the data.' });
         }
     };
-
-    const handleAnalyze = async () => {
-        if (!user) return;
-        
-        setIsAnalyzing(true);
-        try {
-            await updateBalance(-ANALYSIS_COST, `Standard AI Analysis`);
-            const recentVitals = history.filter(item => item.type === 'vitals').slice(0, 1)[0] as Vital | undefined;
-            const recentStrips = history.filter(item => item.type === 'strips').slice(0, 1)[0] as Strip | undefined;
-
-            const input: AnalyzeHealthInput = {
-                systolic: recentVitals?.systolic,
-                diastolic: recentVitals?.diastolic,
-                bloodSugar: recentVitals?.bloodSugar,
-                oxygenSaturation: recentVitals?.oxygenSaturation,
-                temperature: recentVitals?.temperature,
-                weight: recentVitals?.weight,
-                protein: recentStrips?.protein,
-                glucose: recentStrips?.glucose,
-                ketones: recentStrips?.ketones,
-                blood: recentStrips?.blood,
-                nitrite: recentStrips?.nitrite,
-                ph: recentStrips?.ph,
-            };
-            
-            const result = await analyzeHealth(input);
-            
-            // Create a sanitized object for Firestore to avoid 'undefined' errors.
-            const sanitizedInput: AnalyzeHealthInput = {};
-            for (const key in input) {
-                if (input[key as keyof AnalyzeHealthInput] !== undefined) {
-                    sanitizedInput[key as keyof AnalyzeHealthInput] = input[key as keyof AnalyzeHealthInput];
-                }
-            }
-
-            const analysesCol = collection(db, `users/${user.uid}/health_analyses`);
-            await addDoc(analysesCol, {
-                timestamp: new Date().toISOString(),
-                inputData: sanitizedInput,
-                analysisResult: result,
-            });
-
-            toast({ title: 'Analysis Complete!', description: 'Your AI health analysis has been saved.' });
-
-        } catch (error) {
-            console.error("Error running analysis:", error);
-            toast({ variant: 'destructive', title: 'Analysis Failed' });
-            await updateBalance(ANALYSIS_COST, `Refund for failed analysis`); // Refund balance on failure
-        } finally {
-            setIsAnalyzing(false);
-        }
-    };
     
     const deleteHistoryItem = async (item: HistoryItem) => {
         if (!user) return;
@@ -252,8 +193,6 @@ export function UnifiedLogger() {
         }
     };
 
-    const hasSufficientBalance = (profile?.balance ?? 0) >= ANALYSIS_COST;
-
     return (
         <div className="space-y-8">
             <Card className="overflow-hidden">
@@ -305,33 +244,10 @@ export function UnifiedLogger() {
 
              <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><FileClock className="w-6 h-6"/>Log History & Analysis</CardTitle>
-                    <CardDescription>View your previously logged data or run an AI analysis on your most recent entries.</CardDescription>
+                    <CardTitle className="flex items-center gap-2"><FileClock className="w-6 h-6"/>Log History</CardTitle>
+                    <CardDescription>View your previously logged data.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                             <Button className="w-full mb-6" disabled={isAnalyzing || history.length === 0}>
-                                {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
-                                Run AI Analysis (₦{ANALYSIS_COST})
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Confirm Analysis</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This will cost ₦{ANALYSIS_COST} from your wallet. The analysis will be performed on your most recent vital and test strip logs. Are you sure you want to proceed?
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                             <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleAnalyze} disabled={!hasSufficientBalance}>
-                                    {hasSufficientBalance ? 'Confirm & Run' : 'Insufficient Balance'}
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-
                     {isHistoryLoading ? <Loader2 className="mx-auto w-8 h-8 animate-spin text-primary" /> : history.length > 0 ? (
                         <Accordion type="single" collapsible className="w-full">
                             {history.map(item => (
@@ -355,7 +271,23 @@ export function UnifiedLogger() {
                                             ))}
                                         </div>
                                         <div className="flex justify-end">
-                                            <Button variant="destructive" size="sm" onClick={() => deleteHistoryItem(item)}><Trash2 className="mr-2 h-4 w-4"/>Delete</Button>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4"/>Delete</Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        This action cannot be undone. This will permanently delete this log entry from our servers.
+                                                    </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => deleteHistoryItem(item)}>Delete</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
