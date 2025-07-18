@@ -146,7 +146,7 @@ export function WalletManager() {
         <CardContent className="space-y-6">
           <div className="p-4 rounded-lg bg-secondary/50 flex justify-between items-center">
             <p className="text-muted-foreground">Available Balance</p>
-            {profileLoading ? <Skeleton className="h-8 w-20" /> : <p className="text-2xl font-bold text-primary">₦{profile?.balance.toLocaleString() ?? '0'}</p>}
+            {profileLoading ? <Skeleton className="h-8 w-20" /> : <p className="text-2xl font-bold text-primary">₦{(profile?.balance ?? 0).toLocaleString()}</p>}
           </div>
 
           <Separator />
