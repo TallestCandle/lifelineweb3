@@ -50,7 +50,7 @@ export function WalletManager() {
     email: user?.email || '',
     amount: amountInNaira * 100, // Amount in Kobo
     metadata: {
-      user_id: user?.uid,
+      user_id: user?.uid || '',
     }
   };
 
