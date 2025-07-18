@@ -20,9 +20,9 @@ export function ProfileGuard({ children }: { children: React.ReactNode }) {
             return; // Don't do anything while loading
         }
         
-        // If loading is done, but there's no profile, and we are not on the profile page,
-        // then we must redirect the user to create one.
-        if (!profile && !isProfilePage) {
+        // If loading is done, but there's no complete profile (age is a good indicator),
+        // and we are not on the profile page, then we must redirect the user to create one.
+        if (profile && !profile.age && !isProfilePage) {
             router.replace('/profiles');
         }
         
@@ -36,7 +36,7 @@ export function ProfileGuard({ children }: { children: React.ReactNode }) {
     }
 
     // If loading is done, but a redirect is needed, show a loader to prevent content flash.
-    if (!profile && !isProfilePage) {
+    if (profile && !profile.age && !isProfilePage) {
         return <Loader />; // Waiting for redirect to /profiles
     }
 

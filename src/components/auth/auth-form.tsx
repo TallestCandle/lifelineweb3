@@ -72,12 +72,23 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
         
         await updateProfile(user, { displayName: data.name });
 
-        // Set user role in Firestore
+        // Set user role and other details in Firestore 'users' collection
         const userDocRef = doc(db, 'users', user.uid);
-        await setDoc(userDocRef, { role: 'patient' as UserRole });
+        await setDoc(userDocRef, {
+          role: 'patient' as UserRole,
+          name: data.name,
+          email: data.email,
+          balance: 0, // Initialize balance to 0
+          theme: 'theme-cool-flash', // Default theme
+          // Other profile fields will be empty until updated by user
+          age: '',
+          gender: '',
+          address: '',
+          phone: '',
+        });
         
         toast({ title: "Sign Up Successful", description: "Your account has been created. Let's set up your profile." });
-        router.push('/');
+        router.push('/profiles'); // Redirect to profile page to complete info
       }
     } catch (error: any) {
       let errorMessage = error.message || "An unexpected error occurred. Please try again.";

@@ -52,11 +52,11 @@ export async function POST(request: Request) {
         return new NextResponse("Transaction already processed.", { status: 200 });
       }
 
-      // **FIX**: Target the 'profiles' collection, not 'users'
-      const profileDocRef = doc(db, 'profiles', userId);
+      // **FIX**: Target the 'users' collection for the balance update
+      const userDocRef = doc(db, 'users', userId);
       
       await Promise.all([
-        updateDoc(profileDocRef, {
+        updateDoc(userDocRef, {
           balance: increment(amountInNaira),
         }),
         addDoc(txCollectionRef, {

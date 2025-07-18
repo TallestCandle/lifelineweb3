@@ -29,7 +29,7 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export function ProfileManager() {
   const { user } = useAuth();
-  const { profile, createProfile, updateProfile } = useProfile();
+  const { profile, updateProfile } = useProfile();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -48,35 +48,33 @@ export function ProfileManager() {
         address: profile.address,
       });
     } else if (user?.displayName) {
+      // Fallback for newly created user before profile is fully synced
       form.reset({ name: user.displayName, age: "", gender: undefined, phone: "", address: "" });
     }
   }, [profile, user, form]);
   
   const onSubmit = async (values: ProfileFormValues) => {
     try {
-      if (profile) {
-        await updateProfile(values);
-        toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
-      } else {
-        await createProfile(values);
-        toast({ title: "Profile Created", description: "Welcome! Your profile is now set up." });
-        router.push('/');
-      }
+      await updateProfile(values);
+      toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
+      // Don't redirect if just updating
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     }
   };
 
-  const pageTitle = profile ? "Edit Your Profile" : "Create Your Profile";
-  const pageDescription = profile ? "Update your personal details below." : "Please tell us a bit about yourself to get started.";
-  const buttonText = profile ? "Save Changes" : "Create Profile";
+  const isInitialSetup = !profile?.age; // Check if a core profile field is missing
+
+  const pageTitle = isInitialSetup ? "Complete Your Profile" : "Edit Your Profile";
+  const pageDescription = isInitialSetup ? "Please provide some essential details to get started." : "Update your personal details below.";
+  const buttonText = isInitialSetup ? "Save and Continue" : "Save Changes";
 
   return (
     <div className="flex items-center justify-center">
       <Card className="w-full max-w-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            {profile ? <Edit /> : <User />}
+            {isInitialSetup ? <User /> : <Edit />}
             {pageTitle}
           </CardTitle>
           <CardDescription>{pageDescription}</CardDescription>

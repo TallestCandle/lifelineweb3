@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, updateDoc, increment, onSnapshot, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, increment, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { ThemeId } from './theme-provider';
 
 export interface Profile {
@@ -14,14 +14,14 @@ export interface Profile {
   address: string;
   phone: string;
   theme: ThemeId;
-  balance: number; // Switched from credits to balance
+  balance: number;
+  role: 'patient' | 'doctor'; // role is now part of the unified user document
 }
 
 interface ProfileContextType {
   profile: Profile | null;
   loading: boolean;
-  createProfile: (data: Omit<Profile, 'theme' | 'balance'>) => Promise<void>;
-  updateProfile: (data: Partial<Omit<Profile, 'theme' | 'balance'>>) => Promise<void>;
+  updateProfile: (data: Partial<Omit<Profile, 'theme' | 'balance' | 'role'>>) => Promise<void>;
   updateProfileTheme: (theme: ThemeId) => Promise<void>;
   updateBalance: (amount: number, description: string) => Promise<void>;
 }
@@ -45,11 +45,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
     
     setLoading(true);
-    const profileDocRef = doc(db, 'profiles', user.uid);
+    // Point to the 'users' collection instead of 'profiles'
+    const profileDocRef = doc(db, 'users', user.uid);
     const unsubscribe = onSnapshot(profileDocRef, (docSnap) => {
         if (docSnap.exists()) {
             setProfile(docSnap.data() as Profile);
         } else {
+            // This case might happen if the doc creation failed on signup, which should be rare.
             setProfile(null);
         }
         setLoading(false);
@@ -63,31 +65,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   }, [user, authLoading]);
 
-  const createProfile = useCallback(async (data: Omit<Profile, 'theme' | 'balance'>) => {
+  // createProfile is removed from here and is now handled directly in AuthForm on signup.
+  
+  const updateProfile = useCallback(async (data: Partial<Omit<Profile, 'theme' | 'balance' | 'role'>>) => {
     if (!user) throw new Error("User not authenticated");
-    const newProfile: Profile = {
-      ...data,
-      theme: 'theme-cool-flash', // Default theme
-      balance: 0, // New users start with 0 balance
-    };
-    const profileDocRef = doc(db, 'profiles', user.uid);
-    await setDoc(profileDocRef, newProfile);
-    setProfile(newProfile);
+    const profileDocRef = doc(db, 'users', user.uid);
+    await updateDoc(profileDocRef, data);
+    // Optimistic update handled by onSnapshot
   }, [user]);
 
-  const updateProfile = useCallback(async (data: Partial<Omit<Profile, 'theme' | 'balance'>>) => {
-    if (!user || !profile) throw new Error("User or profile not available");
-    const profileDocRef = doc(db, 'profiles', user.uid);
-    await updateDoc(profileDocRef, data);
-    setProfile(prev => ({ ...prev!, ...data }));
-  }, [user, profile]);
-
   const updateProfileTheme = useCallback(async (theme: ThemeId) => {
-    if (!user || !profile) throw new Error("User or profile not available");
-    const profileDocRef = doc(db, 'profiles', user.uid);
+    if (!user) throw new Error("User or profile not available");
+    const profileDocRef = doc(db, 'users', user.uid);
     await updateDoc(profileDocRef, { theme });
-    setProfile(prev => ({ ...prev!, theme }));
-  }, [user, profile]);
+    // Optimistic update handled by onSnapshot
+  }, [user]);
 
   const updateBalance = useCallback(async (amount: number, description: string) => {
     if (!user) throw new Error("User not authenticated");
@@ -101,8 +93,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         timestamp: serverTimestamp()
     });
     
-    // Update the profile balance
-    const profileDocRef = doc(db, 'profiles', user.uid);
+    // Update the profile balance in the 'users' collection
+    const profileDocRef = doc(db, 'users', user.uid);
     await updateDoc(profileDocRef, {
         balance: increment(amount)
     });
@@ -112,10 +104,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const value = {
     profile,
     loading: authLoading || loading,
-    createProfile,
     updateProfile,
     updateProfileTheme,
     updateBalance,
+    // createProfile is removed
   };
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
