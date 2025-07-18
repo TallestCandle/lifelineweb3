@@ -32,14 +32,15 @@ export async function POST(request: Request) {
 
     // Process only successful charges
     if (event.event === 'charge.success') {
-      const { reference, amount, customer, metadata } = event.data;
+      const { reference, amount, metadata } = event.data;
       const userId = metadata?.user_id;
-      const creditsToAdd = metadata?.credits_to_add;
 
-      if (!userId || !creditsToAdd) {
-        console.error("Webhook missing user_id or credits_to_add in metadata.", metadata);
+      if (!userId) {
+        console.error("Webhook missing user_id in metadata.", metadata);
         return new NextResponse("Missing required metadata.", { status: 400 });
       }
+      
+      const amountInNaira = amount / 100; // Convert from kobo to Naira
 
       // Check if this transaction has already been processed to prevent double-crediting
       const txCollectionRef = collection(db, `users/${userId}/transactions`);
@@ -51,17 +52,17 @@ export async function POST(request: Request) {
         return new NextResponse("Transaction already processed.", { status: 200 });
       }
 
-      // 4. Update user's credits and add to transaction history
+      // Update user's balance and add to transaction history
       const profileDocRef = doc(db, 'profiles', userId);
       
       await Promise.all([
         updateDoc(profileDocRef, {
-          credits: increment(creditsToAdd),
+          balance: increment(amountInNaira),
         }),
         addDoc(txCollectionRef, {
           type: 'credit',
-          amount: creditsToAdd,
-          description: `Purchased ${creditsToAdd} credits via Paystack`,
+          amount: amountInNaira,
+          description: `Wallet top-up via Paystack`,
           metadata: {
             reference: reference,
             gateway: 'Paystack'
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
         })
       ]);
 
-      console.log(`Successfully credited ${creditsToAdd} to user ${userId}.`);
+      console.log(`Successfully credited ₦${amountInNaira} to user ${userId}.`);
     }
 
     // Acknowledge the event

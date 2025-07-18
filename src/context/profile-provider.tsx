@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, updateDoc, increment, onSnapshot, collection, addDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, increment, onSnapshot, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { ThemeId } from './theme-provider';
 
 export interface Profile {
@@ -14,16 +14,16 @@ export interface Profile {
   address: string;
   phone: string;
   theme: ThemeId;
-  credits: number;
+  balance: number; // Switched from credits to balance
 }
 
 interface ProfileContextType {
   profile: Profile | null;
   loading: boolean;
-  createProfile: (data: Omit<Profile, 'theme' | 'credits'>) => Promise<void>;
-  updateProfile: (data: Partial<Omit<Profile, 'theme' | 'credits'>>) => Promise<void>;
+  createProfile: (data: Omit<Profile, 'theme' | 'balance'>) => Promise<void>;
+  updateProfile: (data: Partial<Omit<Profile, 'theme' | 'balance'>>) => Promise<void>;
   updateProfileTheme: (theme: ThemeId) => Promise<void>;
-  updateCredits: (amount: number, description: string) => Promise<void>;
+  updateBalance: (amount: number, description: string) => Promise<void>;
 }
 
 const ProfileContext = createContext<ProfileContextType | null>(null);
@@ -63,19 +63,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   }, [user, authLoading]);
 
-  const createProfile = useCallback(async (data: Omit<Profile, 'theme' | 'credits'>) => {
+  const createProfile = useCallback(async (data: Omit<Profile, 'theme' | 'balance'>) => {
     if (!user) throw new Error("User not authenticated");
     const newProfile: Profile = {
       ...data,
       theme: 'theme-cool-flash', // Default theme
-      credits: 100, // Welcome credits
+      balance: 0, // New users start with 0 balance
     };
     const profileDocRef = doc(db, 'profiles', user.uid);
     await setDoc(profileDocRef, newProfile);
     setProfile(newProfile);
   }, [user]);
 
-  const updateProfile = useCallback(async (data: Partial<Omit<Profile, 'theme' | 'credits'>>) => {
+  const updateProfile = useCallback(async (data: Partial<Omit<Profile, 'theme' | 'balance'>>) => {
     if (!user || !profile) throw new Error("User or profile not available");
     const profileDocRef = doc(db, 'profiles', user.uid);
     await updateDoc(profileDocRef, data);
@@ -89,7 +89,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setProfile(prev => ({ ...prev!, theme }));
   }, [user, profile]);
 
-  const updateCredits = useCallback(async (amount: number, description: string) => {
+  const updateBalance = useCallback(async (amount: number, description: string) => {
     if (!user) throw new Error("User not authenticated");
     
     // Log the transaction
@@ -98,13 +98,13 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         type: amount > 0 ? 'credit' : 'debit',
         amount: amount,
         description: description,
-        timestamp: new Date().toISOString()
+        timestamp: serverTimestamp()
     });
     
     // Update the profile balance
     const profileDocRef = doc(db, 'profiles', user.uid);
     await updateDoc(profileDocRef, {
-        credits: increment(amount)
+        balance: increment(amount)
     });
     // The optimistic update is handled by the onSnapshot listener for the profile
   }, [user]);
@@ -115,7 +115,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     createProfile,
     updateProfile,
     updateProfileTheme,
-    updateCredits,
+    updateBalance,
   };
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;

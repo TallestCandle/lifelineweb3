@@ -31,7 +31,6 @@ interface Transaction {
 }
 
 const predefinedAmounts = [500, 1000, 2500, 5000, 10000];
-const CREDIT_RATE = 10; // 1 credit per 10 NGN
 
 export function WalletManager() {
   const { user } = useAuth();
@@ -44,7 +43,6 @@ export function WalletManager() {
 
 
   const amountInNaira = typeof customAmount === 'string' ? parseFloat(customAmount) || 0 : customAmount;
-  const creditsToAdd = Math.floor(amountInNaira / CREDIT_RATE);
 
   const config: PaystackHookConfig = {
     publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
@@ -53,7 +51,6 @@ export function WalletManager() {
     amount: amountInNaira * 100, // Amount in Kobo
     metadata: {
       user_id: user?.uid,
-      credits_to_add: creditsToAdd,
     }
   };
 
@@ -144,12 +141,12 @@ export function WalletManager() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Wallet /> My Wallet</CardTitle>
-          <CardDescription>Top up your credits to use Lifeline's AI features.</CardDescription>
+          <CardDescription>Top up your wallet balance to use Lifeline's AI features.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="p-4 rounded-lg bg-secondary/50 flex justify-between items-center">
-            <p className="text-muted-foreground">Available Credits</p>
-            {profileLoading ? <Skeleton className="h-8 w-20" /> : <p className="text-2xl font-bold text-primary">{profile?.credits ?? '0'}</p>}
+            <p className="text-muted-foreground">Available Balance</p>
+            {profileLoading ? <Skeleton className="h-8 w-20" /> : <p className="text-2xl font-bold text-primary">₦{profile?.balance.toLocaleString() ?? '0'}</p>}
           </div>
 
           <Separator />
@@ -178,9 +175,6 @@ export function WalletManager() {
               onChange={(e) => setCustomAmount(e.target.value)}
               min="100"
             />
-            <p className="text-sm text-center text-muted-foreground">
-                You will receive <span className="font-bold text-primary">{creditsToAdd} credits</span> for ₦{amountInNaira.toLocaleString()}.
-            </p>
           </div>
 
           <Button
@@ -197,14 +191,14 @@ export function WalletManager() {
       <Card>
         <CardHeader>
           <CardTitle>Transaction History</CardTitle>
-          <CardDescription>Your recent credit top-ups and usage.</CardDescription>
+          <CardDescription>Your recent wallet top-ups and service payments.</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs value={filter} onValueChange={(value) => setFilter(value as any)} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-4">
               <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="credit">Credits</TabsTrigger>
-              <TabsTrigger value="debit">Debits</TabsTrigger>
+              <TabsTrigger value="credit">Top-ups</TabsTrigger>
+              <TabsTrigger value="debit">Payments</TabsTrigger>
             </TabsList>
             <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
               {isTxLoading ? (
@@ -222,7 +216,7 @@ export function WalletManager() {
                       </div>
                     </div>
                     <p className={cn("font-bold text-sm", tx.type === 'credit' ? 'text-green-500' : 'text-red-500')}>
-                      {tx.type === 'credit' ? '+' : '-'}{Math.abs(tx.amount)}
+                      {tx.type === 'credit' ? '+' : '-'}₦{Math.abs(tx.amount).toLocaleString()}
                     </p>
                   </div>
                 ))

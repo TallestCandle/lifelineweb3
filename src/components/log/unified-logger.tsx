@@ -25,7 +25,7 @@ import { Separator } from '../ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { analyzeHealth, AnalyzeHealthInput } from '@/ai/flows/analyze-health-flow';
 
-const ANALYSIS_COST = 10;
+const ANALYSIS_COST = 100; // Cost in Naira
 
 // --- Schemas & Types ---
 const bpSchema = z.object({
@@ -68,7 +68,7 @@ const phLevels = ["5.0", "6.0", "6.5", "7.0", "7.5", "8.0", "9.0"];
 // --- Main Component ---
 export function UnifiedLogger() {
     const { user } = useAuth();
-    const { profile, updateCredits } = useProfile();
+    const { profile, updateBalance } = useProfile();
     const { toast } = useToast();
 
     const [activeForm, setActiveForm] = useState<typeof vitalOptions[number] | null>(null);
@@ -149,7 +149,7 @@ export function UnifiedLogger() {
         
         setIsAnalyzing(true);
         try {
-            await updateCredits(-ANALYSIS_COST, `Standard AI Analysis`);
+            await updateBalance(-ANALYSIS_COST, `Standard AI Analysis`);
             const recentVitals = history.filter(item => item.type === 'vitals').slice(0, 1)[0] as Vital | undefined;
             const recentStrips = history.filter(item => item.type === 'strips').slice(0, 1)[0] as Strip | undefined;
 
@@ -190,7 +190,7 @@ export function UnifiedLogger() {
         } catch (error) {
             console.error("Error running analysis:", error);
             toast({ variant: 'destructive', title: 'Analysis Failed' });
-            await updateCredits(ANALYSIS_COST, `Refund for failed analysis`); // Refund credits on failure
+            await updateBalance(ANALYSIS_COST, `Refund for failed analysis`); // Refund balance on failure
         } finally {
             setIsAnalyzing(false);
         }
@@ -252,7 +252,7 @@ export function UnifiedLogger() {
         }
     };
 
-    const hasSufficientCredits = (profile?.credits ?? 0) >= ANALYSIS_COST;
+    const hasSufficientBalance = (profile?.balance ?? 0) >= ANALYSIS_COST;
 
     return (
         <div className="space-y-8">
@@ -313,20 +313,20 @@ export function UnifiedLogger() {
                         <AlertDialogTrigger asChild>
                              <Button className="w-full mb-6" disabled={isAnalyzing || history.length === 0}>
                                 {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
-                                Run AI Analysis ({ANALYSIS_COST} Credits)
+                                Run AI Analysis (₦{ANALYSIS_COST})
                             </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader>
                                 <AlertDialogTitle>Confirm Analysis</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                    This will use {ANALYSIS_COST} credits from your wallet. The analysis will be performed on your most recent vital and test strip logs. Are you sure you want to proceed?
+                                    This will cost ₦{ANALYSIS_COST} from your wallet. The analysis will be performed on your most recent vital and test strip logs. Are you sure you want to proceed?
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                              <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleAnalyze} disabled={!hasSufficientCredits}>
-                                    {hasSufficientCredits ? 'Confirm & Run' : 'Insufficient Credits'}
+                                <AlertDialogAction onClick={handleAnalyze} disabled={!hasSufficientBalance}>
+                                    {hasSufficientBalance ? 'Confirm & Run' : 'Insufficient Balance'}
                                 </AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>

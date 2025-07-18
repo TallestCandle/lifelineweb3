@@ -271,8 +271,8 @@ export function Dashboard() {
             </CardHeader>
             <CardContent className="flex items-center justify-between">
                 <div>
-                    <p className="text-sm text-muted-foreground">Available Credits</p>
-                    {profileLoading ? <Skeleton className="h-10 w-24 mt-1" /> : <p className="text-4xl font-bold">{profile?.credits ?? '0'}</p>}
+                    <p className="text-sm text-muted-foreground">Available Balance</p>
+                    {profileLoading ? <Skeleton className="h-10 w-24 mt-1" /> : <p className="text-4xl font-bold">₦{profile?.balance.toLocaleString() ?? '0'}</p>}
                 </div>
                 <Button asChild>
                     <Link href="/wallet">Top Up</Link>
