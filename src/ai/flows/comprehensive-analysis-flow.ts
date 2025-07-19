@@ -14,6 +14,7 @@ import { z } from 'zod';
 const ComprehensiveAnalysisInputSchema = z.object({
   vitalsHistory: z.string().describe("A JSON string representing an array of historical vital signs readings."),
   testStripHistory: z.string().describe("A JSON string representing an array of historical urine test strip results."),
+  bmiHistory: z.string().describe("A JSON string representing an array of historical Body Mass Index (BMI) readings."),
   previousAnalyses: z.string().describe("A JSON string representing an array of previous AI analysis results."),
 }).describe("A collection of the user's historical health data for deep analysis.");
 
@@ -42,14 +43,15 @@ const prompt = ai.definePrompt({
     output: { schema: ComprehensiveAnalysisOutputSchema },
     prompt: `You are a world-class diagnostic AI from Lifeline AI, with the ability to analyze vast amounts of longitudinal health data to uncover hidden patterns, trends, and correlations that even experienced doctors might miss. Your task is to perform a deep, comprehensive analysis of the user's historical health data.
 
-The user's historical data is provided in three JSON strings:
+The user's historical data is provided in four JSON strings:
 1. Vitals History: {{{vitalsHistory}}}
 2. Test Strip History: {{{testStripHistory}}}
-3. Previous AI Analyses: {{{previousAnalyses}}}
+3. BMI History: {{{bmiHistory}}}
+4. Previous AI Analyses: {{{previousAnalyses}}}
 
 Your analysis MUST be deep and granular. Do not just summarize the data. Look for:
-- **Trends over time:** Gradual increases or decreases in any metric (e.g., weight, blood pressure).
-- **Correlations:** Connections between different data points (e.g., do high blood sugar readings correlate with high ketone levels in urine?).
+- **Trends over time:** Gradual increases or decreases in any metric (e.g., weight, blood pressure, BMI).
+- **Correlations:** Connections between different data points (e.g., does high blood sugar readings correlate with high ketone levels in urine, or does an increasing BMI correlate with rising blood pressure?).
 - **Anomalies and Outliers:** Significant deviations from the user's baseline.
 - **Cyclical Patterns:** Are there patterns that repeat weekly or monthly?
 
@@ -59,7 +61,7 @@ Based on your deep analysis, provide a response in the required JSON format with
 3.  'overallAssessment': A detailed paragraph summarizing the user's health trajectory and synthesizing your findings.
 4.  'criticalityScore': First, you MUST calculate a numerical score from 1 to 100 based on the severity and number of issues found. Use the following rubric:
     - **1-40 (Mild):** No significant negative trends. Data is stable or shows improvement.
-    - **41-70 (Moderate):** One or more clear negative trends or consistent anomalies that require monitoring (e.g., consistently borderline-high blood pressure).
+    - **41-70 (Moderate):** One or more clear negative trends or consistent anomalies that require monitoring (e.g., consistently borderline-high blood pressure, upward BMI trend).
     - **71-100 (Critical):** Multiple significant negative trends, strong correlations between concerning data points, or clear red-flag events (e.g., sharp drops in oxygen, very high blood sugar readings). The higher the score, the more urgent the situation.
 5.  'urgency': Based *only* on the 'criticalityScore' you just calculated, classify the situation as 'Mild' (score 1-40), 'Moderate' (score 41-70), or 'Critical' (score 71-100).`,
     config: {

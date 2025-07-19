@@ -20,6 +20,7 @@ import {
   Settings,
   Bell,
   Wallet,
+  Calculator,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
@@ -48,6 +49,7 @@ const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/log", label: "AI Logger", icon: Camera },
   { href: "/deep-dive", label: "Deep Dive", icon: BrainCircuit },
+  { href: "/bmi", label: "BMI Calculator", icon: Calculator },
   { href: "/clinic", label: "Clinic", icon: Building2 },
   { href: "/dietician", label: "AI Dietician", icon: Salad },
   { href: "/report", label: "Health Report", icon: FileText },
