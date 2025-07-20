@@ -282,7 +282,7 @@ export function BmiCalculator() {
                     {history.map(item => (
                         <li key={item.id} className="flex justify-between items-center p-3 bg-secondary/50 rounded-lg">
                             <div>
-                                <p className="font-bold">{item.bmi.toFixed(1)} <span className="text-sm text-muted-foreground">BMI</span></p>
+                                <p className="font-bold">{typeof item.bmi === 'number' ? item.bmi.toFixed(1) : 'N/A'} <span className="text-sm text-muted-foreground">BMI</span></p>
                                 <p className="text-xs text-muted-foreground">{format(parseISO(item.date), 'MMM d, yyyy')}</p>
                             </div>
                             <p className="text-sm text-muted-foreground">{item.weight}kg / {item.height}cm</p>
