@@ -43,7 +43,7 @@ function DoctorAppShellInternal({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen w-full flex">
       <nav className="hidden md:flex flex-col w-64 bg-secondary border-r border-primary/20">
-        <div className="flex items-center justify-center h-20 border-b border-primary/20">
+        <div className="flex items-center justify-center h-16 border-b border-primary/20">
             <a href="/doctor/dashboard" className="flex items-center gap-2 text-primary">
                 <Stethoscope className="w-8 h-8" />
                 <h1 className="text-xl font-headline font-bold">Lifeline AI</h1>
