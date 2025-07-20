@@ -97,15 +97,6 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             <p className="px-2 text-xs font-semibold text-muted-foreground group-data-[collapsible=icon]:hidden">Health Tools</p>
              <SidebarMenuItem>
                 <Wrapper {...wrapperProps}>
-                    <Link href="/health-tools">
-                        <SidebarMenuButton asChild isActive={pathname === '/health-tools'} tooltip="Health Tools" icon={<Calculator/>}>
-                            <span>Health Tools</span>
-                        </SidebarMenuButton>
-                    </Link>
-                </Wrapper>
-            </SidebarMenuItem>
-             <SidebarMenuItem>
-                <Wrapper {...wrapperProps}>
                     <Link href="/bmi">
                         <SidebarMenuButton asChild isActive={pathname === '/bmi'} tooltip="BMI Calculator" icon={<Ruler/>}>
                             <span>BMI Calculator</span>
