@@ -28,7 +28,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video, Share2, ChevronsUpDown, FileSpreadsheet } from 'lucide-react';
+import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video, Share2, ChevronsUpDown } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
@@ -225,7 +225,7 @@ export function HealthClinic() {
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -264,11 +264,8 @@ export function HealthClinic() {
   
   // Scroll chat to bottom
   useEffect(() => {
-    if (activeView === 'chat') {
-        const parent = scrollAreaRef.current?.parentElement;
-        if (parent) {
-          parent.scrollTo({ top: parent.scrollHeight, behavior: 'smooth' });
-        }
+    if (activeView === 'chat' && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, activeView]);
 
@@ -390,7 +387,7 @@ export function HealthClinic() {
         <Button variant="ghost" onClick={cancelAdmission} size="sm"><X className="mr-2 h-4 w-4"/> Cancel</Button>
       </CardHeader>
       <CardContent className="p-0">
-        <ScrollArea className="h-[50vh]" viewportRef={scrollAreaRef}>
+        <ScrollArea className="h-[50vh]">
           <div className="space-y-4 p-4">
             {messages.map((message, index) => (
               <div key={index} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -407,6 +404,7 @@ export function HealthClinic() {
                 {message.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center"><User size={20}/></div>}
               </div>
             ))}
+             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
       </CardContent>
@@ -558,3 +556,5 @@ export function HealthClinic() {
     </div>
   );
 }
+
+    
