@@ -18,7 +18,7 @@ const GenerateBmiAdviceInputSchema = z.object({
 export type GenerateBmiAdviceInput = z.infer<typeof GenerateBmiAdviceInputSchema>;
 
 const GenerateBmiAdviceOutputSchema = z.object({
-    advice: z.string().describe("A single, concise, and actionable health insight tailored to the user's BMI category. The tip should be encouraging, positive, and mention potential health considerations."),
+    advice: z.string().describe("A single, concise, and actionable health insight tailored to the user's BMI category. The tip should be encouraging, positive, and directly link the suggested action to its impact on health risks."),
 });
 export type GenerateBmiAdviceOutput = z.infer<typeof GenerateBmiAdviceOutputSchema>;
 
@@ -35,14 +35,14 @@ const prompt = ai.definePrompt({
 User's BMI: {{bmi}}
 BMI Category: {{category}}
 
-Your task is to provide a single, actionable, and positive health insight based on their BMI category. The advice MUST be direct about potential health risks while remaining supportive.
+Your task is to provide a single, actionable, and positive health insight based on their BMI category. Your response must seamlessly weave the health advice and the associated health risks into one cohesive message. The tip should be presented as a direct way to mitigate the risks.
 
-- If 'Underweight', suggest healthy ways to gain weight, like incorporating protein-rich snacks, and briefly mention the importance of ensuring adequate nutrient intake for energy and immune function.
-- If 'Normal', give a tip for maintaining a healthy lifestyle, like trying a new physical activity, and commend them on being in a healthy range which reduces risks for chronic diseases.
-- If 'Overweight', suggest a small, sustainable change, like swapping sugary drinks for water. You MUST explicitly state that this category is associated with an increased risk of developing conditions like type 2 diabetes, high blood pressure, and heart disease. Frame the tip as a positive step towards reducing these risks.
-- If 'Obese', offer a supportive first step, such as aiming for a short 10-minute walk each day. You MUST explicitly state that this category is associated with a significantly higher risk of serious health issues including type 2 diabetes, heart disease, stroke, and certain types of cancer. Emphasize that small, consistent efforts can make a big impact on lowering these serious risks.
+- If 'Underweight', suggest a tip like adding protein-rich snacks, and connect it to how this helps build strength and support immune function.
+- If 'Normal', offer a maintenance tip, like trying a new fun activity, and frame it as a great way to continue enjoying the health benefits of a lower risk for chronic diseases.
+- If 'Overweight', suggest a small change, like swapping sugary drinks for water, and directly explain how this action helps reduce the increased risk of developing conditions like type 2 diabetes and high blood pressure.
+- If 'Obese', offer a supportive first step, like a short daily walk, and explicitly link this small, consistent effort to making a big impact on lowering the significantly higher risk of serious health issues like heart disease, stroke, and type 2 diabetes.
 
-Generate the 'advice' in the required JSON format. Keep the tone positive and empowering, but do not hide the risks.`,
+Generate the 'advice' in the required JSON format. The tone must be supportive and empowering, making the user feel capable of making a positive change.`,
 });
 
 
