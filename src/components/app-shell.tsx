@@ -22,6 +22,7 @@ import {
   Wallet,
   Calculator,
   Ruler,
+  LifeBuoy,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
@@ -119,6 +120,15 @@ function AppLayout({ children }: { children: React.ReactNode }) {
                     <Link href="/wallet">
                         <SidebarMenuButton asChild isActive={pathname === '/wallet'} tooltip="Wallet" icon={<Wallet/>}>
                             <span>Wallet</span>
+                        </SidebarMenuButton>
+                    </Link>
+                </Wrapper>
+            </SidebarMenuItem>
+             <SidebarMenuItem>
+                <Wrapper {...wrapperProps}>
+                    <Link href="/support">
+                        <SidebarMenuButton asChild isActive={pathname === '/support'} tooltip="Support" icon={<LifeBuoy/>}>
+                            <span>Support</span>
                         </SidebarMenuButton>
                     </Link>
                 </Wrapper>

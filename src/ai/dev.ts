@@ -11,3 +11,4 @@ import './flows/conduct-interview-flow';
 import './flows/extract-data-from-image-flow';
 import './flows/comprehensive-case-review-flow';
 import './flows/generate-bmi-advice-flow';
+import './flows/system-support-flow';
