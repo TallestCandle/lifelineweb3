@@ -167,11 +167,7 @@ export function BodyMetricsLogger() {
                 <AnimatePresence mode="wait">
                     {!activeForm ? (
                         <motion.div key="selection" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                            <CardHeader>
-                                <CardTitle>Log New Body Metric</CardTitle>
-                                <CardDescription>What would you like to log today?</CardDescription>
-                            </CardHeader>
-                            <CardContent>
+                            <CardContent className="pt-6">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {metricOptions.map((opt) => (
                                         <button key={opt.type} onClick={() => setActiveForm(opt)} className="group flex flex-col items-center justify-center p-4 h-32 rounded-lg bg-secondary/50 hover:bg-secondary transition-all">
