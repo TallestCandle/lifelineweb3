@@ -23,6 +23,7 @@ import {
   Calculator,
   Ruler,
   LifeBuoy,
+  Dna,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
@@ -55,6 +56,7 @@ const mainMenuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/dietician", label: "AI Dietician", icon: Salad },
   { href: "/report", label: "Health Report", icon: FileText },
   { href: "/reminders", label: "Prescriptions", icon: FileSpreadsheet },
+  { href: "/genetics", label: "Genetics", icon: Dna },
 ];
 
 const toolsMenuItems: { href: string; label: string; icon: LucideIcon }[] = [
