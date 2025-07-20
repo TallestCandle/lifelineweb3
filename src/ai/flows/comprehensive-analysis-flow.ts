@@ -46,7 +46,7 @@ const prompt = ai.definePrompt({
 The user's historical data is provided in four JSON strings:
 1. Vitals History: {{{vitalsHistory}}}
 2. Test Strip History: {{{testStripHistory}}}
-3. Body Metrics History: {{{bodyMetricsHistory}}}
+3. Body Metrics History (BMI, WHR, etc.): {{{bodyMetricsHistory}}}
 4. Previous AI Analyses: {{{previousAnalyses}}}
 
 Your analysis MUST be deep and granular. Do not just summarize the data. Look for:

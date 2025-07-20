@@ -19,7 +19,6 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FileClock, Trash2, ArrowLeft, Loader2, Ruler, Calculator } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 // --- Schemas & Types ---
@@ -28,7 +27,6 @@ const bmiSchema = z.object({
   weight: z.string().min(1, "Required"),
   bmi: z.string().optional(),
 });
-const bodyFatSchema = z.object({ bodyFatPercentage: z.string().min(1, "Required") });
 const waistHipSchema = z.object({
     waist: z.string().min(1, "Required"),
     hip: z.string().min(1, "Required"),
@@ -40,8 +38,7 @@ const waistHeightSchema = z.object({
     wthr: z.string().optional(),
 });
 
-
-type MetricType = 'bmi' | 'body_fat' | 'waist_hip_ratio' | 'waist_height_ratio';
+type MetricType = 'bmi' | 'waist_hip_ratio' | 'waist_height_ratio';
 
 interface MetricHistoryItem {
     id: string;
@@ -52,7 +49,6 @@ interface MetricHistoryItem {
 
 const metricOptions: { type: MetricType, title: string, icon: React.ElementType, schema: any, fields: string[] }[] = [
     { type: 'bmi', title: 'BMI', icon: Calculator, schema: bmiSchema, fields: ['height', 'weight'] },
-    { type: 'body_fat', title: 'Body Fat %', icon: Ruler, schema: bodyFatSchema, fields: ['bodyFatPercentage'] },
     { type: 'waist_hip_ratio', title: 'Waist-Hip Ratio', icon: Ruler, schema: waistHipSchema, fields: ['waist', 'hip'] },
     { type: 'waist_height_ratio', title: 'Waist-Height Ratio', icon: Ruler, schema: waistHeightSchema, fields: ['waist', 'height'] },
 ];
@@ -156,7 +152,6 @@ export function BodyMetricsLogger() {
         const fieldMap = {
             height: <FormField key="height" control={form.control} name="height" render={({ field }) => (<FormItem><FormLabel>Height (cm)</FormLabel><FormControl><Input placeholder="175" type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />,
             weight: <FormField key="weight" control={form.control} name="weight" render={({ field }) => (<FormItem><FormLabel>Weight (kg)</FormLabel><FormControl><Input placeholder="70" type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />,
-            bodyFatPercentage: <FormField key="bodyFatPercentage" control={form.control} name="bodyFatPercentage" render={({ field }) => (<FormItem><FormLabel>Body Fat (%)</FormLabel><FormControl><Input placeholder="20" type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />,
             waist: <FormField key="waist" control={form.control} name="waist" render={({ field }) => (<FormItem><FormLabel>Waist (cm)</FormLabel><FormControl><Input placeholder="85" type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />,
             hip: <FormField key="hip" control={form.control} name="hip" render={({ field }) => (<FormItem><FormLabel>Hip (cm)</FormLabel><FormControl><Input placeholder="95" type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />,
         };
@@ -177,9 +172,9 @@ export function BodyMetricsLogger() {
                                 <CardDescription>What would you like to log today?</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {metricOptions.map((opt) => (
-                                        <button key={opt.type} onClick={() => setActiveForm(opt)} className="group flex flex-col items-center justify-center p-4 aspect-square rounded-lg bg-secondary/50 hover:bg-secondary transition-all">
+                                        <button key={opt.type} onClick={() => setActiveForm(opt)} className="group flex flex-col items-center justify-center p-4 h-32 rounded-lg bg-secondary/50 hover:bg-secondary transition-all">
                                             <opt.icon className="w-10 h-10 text-primary mb-2 transition-transform group-hover:scale-110" />
                                             <p className="font-bold text-sm text-center">{opt.title}</p>
                                         </button>
