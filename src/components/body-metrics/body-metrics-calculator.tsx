@@ -18,16 +18,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Ruler, FileClock, Trash2, ArrowLeft, Loader2, HelpCircle, Activity, HeartPulse, Sigma } from 'lucide-react';
+import { Ruler, FileClock, Trash2, ArrowLeft, Loader2, HelpCircle, Activity, Sigma } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 
 // --- Schemas & Types ---
-const bmiSchema = z.object({
-  height: z.string().min(1, "Required"),
-  weight: z.string().min(1, "Required"),
-});
 const waistCircSchema = z.object({
   waist: z.string().min(1, "Required"),
   gender: z.enum(['Male', 'Female'], { required_error: "Gender is required" }),
@@ -42,7 +38,7 @@ const whrSchema = z.object({
   gender: z.enum(['Male', 'Female'], { required_error: "Gender is required" }),
 });
 
-type MetricType = 'bmi' | 'waist_circumference' | 'wthr' | 'whr';
+type MetricType = 'waist_circumference' | 'wthr' | 'whr';
 
 interface HistoryItem {
   id: string;
@@ -56,21 +52,6 @@ interface HistoryItem {
 }
 
 const metricOptions: { type: MetricType, title: string, icon: React.ElementType, schema: any, info: React.ReactNode }[] = [
-    { 
-        type: 'bmi', title: 'BMI', icon: HeartPulse, schema: bmiSchema,
-        info: (
-            <>
-                <p>Body Mass Index (BMI) is a measure that uses your height and weight to work out if your weight is healthy.</p>
-                <div className="mt-4">
-                    <h4 className="font-bold">Associated Health Risks:</h4>
-                    <ul className="list-disc list-inside text-muted-foreground mt-2">
-                        <li><span className="font-semibold">High BMI (Overweight/Obese):</span> Increased risk of type 2 diabetes, high blood pressure, heart disease, stroke, and certain types of cancer.</li>
-                        <li><span className="font-semibold">Low BMI (Underweight):</span> Increased risk of malnutrition, osteoporosis, and a weakened immune system.</li>
-                    </ul>
-                </div>
-            </>
-        ) 
-    },
     { 
         type: 'waist_circumference', title: 'Waist Circum.', icon: Activity, schema: waistCircSchema,
         info: <p>A simple measure of abdominal fat. High values are linked to increased risk of type 2 diabetes and heart disease.</p>
@@ -131,15 +112,6 @@ export function BodyMetricsCalculator() {
     
     const calculateResult = (type: MetricType, values: any) => {
         switch (type) {
-            case 'bmi':
-                const heightM = parseFloat(values.height) / 100;
-                const bmi = parseFloat((parseFloat(values.weight) / (heightM * heightM)).toFixed(1));
-                let bmiCategory: string;
-                if (bmi < 18.5) bmiCategory = 'Underweight';
-                else if (bmi < 25) bmiCategory = 'Normal';
-                else if (bmi < 30) bmiCategory = 'Overweight';
-                else bmiCategory = 'Obese';
-                return { value: bmi.toString(), category: bmiCategory };
             case 'waist_circumference':
                 const waistCm = parseFloat(values.waist);
                 let wcCategory: string;
@@ -362,4 +334,3 @@ export function BodyMetricsCalculator() {
         </div>
     );
 }
-
