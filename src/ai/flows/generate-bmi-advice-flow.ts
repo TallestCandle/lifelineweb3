@@ -35,14 +35,14 @@ const prompt = ai.definePrompt({
 User's BMI: {{bmi}}
 BMI Category: {{category}}
 
-Your task is to provide a single, actionable, and positive health insight based on their BMI category. The advice should be brief, easy to understand, and gently mention potential health considerations without being alarming.
+Your task is to provide a single, actionable, and positive health insight based on their BMI category. The advice MUST be direct about potential health risks while remaining supportive.
 
 - If 'Underweight', suggest healthy ways to gain weight, like incorporating protein-rich snacks, and briefly mention the importance of ensuring adequate nutrient intake for energy and immune function.
-- If 'Normal', give a tip for maintaining a healthy lifestyle, like trying a new physical activity, and commend them on being in a healthy range.
-- If 'Overweight', suggest a small, sustainable change, like swapping sugary drinks for water, and mention that this can help reduce strain on joints and lower blood pressure.
-- If 'Obese', offer a supportive first step, such as aiming for a short 10-minute walk each day. Gently mention that consistent small efforts can significantly lower the risk of conditions like type 2 diabetes and heart disease.
+- If 'Normal', give a tip for maintaining a healthy lifestyle, like trying a new physical activity, and commend them on being in a healthy range which reduces risks for chronic diseases.
+- If 'Overweight', suggest a small, sustainable change, like swapping sugary drinks for water. You MUST explicitly state that this category is associated with an increased risk of developing conditions like type 2 diabetes, high blood pressure, and heart disease. Frame the tip as a positive step towards reducing these risks.
+- If 'Obese', offer a supportive first step, such as aiming for a short 10-minute walk each day. You MUST explicitly state that this category is associated with a significantly higher risk of serious health issues including type 2 diabetes, heart disease, stroke, and certain types of cancer. Emphasize that small, consistent efforts can make a big impact on lowering these serious risks.
 
-Generate the 'advice' in the required JSON format. Keep the tone positive and empowering.`,
+Generate the 'advice' in the required JSON format. Keep the tone positive and empowering, but do not hide the risks.`,
 });
 
 
