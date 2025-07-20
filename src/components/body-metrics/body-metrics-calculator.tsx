@@ -54,15 +54,15 @@ interface HistoryItem {
 const metricOptions: { type: MetricType, title: string, icon: React.ElementType, schema: any, info: React.ReactNode }[] = [
     { 
         type: 'waist_circumference', title: 'Waist Circum.', icon: Activity, schema: waistCircSchema,
-        info: <p>A simple measure of abdominal fat. High values are linked to increased risk of type 2 diabetes and heart disease.</p>
+        info: "A simple measure of abdominal fat. High values are linked to increased risk of type 2 diabetes and heart disease."
     },
     { 
         type: 'wthr', title: 'Waist-to-Height', icon: Ruler, schema: wthrSchema,
-        info: <p>Compares waist to height. A ratio above 0.5 suggests increased health risks, even in people with a normal BMI.</p>
+        info: "Compares waist to height. A ratio above 0.5 suggests increased health risks, even in people with a normal BMI."
     },
     { 
         type: 'whr', title: 'Waist-to-Hip', icon: Sigma, schema: whrSchema,
-        info: <p>Assesses fat distribution. A higher ratio (more "apple-shaped") indicates more fat around the abdomen, which is a key risk factor for various chronic diseases.</p>
+        info: "Assesses fat distribution. A higher ratio (more \"apple-shaped\") indicates more fat around the abdomen, which is a key risk factor for various chronic diseases."
     },
 ];
 
