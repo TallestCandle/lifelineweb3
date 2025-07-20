@@ -291,14 +291,14 @@ ${Object.entries(inputData).filter(([key]) => key !== 'imageDataUri').map(([key,
                                 <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
                                     <ShieldCheck className="text-primary"/> Potential Conditions Analysis
                                 </h3>
-                                <Alert variant="destructive" className="mb-4">
-                                    <AlertCircle className="h-4 w-4" />
+                                <Alert variant="default" className="border-accent bg-accent/10">
+                                    <AlertCircle className="h-4 w-4 text-accent-foreground" />
                                     <AlertTitle>Disclaimer</AlertTitle>
                                     <AlertDescription>
                                         This is not a medical diagnosis. It is a probabilistic analysis for informational purposes. Always consult a healthcare professional.
                                     </AlertDescription>
                                 </Alert>
-                                <div className="space-y-4">
+                                <div className="space-y-4 mt-4">
                                     {analysisResult.potentialConditions.map((item, index) => (
                                         <div key={index} className="p-4 rounded-lg bg-background/50 border border-primary/20">
                                             <div className="flex justify-between items-center mb-2">

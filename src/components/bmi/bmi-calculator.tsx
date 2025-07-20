@@ -204,12 +204,12 @@ export function BmiCalculator() {
 
                   <Alert className="bg-primary/10 border-primary/20">
                     <Lightbulb className="h-4 w-4" />
-                    <AlertTitle>AI Health Tip</AlertTitle>
+                    <AlertTitle>AI Health Insight</AlertTitle>
                     <AlertDescription>{result.aiTip}</AlertDescription>
                   </Alert>
 
-                  <Alert variant="destructive">
-                     <AlertTriangle className="h-4 w-4" />
+                  <Alert variant="default" className="border-accent bg-accent/10">
+                     <AlertTriangle className="h-4 w-4 text-accent-foreground" />
                      <AlertTitle>Note</AlertTitle>
                      <AlertDescription>BMI is a general guide and does not account for factors like muscle mass. It is not a full diagnosis.</AlertDescription>
                    </Alert>

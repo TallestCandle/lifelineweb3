@@ -197,8 +197,8 @@ export function AiDietician() {
                         </CardContent>
                     </Card>
                     
-                    <Alert variant="destructive">
-                        <AlertTriangle className="h-4 w-4" />
+                    <Alert variant="default" className="border-accent bg-accent/10">
+                        <AlertTriangle className="h-4 w-4 text-accent-foreground" />
                         <AlertTitle>Disclaimer</AlertTitle>
                         <AlertDescription>
                             This is an AI-generated dietary suggestion and not medical advice. Consult with a healthcare professional or registered dietician before making significant changes to your diet.

@@ -18,7 +18,7 @@ const GenerateBmiAdviceInputSchema = z.object({
 export type GenerateBmiAdviceInput = z.infer<typeof GenerateBmiAdviceInputSchema>;
 
 const GenerateBmiAdviceOutputSchema = z.object({
-    advice: z.string().describe("A single, concise, and actionable health tip tailored to the user's BMI category. The tip should be encouraging and positive."),
+    advice: z.string().describe("A single, concise, and actionable health insight tailored to the user's BMI category. The tip should be encouraging, positive, and mention potential health considerations."),
 });
 export type GenerateBmiAdviceOutput = z.infer<typeof GenerateBmiAdviceOutputSchema>;
 
@@ -35,14 +35,14 @@ const prompt = ai.definePrompt({
 User's BMI: {{bmi}}
 BMI Category: {{category}}
 
-Your task is to provide a single, actionable, and positive health tip based on their BMI category. Keep it brief and easy to understand.
+Your task is to provide a single, actionable, and positive health insight based on their BMI category. The advice should be brief, easy to understand, and gently mention potential health considerations without being alarming.
 
-- If 'Underweight', suggest healthy ways to gain weight, like incorporating protein-rich snacks.
-- If 'Normal', give a tip for maintaining a healthy lifestyle, like trying a new physical activity.
-- If 'Overweight', suggest a small, sustainable change, like swapping sugary drinks for water.
-- If 'Obese', offer a supportive first step, such as aiming for a short 10-minute walk each day.
+- If 'Underweight', suggest healthy ways to gain weight, like incorporating protein-rich snacks, and briefly mention the importance of ensuring adequate nutrient intake for energy and immune function.
+- If 'Normal', give a tip for maintaining a healthy lifestyle, like trying a new physical activity, and commend them on being in a healthy range.
+- If 'Overweight', suggest a small, sustainable change, like swapping sugary drinks for water, and mention that this can help reduce strain on joints and lower blood pressure.
+- If 'Obese', offer a supportive first step, such as aiming for a short 10-minute walk each day. Gently mention that consistent small efforts can significantly lower the risk of conditions like type 2 diabetes and heart disease.
 
-Generate the 'advice' in the required JSON format.`,
+Generate the 'advice' in the required JSON format. Keep the tone positive and empowering.`,
 });
 
 
