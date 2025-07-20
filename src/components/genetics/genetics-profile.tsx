@@ -60,14 +60,15 @@ export function GeneticsProfile() {
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = event.target.files?.[0];
         if (selectedFile) {
-            if (selectedFile.type === 'text/plain' && selectedFile.size <= 50 * 1024 * 1024) { // 50MB limit
+            // Only check for file size, as MIME type can be unreliable for .txt files.
+            if (selectedFile.size <= 50 * 1024 * 1024) { // 50MB limit
                 setFile(selectedFile);
                 setFileName(selectedFile.name);
             } else {
                 toast({
                     variant: 'destructive',
-                    title: 'Invalid File',
-                    description: 'Please upload a .txt file that is 50MB or smaller.',
+                    title: 'File Too Large',
+                    description: 'Please select a file that is 50MB or smaller.',
                 });
                 event.target.value = ''; // Reset the input
             }
