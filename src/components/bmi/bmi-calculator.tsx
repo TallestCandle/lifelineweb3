@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, getDocs, where } from 'firebase/firestore';
 import { generateBmiAdvice } from '@/ai/flows/generate-bmi-advice-flow';
 import { Calculator, Lightbulb, LineChart, TrendingUp, AlertTriangle, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
