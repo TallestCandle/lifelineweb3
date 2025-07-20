@@ -21,6 +21,7 @@ import {
   Bell,
   Wallet,
   Calculator,
+  Ruler,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
@@ -45,15 +46,19 @@ import {
 } from '@/components/ui/sidebar';
 import { SheetClose } from './ui/sheet';
 
-const menuItems: { href: string; label: string; icon: LucideIcon }[] = [
+const mainMenuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/log", label: "AI Logger", icon: Camera },
   { href: "/deep-dive", label: "Deep Dive", icon: BrainCircuit },
-  { href: "/bmi", label: "BMI Calculator", icon: Calculator },
   { href: "/clinic", label: "Clinic", icon: Building2 },
   { href: "/dietician", label: "AI Dietician", icon: Salad },
   { href: "/report", label: "Health Report", icon: FileText },
   { href: "/reminders", label: "Prescriptions", icon: FileSpreadsheet },
+];
+
+const toolsMenuItems: { href: string; label: string; icon: LucideIcon }[] = [
+    { href: "/bmi", label: "BMI Calculator", icon: Calculator },
+    { href: "/body-metrics", label: "Body Metrics", icon: Ruler },
 ];
 
 function AppLayout({ children }: { children: React.ReactNode }) {
@@ -77,7 +82,20 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     return (
         <SidebarMenu>
             <SidebarSeparator className="mb-2" />
-            {menuItems.map((item) => (
+            {mainMenuItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                    <Wrapper {...wrapperProps}>
+                        <Link href={item.href}>
+                            <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} icon={<item.icon/>}>
+                                <span>{item.label}</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </Wrapper>
+                </SidebarMenuItem>
+            ))}
+            <SidebarSeparator className="my-2" />
+            <p className="px-2 text-xs font-semibold text-muted-foreground group-data-[collapsible=icon]:hidden">Health Tools</p>
+             {toolsMenuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                     <Wrapper {...wrapperProps}>
                         <Link href={item.href}>
