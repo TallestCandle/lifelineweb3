@@ -54,15 +54,15 @@ interface HistoryItem {
 const metricOptions: { type: MetricType, title: string, icon: React.ElementType, schema: any, info: React.ReactNode }[] = [
     { 
         type: 'waist_circumference', title: 'Waist Circum.', icon: Activity, schema: waistCircSchema,
-        info: "A simple measure of abdominal fat. High values are linked to increased risk of type 2 diabetes and heart disease."
+        info: "Waist circumference is a simple but important measurement that helps estimate the amount of abdominal fat you have. This isn't just the fat under your skin; it's also the deeper fat around your organs, called visceral fat. High amounts of visceral fat are strongly linked to an increased risk for serious health problems like type 2 diabetes, high blood pressure, and heart disease."
     },
     { 
         type: 'wthr', title: 'Waist-to-Height', icon: Ruler, schema: wthrSchema,
-        info: "Compares waist to height. A ratio above 0.5 suggests increased health risks, even in people with a normal BMI."
+        info: "This ratio compares your waist measurement to your height. The basic idea is simple: your waist circumference should be less than half of your height. It's a useful indicator because it helps show if you're carrying too much fat around your abdomen relative to your overall size. Some experts believe it can be a better predictor of health risks like heart disease and diabetes than BMI."
     },
     { 
         type: 'whr', title: 'Waist-to-Hip', icon: Sigma, schema: whrSchema,
-        info: "Assesses fat distribution. A higher ratio (more \"apple-shaped\") indicates more fat around the abdomen, which is a key risk factor for various chronic diseases."
+        info: "This ratio compares the size of your waist to the size of your hips. It's used to check your body's fat distribution. People who carry more weight around their middle (an \"apple\" shape) have a higher health risk than those who carry weight on their hips and thighs (a \"pear\" shape). A higher WHR is associated with a greater risk of developing conditions like heart disease and type 2 diabetes."
     },
 ];
 
