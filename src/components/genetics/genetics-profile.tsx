@@ -191,7 +191,7 @@ export function GeneticsProfile() {
                     <div className="flex flex-col sm:flex-row gap-4">
                         <div className="flex-grow">
                             <label htmlFor="dna-upload" className="sr-only">Upload DNA File</label>
-                            <Input id="dna-upload" type="file" accept=".txt" onChange={handleFileChange} className="file:text-foreground h-12 text-base" />
+                            <Input id="dna-upload" type="file" onChange={handleFileChange} className="file:text-foreground h-12 text-base" />
                         </div>
                         <Button onClick={handleAnalyze} disabled={isLoading || !file} size="lg">
                             {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Upload className="mr-2 h-5 w-5" />}
