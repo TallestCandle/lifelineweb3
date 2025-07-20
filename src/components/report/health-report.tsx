@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader } from '@/components/ui/loader';
 import { Download, FileText, HeartPulse, Beaker, TrendingUp, ShieldAlert, ListChecks } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, limit } from 'firebase/firestore';
 import { generateMonthlyReport, type GenerateMonthlyReportOutput } from '@/ai/flows/generate-monthly-report-flow';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
@@ -58,23 +58,21 @@ export function HealthReport() {
             setIsGeneratingReport(true);
             setReportContent(null);
             
-            const startDate = startOfMonth(selectedDate).toISOString();
-            const endDate = endOfMonth(selectedDate).toISOString();
             const basePath = `users/${user.uid}`;
 
             try {
-                // Fetch all required data for the month
+                // Fetch all historical data for context
                 const vitalsCol = collection(db, `${basePath}/vitals`);
-                const vitalsQuery = query(vitalsCol, where('date', '>=', startDate), where('date', '<=', endDate));
+                const vitalsQuery = query(vitalsCol, orderBy('date', 'desc'), limit(500));
                 
                 const stripsCol = collection(db, `${basePath}/test_strips`);
-                const stripsQuery = query(stripsCol, where('date', '>=', startDate), where('date', '<=', endDate));
+                const stripsQuery = query(stripsCol, orderBy('date', 'desc'), limit(500));
 
                 const analysesCol = collection(db, `${basePath}/health_analyses`);
-                const analysesQuery = query(analysesCol, where('timestamp', '>=', startDate), where('timestamp', '<=', endDate));
+                const analysesQuery = query(analysesCol, orderBy('timestamp', 'desc'), limit(200));
                 
                 const alertsCol = collection(db, `${basePath}/alerts`);
-                const alertsQuery = query(alertsCol, where('timestamp', '>=', startDate), where('timestamp', '<=', endDate));
+                const alertsQuery = query(alertsCol, orderBy('timestamp', 'desc'), limit(100));
                 
                 const [vitalsSnap, stripsSnap, analysesSnap, alertsSnap] = await Promise.all([
                     getDocs(vitalsQuery),
@@ -83,12 +81,20 @@ export function HealthReport() {
                     getDocs(alertsQuery),
                 ]);
 
-                const vitalsHistory = vitalsSnap.docs.map(d => d.data());
-                const testStripHistory = stripsSnap.docs.map(d => d.data());
-                const analysesHistory = analysesSnap.docs.map(d => d.data().analysisResult);
-                const alertsHistory = alertsSnap.docs.map(d => d.data());
+                const allVitals = vitalsSnap.docs.map(d => d.data());
+                const allStrips = stripsSnap.docs.map(d => d.data());
+                const allAnalyses = analysesSnap.docs.map(d => d.data().analysisResult);
+                const allAlerts = alertsSnap.docs.map(d => d.data());
 
-                if (vitalsHistory.length === 0 && testStripHistory.length === 0 && analysesHistory.length === 0 && alertsHistory.length === 0) {
+                // Filter data for the selected month to check if a report can be generated
+                const startDate = startOfMonth(selectedDate);
+                const endDate = endOfMonth(selectedDate);
+                const monthlyDataExists = 
+                    allVitals.some(d => parseISO(d.date) >= startDate && parseISO(d.date) <= endDate) ||
+                    allStrips.some(d => parseISO(d.date) >= startDate && parseISO(d.date) <= endDate) ||
+                    allAnalyses.some(d => parseISO(d.timestamp) >= startDate && parseISO(d.timestamp) <= endDate);
+
+                if (!monthlyDataExists) {
                      toast({
                         variant: "destructive",
                         title: "No Data Available",
@@ -98,14 +104,14 @@ export function HealthReport() {
                     return;
                 }
 
-                // Call the AI flow
+                // Call the AI flow with ALL historical data
                 const report = await generateMonthlyReport({
                     name: user.displayName || 'User',
                     month: format(selectedDate, 'MMMM yyyy'),
-                    vitalsHistory: JSON.stringify(vitalsHistory),
-                    testStripHistory: JSON.stringify(testStripHistory),
-                    analysesHistory: JSON.stringify(analysesHistory),
-                    alertsHistory: JSON.stringify(alertsHistory),
+                    vitalsHistory: JSON.stringify(allVitals),
+                    testStripHistory: JSON.stringify(allStrips),
+                    analysesHistory: JSON.stringify(allAnalyses),
+                    alertsHistory: JSON.stringify(allAlerts),
                 });
                 
                 setReportContent(report);

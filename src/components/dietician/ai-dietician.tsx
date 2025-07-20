@@ -9,11 +9,10 @@ import { Loader } from '@/components/ui/loader';
 import { useAuth } from '@/context/auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDoc, setDoc, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
-import { format, subDays } from 'date-fns';
+import { collection, doc, getDoc, setDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { format } from 'date-fns';
 import { generateDietPlan, type GenerateDietPlanOutput, type GenerateDietPlanInput } from '@/ai/flows/generate-diet-plan-flow';
 import { CookingPot, Sparkles, AlertTriangle, Lightbulb, ThumbsDown, ThumbsUp } from 'lucide-react';
-import { Separator } from '../ui/separator';
 
 export function AiDietician() {
     const { user } = useAuth();
@@ -61,17 +60,16 @@ export function AiDietician() {
         setIsLoading(true);
 
         try {
-            // Fetch recent health data
-            const sevenDaysAgo = subDays(new Date(), 7).toISOString();
+            // Fetch all historical health data
             const basePath = `users/${user.uid}`;
             const vitalsCol = collection(db, `${basePath}/vitals`);
             const stripsCol = collection(db, `${basePath}/test_strips`);
             const analysesCol = collection(db, `${basePath}/health_analyses`);
 
             const [vitalsSnap, stripsSnap, analysesSnap] = await Promise.all([
-                getDocs(query(vitalsCol, where('date', '>=', sevenDaysAgo), orderBy('date', 'desc'), limit(20))),
-                getDocs(query(stripsCol, where('date', '>=', sevenDaysAgo), orderBy('date', 'desc'), limit(20))),
-                getDocs(query(analysesCol, where('timestamp', '>=', sevenDaysAgo), orderBy('timestamp', 'desc'), limit(10))),
+                getDocs(query(vitalsCol, orderBy('date', 'desc'), limit(100))),
+                getDocs(query(stripsCol, orderBy('date', 'desc'), limit(100))),
+                getDocs(query(analysesCol, orderBy('timestamp', 'desc'), limit(50))),
             ]);
 
             const healthSummary = JSON.stringify({
