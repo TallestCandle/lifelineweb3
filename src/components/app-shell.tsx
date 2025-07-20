@@ -95,17 +95,33 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             ))}
             <SidebarSeparator className="my-2" />
             <p className="px-2 text-xs font-semibold text-muted-foreground group-data-[collapsible=icon]:hidden">Health Tools</p>
-             {toolsMenuItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                    <Wrapper {...wrapperProps}>
-                        <Link href={item.href}>
-                            <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} icon={<item.icon/>}>
-                                <span>{item.label}</span>
-                            </SidebarMenuButton>
-                        </Link>
-                    </Wrapper>
-                </SidebarMenuItem>
-            ))}
+             <SidebarMenuItem>
+                <Wrapper {...wrapperProps}>
+                    <Link href="/health-tools">
+                        <SidebarMenuButton asChild isActive={pathname === '/health-tools'} tooltip="Health Tools" icon={<Calculator/>}>
+                            <span>Health Tools</span>
+                        </SidebarMenuButton>
+                    </Link>
+                </Wrapper>
+            </SidebarMenuItem>
+             <SidebarMenuItem>
+                <Wrapper {...wrapperProps}>
+                    <Link href="/bmi">
+                        <SidebarMenuButton asChild isActive={pathname === '/bmi'} tooltip="BMI Calculator" icon={<Ruler/>}>
+                            <span>BMI Calculator</span>
+                        </SidebarMenuButton>
+                    </Link>
+                </Wrapper>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+                <Wrapper {...wrapperProps}>
+                    <Link href="/body-metrics">
+                        <SidebarMenuButton asChild isActive={pathname === '/body-metrics'} tooltip="Body Metrics" icon={<Ruler/>}>
+                            <span>Body Metrics</span>
+                        </SidebarMenuButton>
+                    </Link>
+                </Wrapper>
+            </SidebarMenuItem>
             <SidebarSeparator className="my-2" />
             <SidebarMenuItem>
                 <Wrapper {...wrapperProps}>

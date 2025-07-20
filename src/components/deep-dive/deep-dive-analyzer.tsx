@@ -113,24 +113,24 @@ export function DeepDiveAnalyzer() {
             
             const vitalsQuery = query(collection(db, `${basePath}/vitals`), where('date', '>=', startDate.toISOString()), where('date', '<', endDate.toISOString()), orderBy('date', 'desc'));
             const stripsQuery = query(collection(db, `${basePath}/test_strips`), where('date', '>=', startDate.toISOString()), where('date', '<', endDate.toISOString()), orderBy('date', 'desc'));
+            const bodyMetricsQuery = query(collection(db, `${basePath}/body_metrics`), where('date', '>=', startDate.toISOString()), where('date', '<', endDate.toISOString()), orderBy('date', 'desc'));
             const analysesQuery = query(collection(db, `${basePath}/health_analyses`), where('timestamp', '>=', startDate.toISOString()), where('timestamp', '<', endDate.toISOString()), orderBy('timestamp', 'desc'));
-            const bmiQuery = query(collection(db, `${basePath}/bmi_history`), where('date', '>=', startDate.toISOString()), where('date', '<', endDate.toISOString()), orderBy('date', 'desc'));
             
-            const [vitalsSnap, stripsSnap, analysesSnap, bmiSnap] = await Promise.all([
+            const [vitalsSnap, stripsSnap, bodyMetricsSnap, analysesSnap] = await Promise.all([
                 getDocs(vitalsQuery),
                 getDocs(stripsQuery),
+                getDocs(bodyMetricsQuery),
                 getDocs(analysesQuery),
-                getDocs(bmiQuery),
             ]);
 
             const input = {
                 vitalsHistory: JSON.stringify(vitalsSnap.docs.map(d => d.data())),
                 testStripHistory: JSON.stringify(stripsSnap.docs.map(d => d.data())),
-                bmiHistory: JSON.stringify(bmiSnap.docs.map(d => d.data())),
+                bodyMetricsHistory: JSON.stringify(bodyMetricsSnap.docs.map(d => d.data())),
                 previousAnalyses: JSON.stringify(analysesSnap.docs.map(d => d.data().analysisResult)),
             };
 
-            if (vitalsSnap.empty && stripsSnap.empty && analysesSnap.empty && bmiSnap.empty) {
+            if (vitalsSnap.empty && stripsSnap.empty && analysesSnap.empty && bodyMetricsSnap.empty) {
                 toast({ variant: 'destructive', title: 'Not Enough Data', description: 'There is no historical data for the selected period.' });
                 await updateBalance(ANALYSIS_COST, `Refund for failed Deep Dive`); // Refund
                 setIsLoading(false);

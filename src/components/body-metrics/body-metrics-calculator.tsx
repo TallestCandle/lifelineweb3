@@ -12,11 +12,12 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Ruler, AlertTriangle } from 'lucide-react';
+import { Ruler, AlertTriangle, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from '@/context/auth-provider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 
 const baseSchema = z.object({
   waist: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, { message: "Enter a valid waist circumference in cm." }),
@@ -116,7 +117,6 @@ function CalculatorTab({
 
 export function BodyMetricsCalculator() {
     const { user } = useAuth();
-    const userGender = user?.photoURL as 'Male' | 'Female' | undefined; // Assuming gender might be stored here as per previous context
 
     const calculateWaistCircumference = (values: FormValues): Result | null => {
         const { waist, gender } = values;
@@ -170,9 +170,38 @@ export function BodyMetricsCalculator() {
     return (
         <div className="space-y-8">
             <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row justify-between items-start">
+                  <div>
                     <CardTitle className="flex items-center gap-2"><Ruler /> Body Metrics Calculators</CardTitle>
                     <CardDescription>Use these tools to assess health risks associated with body composition and fat distribution.</CardDescription>
+                  </div>
+                   <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm"><HelpCircle className="mr-2"/>What are these?</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Understanding Body Metrics</DialogTitle>
+                        <DialogDescription>
+                          These metrics provide insights into health risks related to body fat distribution.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="text-sm space-y-4">
+                        <div>
+                          <h4 className="font-bold">Waist Circumference</h4>
+                          <p className="text-muted-foreground">A simple measure of abdominal fat. High values are linked to increased risk of type 2 diabetes and heart disease.</p>
+                        </div>
+                         <div>
+                          <h4 className="font-bold">Waist-to-Height Ratio (WtHR)</h4>
+                          <p className="text-muted-foreground">Compares waist to height. A ratio above 0.5 suggests increased health risks, even in people with a normal BMI.</p>
+                        </div>
+                         <div>
+                          <h4 className="font-bold">Waist-to-Hip Ratio (WHR)</h4>
+                          <p className="text-muted-foreground">Assesses fat distribution. A higher ratio (more "apple-shaped") indicates more fat around the abdomen, which is a key risk factor for various chronic diseases.</p>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="wthr">

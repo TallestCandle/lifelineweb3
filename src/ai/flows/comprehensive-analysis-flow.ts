@@ -14,7 +14,7 @@ import { z } from 'zod';
 const ComprehensiveAnalysisInputSchema = z.object({
   vitalsHistory: z.string().describe("A JSON string representing an array of historical vital signs readings."),
   testStripHistory: z.string().describe("A JSON string representing an array of historical urine test strip results."),
-  bmiHistory: z.string().describe("A JSON string representing an array of historical Body Mass Index (BMI) readings."),
+  bodyMetricsHistory: z.string().describe("A JSON string representing an array of historical Body Mass Index (BMI) and other body composition readings."),
   previousAnalyses: z.string().describe("A JSON string representing an array of previous AI analysis results."),
 }).describe("A collection of the user's historical health data for deep analysis.");
 
@@ -46,7 +46,7 @@ const prompt = ai.definePrompt({
 The user's historical data is provided in four JSON strings:
 1. Vitals History: {{{vitalsHistory}}}
 2. Test Strip History: {{{testStripHistory}}}
-3. BMI History: {{{bmiHistory}}}
+3. Body Metrics History: {{{bodyMetricsHistory}}}
 4. Previous AI Analyses: {{{previousAnalyses}}}
 
 Your analysis MUST be deep and granular. Do not just summarize the data. Look for:

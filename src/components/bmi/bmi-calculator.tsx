@@ -18,9 +18,10 @@ import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, query, orderBy, getDocs } from 'firebase/firestore';
 import { generateBmiAdvice } from '@/ai/flows/generate-bmi-advice-flow';
-import { Calculator, Lightbulb, LineChart, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Calculator, Lightbulb, LineChart, TrendingUp, AlertTriangle, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 
 const bmiSchema = z.object({
   height: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 50, {
@@ -74,10 +75,21 @@ export function BmiCalculator() {
     }
     const fetchHistory = async () => {
         setIsHistoryLoading(true);
-        const historyCollection = collection(db, `users/${user.uid}/bmi_history`);
-        const q = query(historyCollection, orderBy('date', 'desc'));
+        // Fetch from the new body_metrics collection
+        const metricsCollection = collection(db, `users/${user.uid}/body_metrics`);
+        const q = query(metricsCollection, where('type', '==', 'bmi'), orderBy('date', 'desc'));
         const snapshot = await getDocs(q);
-        setHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BmiHistoryEntry)));
+        const bmiHistory = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return { 
+                id: doc.id,
+                date: data.date,
+                bmi: data.values.bmi,
+                weight: data.values.weight,
+                height: data.values.height,
+            } as BmiHistoryEntry
+        });
+        setHistory(bmiHistory);
         setIsHistoryLoading(false);
     };
     fetchHistory();
@@ -116,15 +128,25 @@ export function BmiCalculator() {
 
     const newEntry = {
       date: new Date().toISOString(),
-      bmi: result.bmi,
-      height: height,
-      weight: weight,
+      type: 'bmi',
+      values: {
+        height: height,
+        weight: weight,
+        bmi: result.bmi,
+      }
     };
 
     try {
-        const historyCollection = collection(db, `users/${user.uid}/bmi_history`);
-        const docRef = await addDoc(historyCollection, newEntry);
-        setHistory(prev => [{ ...newEntry, id: docRef.id }, ...prev]);
+        const metricsCollection = collection(db, `users/${user.uid}/body_metrics`);
+        const docRef = await addDoc(metricsCollection, newEntry);
+        // Manually add to local state to avoid re-fetch
+        setHistory(prev => [{
+            id: docRef.id,
+            date: newEntry.date,
+            height: newEntry.values.height,
+            weight: newEntry.values.weight,
+            bmi: newEntry.values.bmi,
+        }, ...prev]);
         toast({ title: "Progress Tracked", description: `BMI of ${result.bmi} has been saved.` });
     } catch (error) {
         console.error("Failed to save BMI history:", error);
@@ -136,9 +158,35 @@ export function BmiCalculator() {
     <div className="grid gap-8 md:grid-cols-2">
       <div className="space-y-8">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Calculator /> BMI Calculator</CardTitle>
-            <CardDescription>Enter your height and weight to calculate your Body Mass Index.</CardDescription>
+          <CardHeader className="flex flex-row justify-between items-start">
+            <div>
+              <CardTitle className="flex items-center gap-2"><Calculator /> BMI Calculator</CardTitle>
+              <CardDescription>Enter your height and weight to calculate your Body Mass Index.</CardDescription>
+            </div>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm"><HelpCircle className="mr-2"/>What is BMI?</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Understanding Body Mass Index (BMI)</DialogTitle>
+                  <DialogDescription>
+                    BMI is a measure that uses your height and weight to work out if your weight is healthy.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="text-sm space-y-4">
+                  <p>While BMI is a simple and widely used screening tool, it's not a perfect measure of body fatness or health. It doesn't distinguish between fat and muscle mass.</p>
+                  <div>
+                    <h4 className="font-bold">Associated Health Risks:</h4>
+                    <ul className="list-disc list-inside text-muted-foreground mt-2">
+                        <li><span className="font-semibold">High BMI (Overweight/Obese):</span> Increased risk of type 2 diabetes, high blood pressure, heart disease, stroke, and certain types of cancer.</li>
+                        <li><span className="font-semibold">Low BMI (Underweight):</span> Increased risk of malnutrition, osteoporosis, and a weakened immune system.</li>
+                    </ul>
+                  </div>
+                  <p>Use BMI as a starting point for a conversation with your healthcare provider about your weight and health.</p>
+                </div>
+              </DialogContent>
+            </Dialog>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -180,7 +228,7 @@ export function BmiCalculator() {
           )}
           {result && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <Card>
+              <Card className={cn("border-2", categoryConfig[result.category].color.replace('bg-', 'border-'))}>
                 <CardHeader>
                   <CardTitle>Your Result</CardTitle>
                 </CardHeader>
@@ -191,14 +239,11 @@ export function BmiCalculator() {
                     <p className={cn("font-bold text-lg", categoryConfig[result.category].color.replace('bg-', 'text-'))}>{result.category}</p>
                   </div>
                   
-                  <div>
+                  <div className="relative pt-2">
                     <div className="flex w-full h-2 rounded-full overflow-hidden">
                       {Object.values(categoryConfig).map(c => (
-                        <div key={c.range} className={cn("h-full", c.color)} style={{ flexGrow: 1 }} />
+                        <div key={c.range} className={cn("h-full", c.color)} style={{ flexBasis: '25%' }} />
                       ))}
-                    </div>
-                    <div className="flex w-full justify-between text-xs mt-1 text-muted-foreground">
-                      {Object.values(categoryConfig).map(c => <span key={c.range}>{c.range}</span>)}
                     </div>
                   </div>
 
@@ -208,7 +253,7 @@ export function BmiCalculator() {
                     <AlertDescription>{result.aiTip}</AlertDescription>
                   </Alert>
 
-                  <Alert variant="default" className="border-accent bg-accent/10">
+                   <Alert variant="default" className="border-accent bg-accent/10">
                      <AlertTriangle className="h-4 w-4 text-accent-foreground" />
                      <AlertTitle>Note</AlertTitle>
                      <AlertDescription>BMI is a general guide and does not account for factors like muscle mass. It is not a full diagnosis.</AlertDescription>
