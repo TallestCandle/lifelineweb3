@@ -1,250 +1,365 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { format, parseISO } from 'date-fns';
 import { AnimatePresence, motion } from 'framer-motion';
 
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Ruler, AlertTriangle, HelpCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from '@/context/auth-provider';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, getDocs, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
 
-const baseSchema = z.object({
-  waist: z.string().refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, { message: "Enter a valid waist circumference in cm." }),
-  height: z.string().optional(),
-  hip: z.string().optional(),
-  gender: z.enum(['Male', 'Female']).optional(),
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Ruler, FileClock, Trash2, ArrowLeft, Loader2, HelpCircle, Activity, HeartPulse, Sigma } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
+
+// --- Schemas & Types ---
+const bmiSchema = z.object({
+  height: z.string().min(1, "Required"),
+  weight: z.string().min(1, "Required"),
+});
+const waistCircSchema = z.object({
+  waist: z.string().min(1, "Required"),
+  gender: z.enum(['Male', 'Female'], { required_error: "Gender is required" }),
+});
+const wthrSchema = z.object({
+  waist: z.string().min(1, "Required"),
+  height: z.string().min(1, "Required"),
+});
+const whrSchema = z.object({
+  waist: z.string().min(1, "Required"),
+  hip: z.string().min(1, "Required"),
+  gender: z.enum(['Male', 'Female'], { required_error: "Gender is required" }),
 });
 
-type FormValues = z.infer<typeof baseSchema>;
+type MetricType = 'bmi' | 'waist_circumference' | 'wthr' | 'whr';
 
-interface Result {
-  value: string;
-  category: 'Low Risk' | 'Increased Risk' | 'High Risk' | 'Very High Risk';
-  message: string;
-}
-
-const riskConfig = {
-  'Low Risk': { color: 'text-green-500' },
-  'Increased Risk': { color: 'text-yellow-500' },
-  'High Risk': { color: 'text-orange-500' },
-  'Very High Risk': { color: 'text-red-500' },
-};
-
-function CalculatorTab({
-  title,
-  description,
-  fields,
-  calculate,
-}: {
-  title: string,
-  description: string,
-  fields: ('waist' | 'height' | 'hip' | 'gender')[],
-  calculate: (values: FormValues) => Result | null
-}) {
-  const [result, setResult] = useState<Result | null>(null);
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(baseSchema),
-    defaultValues: { waist: '', height: '', hip: '', gender: undefined },
-  });
-
-  const onSubmit = (data: FormValues) => {
-    const calculationResult = calculate(data);
-    setResult(calculationResult);
+interface HistoryItem {
+  id: string;
+  date: string;
+  type: MetricType;
+  values: Record<string, any>;
+  result?: {
+    value: string;
+    category: string;
   };
-
-  return (
-    <Card className="border-0 shadow-none">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {fields.includes('waist') && <FormField control={form.control} name="waist" render={({ field }) => (<FormItem><FormLabel>Waist (cm)</FormLabel><FormControl><Input type="number" placeholder="e.g., 85" {...field} /></FormControl><FormMessage /></FormItem>)} />}
-                {fields.includes('height') && <FormField control={form.control} name="height" render={({ field }) => (<FormItem><FormLabel>Height (cm)</FormLabel><FormControl><Input type="number" placeholder="e.g., 175" {...field} /></FormControl><FormMessage /></FormItem>)} />}
-                {fields.includes('hip') && <FormField control={form.control} name="hip" render={({ field }) => (<FormItem><FormLabel>Hip (cm)</FormLabel><FormControl><Input type="number" placeholder="e.g., 95" {...field} /></FormControl><FormMessage /></FormItem>)} />}
-                {fields.includes('gender') && <FormField control={form.control} name="gender" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Gender</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                <SelectItem value="Male">Male</SelectItem>
-                                <SelectItem value="Female">Female</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
-                )} />}
-            </div>
-            <Button type="submit" className="w-full">Calculate</Button>
-          </form>
-        </Form>
-      </CardContent>
-      <AnimatePresence>
-        {result && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-            <CardFooter>
-              <Alert className="w-full">
-                <Ruler className="h-4 w-4" />
-                <AlertTitle className={cn("flex justify-between items-center", riskConfig[result.category].color)}>
-                  <span>{result.value}</span>
-                  <span>{result.category}</span>
-                </AlertTitle>
-                <AlertDescription>{result.message}</AlertDescription>
-              </Alert>
-            </CardFooter>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </Card>
-  );
 }
 
+const metricOptions: { type: MetricType, title: string, icon: React.ElementType, schema: any, info: React.ReactNode }[] = [
+    { 
+        type: 'bmi', title: 'BMI', icon: HeartPulse, schema: bmiSchema,
+        info: (
+            <>
+                <p>Body Mass Index (BMI) is a measure that uses your height and weight to work out if your weight is healthy.</p>
+                <div className="mt-4">
+                    <h4 className="font-bold">Associated Health Risks:</h4>
+                    <ul className="list-disc list-inside text-muted-foreground mt-2">
+                        <li><span className="font-semibold">High BMI (Overweight/Obese):</span> Increased risk of type 2 diabetes, high blood pressure, heart disease, stroke, and certain types of cancer.</li>
+                        <li><span className="font-semibold">Low BMI (Underweight):</span> Increased risk of malnutrition, osteoporosis, and a weakened immune system.</li>
+                    </ul>
+                </div>
+            </>
+        ) 
+    },
+    { 
+        type: 'waist_circumference', title: 'Waist Circum.', icon: Activity, schema: waistCircSchema,
+        info: <p>A simple measure of abdominal fat. High values are linked to increased risk of type 2 diabetes and heart disease.</p>
+    },
+    { 
+        type: 'wthr', title: 'Waist-to-Height', icon: Ruler, schema: wthrSchema,
+        info: <p>Compares waist to height. A ratio above 0.5 suggests increased health risks, even in people with a normal BMI.</p>
+    },
+    { 
+        type: 'whr', title: 'Waist-to-Hip', icon: Sigma, schema: whrSchema,
+        info: <p>Assesses fat distribution. A higher ratio (more "apple-shaped") indicates more fat around the abdomen, which is a key risk factor for various chronic diseases.</p>
+    },
+];
+
+// --- Main Component ---
 export function BodyMetricsCalculator() {
     const { user } = useAuth();
+    const { toast } = useToast();
 
-    const calculateWaistCircumference = (values: FormValues): Result | null => {
-        const { waist, gender } = values;
-        if (!waist || !gender) return null;
-        const waistCm = parseFloat(waist);
+    const [activeForm, setActiveForm] = useState<typeof metricOptions[number] | null>(null);
+    const [history, setHistory] = useState<HistoryItem[]>([]);
+    const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+    const [infoDialogOpen, setInfoDialogOpen] = useState(false);
+
+    const form = useForm({
+        resolver: activeForm ? zodResolver(activeForm.schema) : undefined,
+        defaultValues: { height: "", weight: "", waist: "", hip: "", gender: undefined },
+    });
+    
+    useEffect(() => {
+        if (activeForm) {
+            form.reset();
+        }
+    }, [activeForm, form]);
+
+    useEffect(() => {
+        if (!user) {
+            setIsHistoryLoading(false);
+            return;
+        }
+
+        const fetchHistory = async () => {
+            setIsHistoryLoading(true);
+            try {
+                const collectionRef = collection(db, `users/${user.uid}/body_metrics`);
+                const q = query(collectionRef, orderBy('date', 'desc'));
+                const snapshot = await getDocs(q);
+                setHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HistoryItem)));
+            } catch (error) {
+                console.error("Error fetching body metrics history:", error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch your history.' });
+            } finally {
+                setIsHistoryLoading(false);
+            }
+        };
+        fetchHistory();
+    }, [user, toast]);
+    
+    const calculateResult = (type: MetricType, values: any) => {
+        switch (type) {
+            case 'bmi':
+                const heightM = parseFloat(values.height) / 100;
+                const bmi = parseFloat((parseFloat(values.weight) / (heightM * heightM)).toFixed(1));
+                let bmiCategory: string;
+                if (bmi < 18.5) bmiCategory = 'Underweight';
+                else if (bmi < 25) bmiCategory = 'Normal';
+                else if (bmi < 30) bmiCategory = 'Overweight';
+                else bmiCategory = 'Obese';
+                return { value: bmi.toString(), category: bmiCategory };
+            case 'waist_circumference':
+                const waistCm = parseFloat(values.waist);
+                let wcCategory: string;
+                if (values.gender === 'Male') {
+                    if (waistCm < 94) wcCategory = 'Low Risk';
+                    else if (waistCm <= 102) wcCategory = 'Increased Risk';
+                    else wcCategory = 'High Risk';
+                } else {
+                    if (waistCm < 80) wcCategory = 'Low Risk';
+                    else if (waistCm <= 88) wcCategory = 'Increased Risk';
+                    else wcCategory = 'High Risk';
+                }
+                return { value: `${waistCm} cm`, category: wcCategory };
+            case 'wthr':
+                const wthrRatio = parseFloat(values.waist) / parseFloat(values.height);
+                let wthrCategory: string;
+                if (wthrRatio < 0.5) wthrCategory = 'Low Risk';
+                else if (wthrRatio < 0.6) wthrCategory = 'Increased Risk';
+                else wthrCategory = 'High Risk';
+                return { value: wthrRatio.toFixed(2), category: wthrCategory };
+            case 'whr':
+                const whrRatio = parseFloat(values.waist) / parseFloat(values.hip);
+                let whrCategory: string;
+                if (values.gender === 'Male') {
+                    if (whrRatio < 0.9) whrCategory = 'Low Risk';
+                    else whrCategory = 'Increased Risk';
+                } else {
+                    if (whrRatio < 0.85) whrCategory = 'Low Risk';
+                    else whrCategory = 'Increased Risk';
+                }
+                return { value: whrRatio.toFixed(2), category: whrCategory };
+            default:
+                return undefined;
+        }
+    };
+
+    const handleSave = async (data: any) => {
+        if (!user || !activeForm) return;
+
+        const date = new Date().toISOString();
+        const collectionRef = collection(db, `users/${user.uid}/body_metrics`);
+        const result = calculateResult(activeForm.type, data);
         
-        let category: Result['category'];
-        if (gender === 'Male') {
-            if (waistCm < 94) category = 'Low Risk';
-            else if (waistCm <= 102) category = 'Increased Risk';
-            else category = 'High Risk';
-        } else { // Female
-            if (waistCm < 80) category = 'Low Risk';
-            else if (waistCm <= 88) category = 'Increased Risk';
-            else category = 'High Risk';
+        try {
+            const payload: Omit<HistoryItem, 'id'> = {
+                date,
+                type: activeForm.type,
+                values: data,
+                result
+            };
+
+            const docRef = await addDoc(collectionRef, payload);
+            setHistory(prev => [{ ...payload, id: docRef.id }, ...prev]);
+            toast({ title: 'Data Saved', description: `${activeForm.title} has been logged.` });
+            setActiveForm(null);
+        } catch (error) {
+            console.error("Error saving data:", error);
+            toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the data.' });
         }
-        return { value: `${waistCm} cm`, category, message: `A ${gender.toLowerCase()} waist circumference of ${waistCm} cm is associated with a ${category.toLowerCase()}.` };
+    };
+    
+    const deleteHistoryItem = async (item: HistoryItem) => {
+        if (!user) return;
+        const docRef = doc(db, `users/${user.uid}/body_metrics`, item.id);
+        try {
+            await deleteDoc(docRef);
+            setHistory(prev => prev.filter(h => h.id !== item.id));
+            toast({ title: 'Entry Deleted', description: 'The log entry has been removed.' });
+        } catch (error) {
+            console.error("Error deleting item:", error);
+            toast({ variant: 'destructive', title: 'Delete Failed' });
+        }
     };
 
-    const calculateWtHR = (values: FormValues): Result | null => {
-        const { waist, height } = values;
-        if (!waist || !height) return null;
-        const ratio = parseFloat(waist) / parseFloat(height);
+    const renderFormFields = () => {
+        if (!activeForm) return null;
 
-        let category: Result['category'];
-        if (ratio < 0.5) category = 'Low Risk';
-        else if (ratio < 0.6) category = 'Increased Risk';
-        else category = 'High Risk';
-
-        return { value: ratio.toFixed(2), category, message: `A waist-to-height ratio of ${ratio.toFixed(2)} is considered ${category.toLowerCase()}. Keeping this ratio below 0.5 is ideal.` };
-    };
-
-    const calculateWHR = (values: FormValues): Result | null => {
-        const { waist, hip, gender } = values;
-        if (!waist || !hip || !gender) return null;
-        const ratio = parseFloat(waist) / parseFloat(hip);
-
-        let category: Result['category'];
-        if (gender === 'Male') {
-            if (ratio < 0.9) category = 'Low Risk';
-            else if (ratio <= 1.0) category = 'Increased Risk';
-            else category = 'High Risk';
-        } else { // Female
-            if (ratio < 0.85) category = 'Low Risk';
-            else if (ratio <= 0.9) category = 'Increased Risk';
-            else category = 'High Risk';
-        }
-        return { value: ratio.toFixed(2), category, message: `For a ${gender.toLowerCase()}, a waist-to-hip ratio of ${ratio.toFixed(2)} indicates a ${category.toLowerCase()}.` };
+        return (
+            <>
+                {Object.keys(activeForm.schema.shape).map(key => {
+                    if (key === 'gender') {
+                        return <FormField key={key} control={form.control} name="gender" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Gender</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Male">Male</SelectItem>
+                                        <SelectItem value="Female">Female</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )} />;
+                    }
+                    return <FormField key={key} control={form.control} name={key as any} render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="capitalize">{key} (cm)</FormLabel>
+                            <FormControl><Input placeholder={`Enter ${key}`} type="number" {...field} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />;
+                })}
+            </>
+        );
     };
 
     return (
         <div className="space-y-8">
-            <Card>
-                <CardHeader className="flex flex-row justify-between items-start">
-                  <div>
-                    <CardTitle className="flex items-center gap-2"><Ruler /> Body Metrics Calculators</CardTitle>
-                    <CardDescription>Use these tools to assess health risks associated with body composition and fat distribution.</CardDescription>
-                  </div>
-                   <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm"><HelpCircle className="mr-2"/>What are these?</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Understanding Body Metrics</DialogTitle>
-                        <DialogDescription>
-                          These metrics provide insights into health risks related to body fat distribution.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="text-sm space-y-4">
-                        <div>
-                          <h4 className="font-bold">Waist Circumference</h4>
-                          <p className="text-muted-foreground">A simple measure of abdominal fat. High values are linked to increased risk of type 2 diabetes and heart disease.</p>
-                        </div>
-                         <div>
-                          <h4 className="font-bold">Waist-to-Height Ratio (WtHR)</h4>
-                          <p className="text-muted-foreground">Compares waist to height. A ratio above 0.5 suggests increased health risks, even in people with a normal BMI.</p>
-                        </div>
-                         <div>
-                          <h4 className="font-bold">Waist-to-Hip Ratio (WHR)</h4>
-                          <p className="text-muted-foreground">Assesses fat distribution. A higher ratio (more "apple-shaped") indicates more fat around the abdomen, which is a key risk factor for various chronic diseases.</p>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+            <Card className="overflow-hidden">
+                <AnimatePresence mode="wait">
+                    {!activeForm ? (
+                        <motion.div key="selection" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                            <CardHeader>
+                                <CardTitle>Log New Body Metric</CardTitle>
+                                <CardDescription>What would you like to log today?</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {metricOptions.map((opt) => (
+                                        <button key={opt.type} onClick={() => setActiveForm(opt)} className="group flex flex-col items-center justify-center p-4 aspect-square rounded-lg bg-secondary/50 hover:bg-secondary transition-all">
+                                            <opt.icon className="w-10 h-10 text-primary mb-2 transition-transform group-hover:scale-110" />
+                                            <p className="font-bold text-sm text-center">{opt.title}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </motion.div>
+                    ) : (
+                        <motion.div key="form" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ ease: "easeInOut", duration: 0.3 }}>
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setActiveForm(null)}><ArrowLeft/></Button>
+                                        <div>
+                                            <CardTitle>Log {activeForm.title}</CardTitle>
+                                            <CardDescription>Enter the values below.</CardDescription>
+                                        </div>
+                                    </div>
+                                    <Button variant="ghost" size="sm" onClick={() => setInfoDialogOpen(true)}>
+                                        <HelpCircle className="mr-2"/> What is this?
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <Form {...form}>
+                                    <form onSubmit={form.handleSubmit(handleSave)} className="space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{renderFormFields()}</div>
+                                        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                                            {form.formState.isSubmitting ? <Loader2 className="animate-spin mr-2"/> : null}
+                                            Save Log
+                                        </Button>
+                                    </form>
+                                </Form>
+                            </CardContent>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </Card>
+
+             <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><FileClock className="w-6 h-6"/>Log History</CardTitle>
+                    <CardDescription>View your previously logged body metrics.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Tabs defaultValue="wthr">
-                        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
-                            <TabsTrigger value="wthr">Waist-to-Height</TabsTrigger>
-                            <TabsTrigger value="whr">Waist-to-Hip</TabsTrigger>
-                            <TabsTrigger value="waist">Waist Circumference</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="wthr" className="pt-4">
-                            <CalculatorTab
-                                title="Waist-to-Height Ratio (WtHR)"
-                                description="Compares your waist to your height. It's a simple yet effective indicator of health risks."
-                                fields={['waist', 'height']}
-                                calculate={calculateWtHR}
-                            />
-                        </TabsContent>
-                        <TabsContent value="whr" className="pt-4">
-                            <CalculatorTab
-                                title="Waist-to-Hip Ratio (WHR)"
-                                description="Compares your waist and hip measurements to assess fat distribution."
-                                fields={['waist', 'hip', 'gender']}
-                                calculate={calculateWHR}
-                            />
-                        </TabsContent>
-                        <TabsContent value="waist" className="pt-4">
-                            <CalculatorTab
-                                title="Waist Circumference"
-                                description="Directly measures abdominal fat, a key indicator of metabolic health risks."
-                                fields={['waist', 'gender']}
-                                calculate={calculateWaistCircumference}
-                            />
-                        </TabsContent>
-                    </Tabs>
+                    {isHistoryLoading ? <Loader2 className="mx-auto w-8 h-8 animate-spin text-primary" /> : history.length > 0 ? (
+                        <Accordion type="single" collapsible className="w-full">
+                            {history.map(item => (
+                                <AccordionItem value={item.id} key={item.id}>
+                                    <AccordionTrigger>
+                                        <div className="flex items-center gap-3">
+                                            <Ruler className="w-5 h-5 text-green-400"/>
+                                            <div className="text-left">
+                                                <p className="font-bold capitalize">{item.type.replace(/_/g, ' ')}</p>
+                                                <p className="text-xs text-muted-foreground">{format(parseISO(item.date), 'MMM d, yyyy, h:mm a')}</p>
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="pl-10 pr-2 space-y-4">
+                                        <div className="text-sm space-y-2">
+                                            {item.result && (
+                                                <div className="flex justify-between p-2 rounded-md bg-secondary">
+                                                    <span className="font-bold">Result</span>
+                                                    <span className="font-bold">{item.result.value} ({item.result.category})</span>
+                                                </div>
+                                            )}
+                                            {Object.entries(item.values).map(([key, value]) => (
+                                                <div key={key} className="flex justify-between">
+                                                    <span className="text-muted-foreground capitalize">{key}</span>
+                                                    <span className="font-bold">{String(value)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="flex justify-end">
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4"/>Delete</Button></AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this log entry.</AlertDialogDescription></AlertDialogHeader>
+                                                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteHistoryItem(item)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
+                    ) : <p className="text-muted-foreground text-center py-8">No log history found.</p>}
                 </CardContent>
             </Card>
 
-             <Alert className="border-accent bg-accent/10">
-                <AlertTriangle className="h-4 w-4 text-accent-foreground" />
-                <AlertTitle>For Informational Purposes Only</AlertTitle>
-                <AlertDescription>
-                    These calculators are general guides and are not a substitute for a professional medical diagnosis. Factors like body composition and muscle mass can influence results.
-                </AlertDescription>
-            </Alert>
+            <Dialog open={infoDialogOpen} onOpenChange={setInfoDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>About {activeForm?.title}</DialogTitle>
+                        <DialogDescription className="pt-4 text-sm">{activeForm?.info}</DialogDescription>
+                    </DialogHeader>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
+

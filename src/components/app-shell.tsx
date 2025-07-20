@@ -98,7 +98,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
              <SidebarMenuItem>
                 <Wrapper {...wrapperProps}>
                     <Link href="/bmi">
-                        <SidebarMenuButton asChild isActive={pathname === '/bmi'} tooltip="BMI Calculator" icon={<Ruler/>}>
+                        <SidebarMenuButton asChild isActive={pathname === '/bmi'} tooltip="BMI Calculator" icon={<Calculator/>}>
                             <span>BMI Calculator</span>
                         </SidebarMenuButton>
                     </Link>
