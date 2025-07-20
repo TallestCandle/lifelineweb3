@@ -39,7 +39,7 @@ export async function analyzeGenetics(input: AnalyzeGeneticsInput): Promise<Anal
 
 const prompt = ai.definePrompt({
     name: 'analyzeGeneticsPrompt',
-    model: googleAI.model('gemini-1.5-flash'), // Use a model with a larger context window
+    model: googleAI.model('gemini-1.5-pro'), // Use a model with a larger context window
     input: { schema: AnalyzeGeneticsInputSchema },
     output: { schema: AnalyzeGeneticsOutputSchema },
     prompt: `You are a genetics expert AI assistant from Lifeline AI. Your role is to analyze a user's raw DNA data for educational and wellness purposes only.
