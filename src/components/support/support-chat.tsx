@@ -79,18 +79,18 @@ export function SupportChat() {
                     )}
                     {messages.map((message, index) => (
                          <div key={index} className={`flex items-start gap-3 ${message.role === 'user' ? 'justify-end' : ''}`}>
-                            {message.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center"><Bot size={20}/></div>}
+                            {message.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary hidden sm:flex items-center justify-center"><Bot size={20}/></div>}
                             <div className={`max-w-2xl rounded-lg p-3 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
                                 <ReactMarkdown remarkPlugins={[remarkGfm]} className="prose prose-sm dark:prose-invert prose-p:my-0">
                                     {message.content}
                                 </ReactMarkdown>
                             </div>
-                            {message.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center"><User size={20}/></div>}
+                            {message.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground hidden sm:flex items-center justify-center"><User size={20}/></div>}
                         </div>
                     ))}
                      {isLoading && (
                         <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center"><Bot size={20}/></div>
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary hidden sm:flex items-center justify-center"><Bot size={20}/></div>
                             <div className="max-w-2xl rounded-lg p-3 bg-secondary flex items-center">
                                 <Loader2 className="animate-spin w-5 h-5"/>
                             </div>

@@ -28,7 +28,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileText, Video, Share2, ChevronsUpDown, FileSpreadsheet } from 'lucide-react';
+import { Loader2, Bot, User, PlusCircle, Camera, Trash2, ShieldCheck, Send, AlertCircle, Sparkles, X, Pill, TestTube, Upload, Check, Salad, MessageSquare, ClipboardList, FileSpreadsheet, Video, Share2, ChevronsUpDown } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
@@ -391,7 +391,7 @@ export function HealthClinic() {
           <div className="space-y-4 p-4">
             {messages.map((message, index) => (
               <div key={index} className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {message.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center"><Bot size={20}/></div>}
+                {message.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary hidden sm:flex items-center justify-center"><Bot size={20}/></div>}
                 <div className={`max-w-[90%] md:max-w-md rounded-lg p-3 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
                   {isChatLoading && index === messages.length - 1 && message.role === 'model' ? (
                     <div className="flex items-center justify-center gap-1.5 h-5">
@@ -401,7 +401,7 @@ export function HealthClinic() {
                     </div>
                   ) : <p className="whitespace-pre-wrap">{message.content}</p>}
                 </div>
-                {message.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center"><User size={20}/></div>}
+                {message.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary text-secondary-foreground hidden sm:flex items-center justify-center"><User size={20}/></div>}
               </div>
             ))}
              <div ref={messagesEndRef} />
