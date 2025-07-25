@@ -35,7 +35,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { Avatar, AvatarFallback } from './ui/avatar';
 import {
   SidebarProvider,
   Sidebar,
@@ -47,6 +47,7 @@ import {
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { SheetClose } from './ui/sheet';
+import { InstallButton } from './pwa/install-button';
 
 const mainMenuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -57,11 +58,6 @@ const mainMenuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/report", label: "Health Report", icon: FileText },
   { href: "/reminders", label: "Prescriptions", icon: FileSpreadsheet },
   { href: "/genetics", label: "Genetics", icon: Dna },
-];
-
-const toolsMenuItems: { href: string; label: string; icon: LucideIcon }[] = [
-    { href: "/bmi", label: "BMI Calculator", icon: Calculator },
-    { href: "/body-metrics", label: "Body Metrics", icon: Ruler },
 ];
 
 function AppLayout({ children }: { children: React.ReactNode }) {
@@ -145,6 +141,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
                 </Wrapper>
             </SidebarMenuItem>
             <SidebarSeparator className="my-2" />
+            <InstallButton />
             <SidebarMenuItem>
                 <Wrapper {...wrapperProps}>
                     <Link href="/emergency">
