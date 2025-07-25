@@ -51,25 +51,11 @@ export function WalletManager() {
     amount: amountInNaira * 100, // Amount in Kobo
     metadata: {
       user_id: user?.uid || '',
-    }
+    },
+    redirect: true,
   };
 
   const initializePayment = usePaystackPayment(config);
-
-  const onSuccess = () => {
-    toast({
-      title: "Payment Processing",
-      description: "Your transaction is being verified and your wallet will be updated shortly.",
-    });
-  };
-
-  const onClose = () => {
-    toast({
-      variant: 'default',
-      title: "Payment Cancelled",
-      description: "You closed the payment window. No charge was made.",
-    });
-  };
 
   const handlePayment = () => {
     if (!user || !profile) {
@@ -93,7 +79,8 @@ export function WalletManager() {
       return;
     }
     
-    initializePayment({onSuccess, onClose});
+    // The onSuccess and onClose callbacks are not used in redirect flow
+    initializePayment({onSuccess: () => {}, onClose: () => {}});
   };
 
   useEffect(() => {
