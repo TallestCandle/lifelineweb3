@@ -2,6 +2,7 @@
 'use server';
 
 import { z } from 'zod';
+import { Readable } from 'stream';
 
 const ENSEMBL_API_URL = "https://rest.ensembl.org";
 
@@ -55,22 +56,43 @@ async function fetchVariantConsequences(identifier: string, species: string = 'h
     }
 }
 
-function parseVcf(content: string): string[] {
-    return content
-        .split('\n')
-        .filter(line => !line.startsWith('#') && line.trim() !== '')
-        .map(line => {
+async function parseVcfStream(file: File): Promise<string[]> {
+    const ids: string[] = [];
+    // @ts-ignore
+    const fileStream = Readable.from(file.stream());
+    let remaining = '';
+
+    for await (const chunk of fileStream) {
+        remaining += chunk.toString();
+        let lastNewline = remaining.lastIndexOf('\n');
+        
+        if (lastNewline === -1) continue;
+
+        const lines = remaining.substring(0, lastNewline).split('\n');
+        remaining = remaining.substring(lastNewline + 1);
+        
+        for (const line of lines) {
+            if (line.startsWith('#') || line.trim() === '') continue;
+            
             const fields = line.split('\t');
             if (fields.length >= 3) {
                 const rsid = fields[2];
-                if(rsid && rsid.startsWith('rs')) {
-                    return rsid;
+                if (rsid && rsid.startsWith('rs')) {
+                    ids.push(rsid);
                 }
             }
-            return null;
-        })
-        .filter((id): id is string => id !== null);
+        }
+    }
+    // Process any remaining data after the last newline
+    if (remaining.trim() !== '' && !remaining.startsWith('#')) {
+        const fields = remaining.split('\t');
+        if (fields.length >= 3 && fields[2] && fields[2].startsWith('rs')) {
+            ids.push(fields[2]);
+        }
+    }
+    return ids;
 }
+
 
 // This function is now also exported to be used by the validation tool
 export async function lookupSnp(identifier: string): Promise<SnpLookupResult[]> {
@@ -137,8 +159,8 @@ export async function performSnpLookup(formData: FormData): Promise<SnpLookupRes
         const file = formData.get('file') as File;
         if (!file) throw new Error("No file provided.");
         
-        const content = await file.text();
-        identifiers = parseVcf(content);
+        identifiers = await parseVcfStream(file);
+
         if (identifiers.length === 0) {
              throw new Error("No valid rsIDs found in the provided file. Please ensure it's a valid VCF with rsIDs in the 3rd column.");
         }
