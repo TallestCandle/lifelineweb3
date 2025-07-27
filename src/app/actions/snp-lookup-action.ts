@@ -58,11 +58,14 @@ async function fetchVariantConsequences(identifier: string, species: string = 'h
 
 async function parseVcfStream(file: File): Promise<string[]> {
     const ids: string[] = [];
+    const BATCH_SIZE = 100; // Limit to processing the first 100 variants
     // @ts-ignore
     const fileStream = Readable.from(file.stream());
     let remaining = '';
 
     for await (const chunk of fileStream) {
+        if (ids.length >= BATCH_SIZE) break;
+
         remaining += chunk.toString();
         let lastNewline = remaining.lastIndexOf('\n');
         
@@ -72,6 +75,7 @@ async function parseVcfStream(file: File): Promise<string[]> {
         remaining = remaining.substring(lastNewline + 1);
         
         for (const line of lines) {
+            if (ids.length >= BATCH_SIZE) break;
             if (line.startsWith('#') || line.trim() === '') continue;
             
             const fields = line.split('\t');
@@ -83,8 +87,8 @@ async function parseVcfStream(file: File): Promise<string[]> {
             }
         }
     }
-    // Process any remaining data after the last newline
-    if (remaining.trim() !== '' && !remaining.startsWith('#')) {
+    // Process any remaining data after the last newline if we haven't hit the batch size
+    if (ids.length < BATCH_SIZE && remaining.trim() !== '' && !remaining.startsWith('#')) {
         const fields = remaining.split('\t');
         if (fields.length >= 3 && fields[2] && fields[2].startsWith('rs')) {
             ids.push(fields[2]);
@@ -162,17 +166,18 @@ export async function performSnpLookup(formData: FormData): Promise<SnpLookupRes
         identifiers = await parseVcfStream(file);
 
         if (identifiers.length === 0) {
-             throw new Error("No valid rsIDs found in the provided file. Please ensure it's a valid VCF with rsIDs in the 3rd column.");
+             throw new Error("No valid rsIDs found in the first 100 variants of the file. Please ensure it's a valid VCF with rsIDs in the 3rd column.");
         }
     } else {
         throw new Error("Invalid lookup type.");
     }
     
-    const allResults: SnpLookupResult[] = [];
-    for (const id of identifiers) {
-        const singleResult = await lookupSnp(id);
-        allResults.push(...singleResult);
-    }
+    // Process all identifiers found (up to the batch limit for files)
+    // Using Promise.all to run API calls in parallel for performance.
+    const allPromises = identifiers.map(id => lookupSnp(id));
+    const allResultsNested = await Promise.all(allPromises);
+    const allResults = allResultsNested.flat();
 
     return allResults;
 }
+
