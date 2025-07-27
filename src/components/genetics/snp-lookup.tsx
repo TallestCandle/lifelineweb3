@@ -5,13 +5,14 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dna, Upload, Search, FileText, Loader2, ChevronsUpDown, X } from 'lucide-react';
+import { Dna, Upload, Search, FileText, Loader2, ChevronsUpDown, X, HelpCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { type SnpLookupResult, performSnpLookup } from '@/app/actions/snp-lookup-action';
 import { ScrollArea } from '../ui/scroll-area';
@@ -94,6 +95,22 @@ export function SnpLookup() {
     }
   }
 
+  const TooltipHeader = ({ children, tooltipText }: { children: React.ReactNode, tooltipText: string }) => (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-1 cursor-help">
+            {children}
+            <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{tooltipText}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+
   return (
     <div className="space-y-8">
       <Card>
@@ -107,7 +124,7 @@ export function SnpLookup() {
           <Tabs defaultValue="rsid">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="rsid">by rsID</TabsTrigger>
-              <TabsTrigger value="position">by Position</TabsTrigger>
+              <TabsTrigger value="position" disabled>by Position</TabsTrigger>
               <TabsTrigger value="file">by File</TabsTrigger>
             </TabsList>
             
@@ -123,20 +140,7 @@ export function SnpLookup() {
             </TabsContent>
 
             <TabsContent value="position" className="mt-4">
-              <Form {...positionForm}>
-                <form onSubmit={positionForm.handleSubmit(data => handleLookup('position', data))} className="flex items-end gap-2">
-                  <FormField control={positionForm.control} name="chromosome" render={({ field }) => (
-                    <FormItem><FormLabel>Chr.</FormLabel><FormControl><Input placeholder="1" {...field} /></FormControl><FormMessage /></FormItem>
-                  )}/>
-                  <FormField control={positionForm.control} name="position" render={({ field }) => (
-                    <FormItem className="flex-grow"><FormLabel>Position</FormLabel><FormControl><Input placeholder="67769422" type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                  )}/>
-                  <FormField control={positionForm.control} name="allele" render={({ field }) => (
-                    <FormItem><FormLabel>Allele</FormLabel><FormControl><Input placeholder="A" {...field} /></FormControl><FormMessage /></FormItem>
-                  )}/>
-                  <Button type="submit" disabled={isLoading}><Search className="mr-2 h-4 w-4"/>Lookup</Button>
-                </form>
-              </Form>
+               <p className="text-sm text-center text-muted-foreground p-4">This feature is coming soon.</p>
             </TabsContent>
 
             <TabsContent value="file" className="mt-4">
@@ -181,22 +185,28 @@ export function SnpLookup() {
                     <Table>
                         <TableHeader className="sticky top-0 bg-secondary">
                         <TableRow>
-                            <TableHead>SNP ID</TableHead>
-                            <TableHead>Consequence</TableHead>
-                            <TableHead>Gene</TableHead>
-                            <TableHead>Clinical Significance</TableHead>
+                            <TableHead><TooltipHeader tooltipText="The identifier for the SNP, usually an rsID.">SNP ID</TooltipHeader></TableHead>
+                            <TableHead><TooltipHeader tooltipText="The most significant functional consequence of the SNP (e.g., missense, synonymous).">Consequence</TooltipHeader></TableHead>
+                            <TableHead><TooltipHeader tooltipText="The gene in which the SNP is located.">Gene</TooltipHeader></TableHead>
+                            <TableHead><TooltipHeader tooltipText="The change in the amino acid sequence (Original AA, Position, New AA).">Amino Acid Change</TooltipHeader></TableHead>
+                            <TableHead><TooltipHeader tooltipText="The change in the DNA codon (e.g., from ATG to ACG).">Codon Change</TooltipHeader></TableHead>
+                            <TableHead><TooltipHeader tooltipText="The Ensembl transcript this annotation applies to.">Transcript</TooltipHeader></TableHead>
+                            <TableHead><TooltipHeader tooltipText="Clinical significance as reported by ClinVar.">Clinical Significance</TooltipHeader></TableHead>
                         </TableRow>
                         </TableHeader>
                         <TableBody>
                         {results.map((res, index) => (
                             <TableRow key={`${res.id}-${index}`}>
                             <TableCell className="font-mono">
-                                <a href={`https://www.ensembl.org/Homo_sapiens/Variation/Summary?v=${res.id}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                <a href={`https://www.ncbi.nlm.nih.gov/snp/${res.id}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                                     {res.id}
                                 </a>
                             </TableCell>
                             <TableCell>{res.most_severe_consequence}</TableCell>
                             <TableCell>{res.gene || 'N/A'}</TableCell>
+                            <TableCell>{res.aminoAcidChange || 'N/A'}</TableCell>
+                            <TableCell>{res.codonChange || 'N/A'}</TableCell>
+                            <TableCell className="font-mono text-xs">{res.transcriptId || 'N/A'}</TableCell>
                             <TableCell className="capitalize text-sm">
                                 {res.clinical_significance ? (
                                     <span className={`font-bold ${

@@ -5,11 +5,23 @@ import { z } from 'zod';
 
 const ENSEMBL_API_URL = "https://rest.ensembl.org";
 
+// Map for 1-letter to 3-letter amino acid codes
+const aminoAcidMap: { [key: string]: string } = {
+    'A': 'Ala', 'R': 'Arg', 'N': 'Asn', 'D': 'Asp', 'C': 'Cys',
+    'Q': 'Gln', 'E': 'Glu', 'G': 'Gly', 'H': 'His', 'I': 'Ile',
+    'L': 'Leu', 'K': 'Lys', 'M': 'Met', 'F': 'Phe', 'P': 'Pro',
+    'S': 'Ser', 'T': 'Thr', 'W': 'Trp', 'Y': 'Tyr', 'V': 'Val',
+    '*': 'Ter' // For termination codon
+};
+
 export interface SnpLookupResult {
     id: string;
     most_severe_consequence: string;
     gene?: string;
     clinical_significance?: string;
+    aminoAcidChange?: string;
+    codonChange?: string;
+    transcriptId?: string;
 }
 
 const rsidSchema = z.object({
@@ -25,12 +37,11 @@ const positionSchema = z.object({
 // Fetches annotations for a single variant from Ensembl
 async function fetchVariantConsequences(identifier: string, species: string = 'human'): Promise<any[]> {
     try {
-        const response = await fetch(`${ENSEMBL_API_URL}/vep/${species}/id/${identifier}`, {
+        const response = await fetch(`${ENSEMBL_API_URL}/vep/${species}/id/${identifier}?clinvar=1`, {
             headers: { 'Content-Type': 'application/json' },
             next: { revalidate: 3600 } // Cache for 1 hour
         });
         if (!response.ok) {
-            // If not found, return empty array, else throw error
             if(response.status === 404 || response.status === 400) {
                 console.warn(`Variant ${identifier} not found in Ensembl.`);
                 return [];
@@ -51,7 +62,7 @@ function parseVcf(content: string): string[] {
         .map(line => {
             const fields = line.split('\t');
             if (fields.length >= 3) {
-                const [chrom, pos, rsid] = fields;
+                const rsid = fields[2];
                 if(rsid && rsid.startsWith('rs')) {
                     return rsid;
                 }
@@ -75,8 +86,6 @@ export async function performSnpLookup(formData: FormData): Promise<SnpLookupRes
         const data = JSON.parse(formData.get('data') as string);
         const parsed = positionSchema.safeParse(data);
         if (!parsed.success) throw new Error("Invalid position format.");
-        // Ensembl VEP doesn't support position-based lookup in the same way. We would need a different endpoint.
-        // For simplicity, this is not implemented. A better approach would be to convert position to rsID first if possible.
         throw new Error("Lookup by chromosomal position is not supported in this version.");
     } else if (type === 'file') {
         const file = formData.get('file') as File;
@@ -91,26 +100,33 @@ export async function performSnpLookup(formData: FormData): Promise<SnpLookupRes
         throw new Error("Invalid lookup type.");
     }
     
-    // Batch requests to Ensembl if we have many identifiers from a file
-    const batchSize = 200; // Ensembl VEP POST limit
     const results: SnpLookupResult[] = [];
 
-    for (let i = 0; i < identifiers.length; i += batchSize) {
-        const batch = identifiers.slice(i, i + batchSize);
-        // Using GET for single lookups, but VEP POST is better for batch
-        // For simplicity, we'll do them one by one here. In production, a POST to /vep/human/id would be better.
-        for (const id of batch) {
-            const data = await fetchVariantConsequences(id);
-            if (data && data.length > 0) {
-                const variantData = data[0];
+    for (const id of identifiers) {
+        const data = await fetchVariantConsequences(id);
+        if (data && data.length > 0) {
+            for (const variantData of data) {
                 const transcriptConsequences = variantData.transcript_consequences || [];
-                const mostSevere = transcriptConsequences.find((c: any) => c.impact === 'HIGH' || c.impact === 'MODERATE') || transcriptConsequences[0];
                 
+                // Find the most severe consequence or the first one with protein impact
+                const mostSevere = transcriptConsequences.find((c: any) => c.impact === 'HIGH' || c.impact === 'MODERATE' || c.amino_acids) || transcriptConsequences[0];
+                
+                let aminoAcidChange: string | undefined = undefined;
+                if (mostSevere?.protein_start && mostSevere?.amino_acids) {
+                    const [ref, alt] = mostSevere.amino_acids.split('/');
+                    const ref_3_letter = aminoAcidMap[ref] || ref;
+                    const alt_3_letter = aminoAcidMap[alt] || alt;
+                    aminoAcidChange = `${ref_3_letter}${mostSevere.protein_start}${alt_3_letter}`;
+                }
+
                 results.push({
                     id: variantData.id,
                     most_severe_consequence: variantData.most_severe_consequence,
                     gene: mostSevere?.gene_symbol,
                     clinical_significance: variantData.clinical_significance?.[0],
+                    aminoAcidChange: aminoAcidChange,
+                    codonChange: mostSevere?.codons,
+                    transcriptId: mostSevere?.transcript_id,
                 });
             }
         }
