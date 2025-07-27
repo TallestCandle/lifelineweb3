@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Dna, Upload, Search, FileText, Loader2, ChevronsUpDown, X } from 'lucide-react';
@@ -36,9 +36,18 @@ export function SnpLookup() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const rsidForm = useForm<z.infer<typeof rsidSchema>>({ resolver: zodResolver(rsidSchema) });
-  const positionForm = useForm<z.infer<typeof positionSchema>>({ resolver: zodResolver(positionSchema) });
-  const fileForm = useForm<z.infer<typeof fileSchema>>({ resolver: zodResolver(fileSchema) });
+  const rsidForm = useForm<z.infer<typeof rsidSchema>>({ 
+    resolver: zodResolver(rsidSchema),
+    defaultValues: { rsid: '' } 
+  });
+  const positionForm = useForm<z.infer<typeof positionSchema>>({ 
+    resolver: zodResolver(positionSchema),
+    defaultValues: { chromosome: '', position: '', allele: '' }
+  });
+  const fileForm = useForm<z.infer<typeof fileSchema>>({ 
+    resolver: zodResolver(fileSchema),
+    defaultValues: { file: undefined }
+  });
 
   const handleLookup = async (type: 'rsid' | 'position', data: any) => {
     setIsLoading(true);
