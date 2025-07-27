@@ -86,7 +86,9 @@ export async function performSnpLookup(formData: FormData): Promise<SnpLookupRes
         const data = JSON.parse(formData.get('data') as string);
         const parsed = positionSchema.safeParse(data);
         if (!parsed.success) throw new Error("Invalid position format.");
-        throw new Error("Lookup by chromosomal position is not supported in this version.");
+        // Format for Ensembl VEP lookup by position
+        const identifier = `${parsed.data.chromosome}:${parsed.data.position}-${parsed.data.position}/${parsed.data.allele}`;
+        identifiers.push(identifier);
     } else if (type === 'file') {
         const file = formData.get('file') as File;
         if (!file) throw new Error("No file provided.");

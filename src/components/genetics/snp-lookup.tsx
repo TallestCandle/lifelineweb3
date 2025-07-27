@@ -124,7 +124,7 @@ export function SnpLookup() {
           <Tabs defaultValue="rsid">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="rsid">by rsID</TabsTrigger>
-              <TabsTrigger value="position" disabled>by Position</TabsTrigger>
+              <TabsTrigger value="position">by Position</TabsTrigger>
               <TabsTrigger value="file">by File</TabsTrigger>
             </TabsList>
             
@@ -140,7 +140,20 @@ export function SnpLookup() {
             </TabsContent>
 
             <TabsContent value="position" className="mt-4">
-               <p className="text-sm text-center text-muted-foreground p-4">This feature is coming soon.</p>
+              <Form {...positionForm}>
+                <form onSubmit={positionForm.handleSubmit(data => handleLookup('position', data))} className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+                    <FormField control={positionForm.control} name="chromosome" render={({ field }) => (
+                        <FormItem><FormLabel>Chromosome</FormLabel><FormControl><Input placeholder="e.g., 1" {...field} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                    <FormField control={positionForm.control} name="position" render={({ field }) => (
+                        <FormItem><FormLabel>Position</FormLabel><FormControl><Input placeholder="e.g., 1014143" type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                    <FormField control={positionForm.control} name="allele" render={({ field }) => (
+                        <FormItem><FormLabel>Allele</FormLabel><FormControl><Input placeholder="e.g., T" {...field} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                    <Button type="submit" disabled={isLoading} className="w-full sm:w-auto"><Search className="mr-2 h-4 w-4"/>Lookup</Button>
+                </form>
+              </Form>
             </TabsContent>
 
             <TabsContent value="file" className="mt-4">
