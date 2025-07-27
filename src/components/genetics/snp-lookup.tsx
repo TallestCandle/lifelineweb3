@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dna, Upload, Search, FileText, Loader2, Pause, Play, HelpCircle, MessageSquare, Bot, Send, RefreshCw } from 'lucide-react';
+import { Dna, Upload, Search, FileText, Loader2, Pause, Play, HelpCircle, MessageSquare, Bot, Send, RefreshCw, MessageCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -179,7 +179,13 @@ export function SnpLookup() {
         }
 
         const finalStatus = isProcessingFile.current ? 'completed' : 'paused';
-        if (user) await updateDoc(doc(db, `users/${user.uid}/genetic_analyses`, session.id), { status: finalStatus });
+        if (user) {
+            const sessionDocRef = doc(db, `users/${user.uid}/genetic_analyses`, session.id);
+            await updateDoc(sessionDocRef, { status: finalStatus });
+            if (finalStatus === 'completed') {
+                setActiveAnalysis(prev => prev ? { ...prev, status: 'completed' } : null);
+            }
+        }
 
         toast({ title: `Analysis ${finalStatus}` });
         isProcessingFile.current = false;
@@ -260,16 +266,17 @@ export function SnpLookup() {
         }
     };
     
-    const openChat = (session: AnalysisSession) => {
+    const openChat = async (session: AnalysisSession) => {
         setActiveAnalysis(session);
+        setIsChatLoading(true);
         setIsChatOpen(true);
         setChatMessages([]);
-        // Fetch results for this session
+        setResults([]);
          if(user) {
-            getDocs(collection(db, `users/${user.uid}/genetic_analyses/${session.id}/results`)).then(snap => {
-                setResults(snap.docs.map(d => d.data() as SnpLookupResult));
-            });
+            const snap = await getDocs(collection(db, `users/${user.uid}/genetic_analyses/${session.id}/results`));
+            setResults(snap.docs.map(d => d.data() as SnpLookupResult));
          }
+        setIsChatLoading(false);
     };
 
     const TooltipHeader = ({ children, tooltipText }: { children: React.ReactNode, tooltipText: string }) => (
@@ -347,12 +354,19 @@ export function SnpLookup() {
                 
                 <div className="lg:col-span-2">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Annotation Results</CardTitle>
-                            {activeAnalysis ? <CardDescription>Showing results for {activeAnalysis.fileName}</CardDescription> : <CardDescription>Results from your lookup will appear here.</CardDescription>}
+                        <CardHeader className="flex flex-row justify-between items-start">
+                            <div>
+                                <CardTitle>Annotation Results</CardTitle>
+                                {activeAnalysis ? <CardDescription>Showing results for {activeAnalysis.fileName}</CardDescription> : <CardDescription>Results from your lookup will appear here.</CardDescription>}
+                            </div>
+                            {activeAnalysis?.status === 'completed' && (
+                                <Button variant="outline" onClick={() => openChat(activeAnalysis)}>
+                                    <MessageCircle className="mr-2 h-4 w-4"/> Chat with AI
+                                </Button>
+                            )}
                         </CardHeader>
                         <CardContent>
-                            {isLoading && (
+                            {isLoading && activeAnalysis && (
                                 <div className="flex items-center gap-4">
                                     <div className="w-full">
                                         <div className="flex justify-between mb-1">
@@ -401,7 +415,8 @@ export function SnpLookup() {
                     </AlertDialogHeader>
                     <ScrollArea className="h-80 pr-6 -mr-6">
                         <div className="space-y-4">
-                            {chatMessages.map((msg, i) => (
+                            {isChatLoading && chatMessages.length === 0 ? <Loader2 className="mx-auto w-8 h-8 animate-spin text-primary"/> :
+                            chatMessages.map((msg, i) => (
                                 <div key={i} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
                                     {msg.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center"><Bot size={20}/></div>}
                                     <div className={`max-w-xl rounded-lg p-3 ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
@@ -409,7 +424,7 @@ export function SnpLookup() {
                                     </div>
                                 </div>
                             ))}
-                            {isChatLoading && <div className="flex justify-start"><Loader2 className="w-6 h-6 animate-spin text-primary"/></div>}
+                            {isChatLoading && chatMessages.length > 0 && <div className="flex justify-start"><Loader2 className="w-6 h-6 animate-spin text-primary"/></div>}
                         </div>
                     </ScrollArea>
                     <Form {...chatForm}>
