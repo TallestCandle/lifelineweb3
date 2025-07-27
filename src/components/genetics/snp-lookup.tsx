@@ -64,7 +64,10 @@ export function SnpLookup() {
     const [isChatLoading, setIsChatLoading] = useState(false);
     
     const rsidForm = useForm<z.infer<typeof rsidSchema>>({ resolver: zodResolver(rsidSchema), defaultValues: { rsid: '' } });
-    const fileForm = useForm<z.infer<typeof fileSchema>>({ resolver: zodResolver(fileSchema) });
+    const fileForm = useForm<z.infer<typeof fileSchema>>({
+        resolver: zodResolver(fileSchema),
+        defaultValues: { file: null },
+    });
     const chatForm = useForm({ defaultValues: { query: '' } });
 
     // Fetch analysis history
@@ -282,7 +285,7 @@ export function SnpLookup() {
                                 <TabsContent value="file" className="mt-4">
                                      <Form {...fileForm}>
                                         <form onSubmit={fileForm.handleSubmit(handleFileSelect)} className="space-y-4">
-                                            <FormField control={fileForm.control} name="file" render={({ field: { onChange, ...rest } }) => (
+                                            <FormField control={fileForm.control} name="file" render={({ field: { onChange, value, ...rest } }) => (
                                                 <FormItem><FormLabel>VCF or TXT file (.vcf, .txt)</FormLabel><FormControl><Input type="file" accept=".vcf,.txt" onChange={(e) => onChange(e.target.files?.[0])} {...rest} className="file:text-primary" /></FormControl><FormMessage /></FormItem>
                                             )} />
                                             <Button type="submit" disabled={isLoading} className="w-full"><Upload className="mr-2 h-4 w-4" />Upload & Annotate</Button>
