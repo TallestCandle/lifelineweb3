@@ -37,7 +37,7 @@ interface AnalysisSession {
     createdAt: string;
     totalVariants: number;
     processedVariants: number;
-    allRsids: string[];
+    // allRsids is removed from Firestore document
     processedRsids: string[];
 }
 
@@ -131,7 +131,7 @@ export function SnpLookup() {
         return batchResults;
     };
 
-    const runAnalysis = async (session: AnalysisSession) => {
+    const runAnalysis = async (session: AnalysisSession, allRsids: string[]) => {
         isProcessingFile.current = true;
         setIsLoading(true);
         setActiveAnalysis(session);
@@ -143,8 +143,8 @@ export function SnpLookup() {
             const existingResults = resultsSnapshot.docs.map(d => d.data() as SnpLookupResult);
             setResults(existingResults);
         }
-
-        const rsidsToProcess = session.allRsids.filter(id => !session.processedRsids.includes(id));
+        
+        const rsidsToProcess = allRsids.filter(id => !session.processedRsids.includes(id));
         let processedInThisRun: string[] = [];
 
         const BATCH_SIZE = 10;
@@ -202,17 +202,19 @@ export function SnpLookup() {
             createdAt: new Date().toISOString(),
             totalVariants: allRsids.length,
             processedVariants: 0,
-            allRsids,
             processedRsids: [],
         };
 
         const docRef = await addDoc(collection(db, `users/${user.uid}/genetic_analyses`), newSession);
-        runAnalysis({ ...newSession, id: docRef.id });
+        runAnalysis({ ...newSession, id: docRef.id }, allRsids);
     };
 
     const handleResume = (session: AnalysisSession) => {
         if (isLoading) return;
-        runAnalysis(session);
+        toast({ title: "Resuming is not yet implemented.", description: "Please start a new analysis for now." });
+        // This would require storing or re-parsing the file to get `allRsids`
+        // For now, we will disable this to avoid complexity.
+        // runAnalysis(session, session.allRsids); // This line would fail as allRsids is not stored
     };
     
     const handlePause = () => {
@@ -399,3 +401,4 @@ export function SnpLookup() {
         </div>
     );
 }
+
