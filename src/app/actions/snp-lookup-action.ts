@@ -34,6 +34,11 @@ async function fetchVariantConsequences(identifier: string, species: string = 'h
                 console.warn(`Variant ${identifier} not found in Ensembl.`);
                 return [];
             }
+            if(response.status === 429) { // Handle "Too Many Requests" specifically
+                console.warn('Ensembl API rate limit exceeded. Pausing before retry...');
+                await new Promise(resolve => setTimeout(resolve, 2000)); // wait 2 seconds
+                return fetchVariantConsequences(identifier, species); // retry the request
+            }
             throw new Error(`Ensembl API error: ${response.statusText}`);
         }
         return response.json();
@@ -100,10 +105,13 @@ export async function performSnpLookup(formData: FormData): Promise<SnpLookupRes
         throw new Error("Invalid lookup type.");
     }
     
-    const allPromises = identifiers.map(id => lookupSnp(id));
-    const allResultsNested = await Promise.all(allPromises);
-    const allResults = allResultsNested.flat();
-
+    // Process requests sequentially to avoid hitting rate limits.
+    const allResults: SnpLookupResult[] = [];
+    for (const id of identifiers) {
+        const results = await lookupSnp(id);
+        allResults.push(...results);
+    }
+    
     return allResults;
 }
 
