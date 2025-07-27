@@ -72,6 +72,50 @@ function parseVcf(content: string): string[] {
         .filter((id): id is string => id !== null);
 }
 
+// This function is now also exported to be used by the validation tool
+export async function lookupSnp(identifier: string): Promise<SnpLookupResult[]> {
+    const results: SnpLookupResult[] = [];
+    const data = await fetchVariantConsequences(identifier);
+
+    if (data && data.length > 0) {
+        for (const variantData of data) {
+            const transcriptConsequences = variantData.transcript_consequences || [];
+            
+            // Find the most severe consequence or the first one with protein impact
+            const mostSevere = transcriptConsequences.find((c: any) => c.impact === 'HIGH' || c.impact === 'MODERATE' || c.amino_acids) || transcriptConsequences[0];
+            
+            let aminoAcidChange: string | undefined = undefined;
+            if (mostSevere?.protein_start && mostSevere?.amino_acids) {
+                const [ref, alt] = mostSevere.amino_acids.split('/');
+                const ref_3_letter = aminoAcidMap[ref] || ref;
+                const alt_3_letter = aminoAcidMap[alt] || alt;
+                aminoAcidChange = `${ref_3_letter}${mostSevere.protein_start}${alt_3_letter}`;
+            }
+
+            // Find clinical significance from colocated variants
+            let clinicalSignificance: string | undefined = variantData.clinical_significance?.[0];
+            if (!clinicalSignificance && variantData.colocated_variants) {
+                const clinvarEntry = variantData.colocated_variants.find((v: any) => v.clin_sig);
+                if (clinvarEntry) {
+                    clinicalSignificance = clinvarEntry.clin_sig.join(', '); // Join if multiple exist
+                }
+            }
+
+            results.push({
+                id: variantData.id,
+                most_severe_consequence: variantData.most_severe_consequence,
+                gene: mostSevere?.gene_symbol,
+                clinical_significance: clinicalSignificance,
+                aminoAcidChange: aminoAcidChange,
+                codonChange: mostSevere?.codons,
+                transcriptId: mostSevere?.transcript_id,
+            });
+        }
+    }
+    return results;
+}
+
+
 export async function performSnpLookup(formData: FormData): Promise<SnpLookupResult[]> {
     const type = formData.get('type') as 'rsid' | 'position' | 'file';
     
@@ -102,46 +146,11 @@ export async function performSnpLookup(formData: FormData): Promise<SnpLookupRes
         throw new Error("Invalid lookup type.");
     }
     
-    const results: SnpLookupResult[] = [];
-
+    const allResults: SnpLookupResult[] = [];
     for (const id of identifiers) {
-        const data = await fetchVariantConsequences(id);
-        if (data && data.length > 0) {
-            for (const variantData of data) {
-                const transcriptConsequences = variantData.transcript_consequences || [];
-                
-                // Find the most severe consequence or the first one with protein impact
-                const mostSevere = transcriptConsequences.find((c: any) => c.impact === 'HIGH' || c.impact === 'MODERATE' || c.amino_acids) || transcriptConsequences[0];
-                
-                let aminoAcidChange: string | undefined = undefined;
-                if (mostSevere?.protein_start && mostSevere?.amino_acids) {
-                    const [ref, alt] = mostSevere.amino_acids.split('/');
-                    const ref_3_letter = aminoAcidMap[ref] || ref;
-                    const alt_3_letter = aminoAcidMap[alt] || alt;
-                    aminoAcidChange = `${ref_3_letter}${mostSevere.protein_start}${alt_3_letter}`;
-                }
-
-                // Find clinical significance from colocated variants
-                let clinicalSignificance: string | undefined = variantData.clinical_significance?.[0];
-                if (!clinicalSignificance && variantData.colocated_variants) {
-                    const clinvarEntry = variantData.colocated_variants.find((v: any) => v.clin_sig);
-                    if (clinvarEntry) {
-                        clinicalSignificance = clinvarEntry.clin_sig[0];
-                    }
-                }
-
-                results.push({
-                    id: variantData.id,
-                    most_severe_consequence: variantData.most_severe_consequence,
-                    gene: mostSevere?.gene_symbol,
-                    clinical_significance: clinicalSignificance,
-                    aminoAcidChange: aminoAcidChange,
-                    codonChange: mostSevere?.codons,
-                    transcriptId: mostSevere?.transcript_id,
-                });
-            }
-        }
+        const singleResult = await lookupSnp(id);
+        allResults.push(...singleResult);
     }
 
-    return results;
+    return allResults;
 }
