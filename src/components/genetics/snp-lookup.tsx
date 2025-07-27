@@ -28,7 +28,7 @@ const positionSchema = z.object({
 });
 
 const fileSchema = z.object({
-  file: z.instanceof(File).refine(file => file.size < 5 * 1024 * 1024, 'File size must be under 5MB.')
+  file: z.instanceof(File).refine(file => file.size < 100 * 1024 * 1024, 'File size must be under 100MB.')
 });
 
 
