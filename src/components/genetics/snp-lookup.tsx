@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dna, Upload, Search, FileText, Loader2, Pause, Play, HelpCircle, MessageSquare, Bot, Send } from 'lucide-react';
+import { Dna, Upload, Search, FileText, Loader2, Pause, Play, HelpCircle, MessageSquare, Bot, Send, RefreshCw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,7 +37,6 @@ interface AnalysisSession {
     createdAt: string;
     totalVariants: number;
     processedVariants: number;
-    // allRsids is removed from Firestore document
     processedRsids: string[];
 }
 
@@ -52,7 +51,9 @@ export function SnpLookup() {
     const [isLoading, setIsLoading] = useState(false);
     const [progress, setProgress] = useState(0);
     const isProcessingFile = useRef(false);
-    
+    const resumeFileInputRef = useRef<HTMLInputElement>(null);
+    const sessionToResume = useRef<AnalysisSession | null>(null);
+
     // Analysis state
     const [analysisHistory, setAnalysisHistory] = useState<AnalysisSession[]>([]);
     const [activeAnalysis, setActiveAnalysis] = useState<AnalysisSession | null>(null);
@@ -62,7 +63,7 @@ export function SnpLookup() {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [isChatLoading, setIsChatLoading] = useState(false);
-    
+
     const rsidForm = useForm<z.infer<typeof rsidSchema>>({ resolver: zodResolver(rsidSchema), defaultValues: { rsid: '' } });
     const fileForm = useForm<z.infer<typeof fileSchema>>({
         resolver: zodResolver(fileSchema),
@@ -143,7 +144,7 @@ export function SnpLookup() {
             const existingResults = resultsSnapshot.docs.map(d => d.data() as SnpLookupResult);
             setResults(existingResults);
         }
-        
+
         const rsidsToProcess = allRsids.filter(id => !session.processedRsids.includes(id));
         let processedInThisRun: string[] = [];
 
@@ -176,16 +177,16 @@ export function SnpLookup() {
                 toast({ variant: 'destructive', title: `Batch Failed`, description: `Could not process variants starting with ${batch[0]}.` });
             }
         }
-        
+
         const finalStatus = isProcessingFile.current ? 'completed' : 'paused';
         if (user) await updateDoc(doc(db, `users/${user.uid}/genetic_analyses`, session.id), { status: finalStatus });
-        
+
         toast({ title: `Analysis ${finalStatus}` });
         isProcessingFile.current = false;
         setIsLoading(false);
     };
 
-    const handleFileSelect = async (data: z.infer<typeof fileSchema>) => {
+    const handleNewFileAnalysis = async (data: z.infer<typeof fileSchema>) => {
         if (!user || !data.file) return;
 
         const content = await data.file.text();
@@ -196,7 +197,7 @@ export function SnpLookup() {
             return;
         }
 
-        const newSession: Omit<AnalysisSession, 'id'> = {
+        const newSessionData: Omit<AnalysisSession, 'id'> = {
             fileName: data.file.name,
             status: 'in_progress',
             createdAt: new Date().toISOString(),
@@ -204,19 +205,33 @@ export function SnpLookup() {
             processedVariants: 0,
             processedRsids: [],
         };
+        
+        const docRef = await addDoc(collection(db, `users/${user.uid}/genetic_analyses`), newSessionData);
+        const newSession = { ...newSessionData, id: docRef.id };
+        
+        runAnalysis(newSession, allRsids);
+    };
+    
+    const handleResumeFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file || !sessionToResume.current) return;
 
-        const docRef = await addDoc(collection(db, `users/${user.uid}/genetic_analyses`), newSession);
-        runAnalysis({ ...newSession, id: docRef.id }, allRsids);
+        const content = await file.text();
+        const allRsids = parseRsidsFromFile(content);
+        
+        runAnalysis(sessionToResume.current, allRsids);
+
+        // Reset for next use
+        sessionToResume.current = null;
+        if(resumeFileInputRef.current) resumeFileInputRef.current.value = "";
     };
 
     const handleResume = (session: AnalysisSession) => {
         if (isLoading) return;
-        toast({ title: "Resuming is not yet implemented.", description: "Please start a new analysis for now." });
-        // This would require storing or re-parsing the file to get `allRsids`
-        // For now, we will disable this to avoid complexity.
-        // runAnalysis(session, session.allRsids); // This line would fail as allRsids is not stored
+        sessionToResume.current = session;
+        resumeFileInputRef.current?.click();
     };
-    
+
     const handlePause = () => {
         isProcessingFile.current = false;
         if(activeAnalysis && user) {
@@ -286,7 +301,7 @@ export function SnpLookup() {
                                 </TabsContent>
                                 <TabsContent value="file" className="mt-4">
                                      <Form {...fileForm}>
-                                        <form onSubmit={fileForm.handleSubmit(handleFileSelect)} className="space-y-4">
+                                        <form onSubmit={fileForm.handleSubmit(handleNewFileAnalysis)} className="space-y-4">
                                             <FormField control={fileForm.control} name="file" render={({ field: { onChange, value, ...rest } }) => (
                                                 <FormItem><FormLabel>VCF or TXT file (.vcf, .txt)</FormLabel><FormControl><Input type="file" accept=".vcf,.txt" onChange={(e) => onChange(e.target.files?.[0])} {...rest} className="file:text-primary" /></FormControl><FormMessage /></FormItem>
                                             )} />
@@ -301,6 +316,13 @@ export function SnpLookup() {
                     <Card>
                         <CardHeader><CardTitle>Past Analyses</CardTitle></CardHeader>
                         <CardContent>
+                            <input
+                                type="file"
+                                ref={resumeFileInputRef}
+                                onChange={handleResumeFileSelect}
+                                className="hidden"
+                                accept=".vcf,.txt"
+                            />
                             <ScrollArea className="h-60">
                                 <div className="space-y-2">
                                     {analysisHistory.length > 0 ? analysisHistory.map(session => (
@@ -312,7 +334,7 @@ export function SnpLookup() {
                                                 </p>
                                             </div>
                                             <div className="flex gap-1">
-                                                {session.status === 'paused' && <Button size="sm" variant="ghost" onClick={() => handleResume(session)} disabled={isLoading}>Resume</Button>}
+                                                {session.status === 'paused' && <Button size="sm" variant="ghost" onClick={() => handleResume(session)} disabled={isLoading}><RefreshCw className="mr-1 h-3 w-3"/>Resume</Button>}
                                                 {session.status === 'completed' && <Button size="sm" variant="ghost" onClick={() => openChat(session)}>Chat</Button>}
                                             </div>
                                         </div>
