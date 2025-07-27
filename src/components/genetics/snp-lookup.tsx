@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from '@/hooks/use-toast';
 import { type SnpLookupResult, performSnpLookup } from '@/app/actions/snp-lookup-action';
 import { ScrollArea } from '../ui/scroll-area';
@@ -62,9 +62,10 @@ export function SnpLookup() {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [isChatLoading, setIsChatLoading] = useState(false);
-    const chatForm = useForm({ defaultValues: { query: '' } });
-
+    
     const rsidForm = useForm<z.infer<typeof rsidSchema>>({ resolver: zodResolver(rsidSchema), defaultValues: { rsid: '' } });
+    const fileForm = useForm<z.infer<typeof fileSchema>>({ resolver: zodResolver(fileSchema) });
+    const chatForm = useForm({ defaultValues: { query: '' } });
 
     // Fetch analysis history
     useEffect(() => {
