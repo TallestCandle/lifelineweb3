@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dna, Upload, Search, FileText, Loader2, Pause, Play, HelpCircle, MessageSquare, Bot, Send, RefreshCw, MessageCircle } from 'lucide-react';
+import { Dna, Upload, Search, FileText, Loader2, Pause, Play, HelpCircle, MessageSquare, Bot, RefreshCw, MessageCircle, Send } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -203,17 +203,16 @@ export function SnpLookup() {
             return;
         }
 
-        const newSessionData: Omit<AnalysisSession, 'id'> = {
+        const newSessionData: Omit<AnalysisSession, 'id' | 'processedRsids'> = {
             fileName: data.file.name,
             status: 'in_progress',
             createdAt: new Date().toISOString(),
             totalVariants: allRsids.length,
             processedVariants: 0,
-            processedRsids: [],
         };
         
         const docRef = await addDoc(collection(db, `users/${user.uid}/genetic_analyses`), newSessionData);
-        const newSession = { ...newSessionData, id: docRef.id };
+        const newSession: AnalysisSession = { ...newSessionData, id: docRef.id, processedRsids: [] };
         
         runAnalysis(newSession, allRsids);
     };
@@ -342,7 +341,7 @@ export function SnpLookup() {
                                             </div>
                                             <div className="flex gap-1">
                                                 {session.status === 'paused' && <Button size="sm" variant="ghost" onClick={() => handleResume(session)} disabled={isLoading}><RefreshCw className="mr-1 h-3 w-3"/>Resume</Button>}
-                                                {session.status === 'completed' && <Button size="sm" variant="ghost" onClick={() => openChat(session)}>Chat</Button>}
+                                                {session.status !== 'in_progress' && <Button size="sm" variant="ghost" onClick={() => openChat(session)}>Chat</Button>}
                                             </div>
                                         </div>
                                     )) : <p className="text-sm text-center text-muted-foreground py-4">No past analyses found.</p>}
@@ -438,4 +437,5 @@ export function SnpLookup() {
         </div>
     );
 }
+
 
