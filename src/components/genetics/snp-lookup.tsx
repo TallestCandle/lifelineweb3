@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -82,17 +83,9 @@ export function SnpLookup() {
       for (const line of lines) {
           if (line.startsWith('#')) continue;
           const fields = line.split(/\s+/); // Split by any whitespace
-          // The rsID is usually in the 3rd column (index 2) of a VCF file.
-          if (fields.length > 2 && fields[2].startsWith('rs')) {
-              rsids.add(fields[2]);
-          } else {
-              // Also check other fields for rsIDs just in case
-              for(const field of fields) {
-                  if (field.startsWith('rs')) {
-                      rsids.add(field);
-                      break; // Assume one rsID per line
-                  }
-              }
+          const rsidField = fields.find(f => f.startsWith('rs') && /rs\d+/.test(f));
+          if (rsidField) {
+            rsids.add(rsidField);
           }
       }
       return Array.from(rsids);
