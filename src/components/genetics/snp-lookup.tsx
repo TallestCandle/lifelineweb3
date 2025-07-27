@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dna, Upload, Search, FileText, Loader2, Pause, Play, HelpCircle, MessageSquare, Bot } from 'lucide-react';
+import { Dna, Upload, Search, FileText, Loader2, Pause, Play, HelpCircle, MessageSquare, Bot, Send } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
