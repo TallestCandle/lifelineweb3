@@ -132,20 +132,20 @@ export function SnpLookup() {
         return batchResults;
     };
 
-    const runAnalysis = async (session: AnalysisSession, allRsids: string[]) => {
+    const runAnalysis = useCallback(async (session: AnalysisSession, rsidList: string[]) => {
         isProcessingFile.current = true;
         setIsLoading(true);
         setActiveAnalysis(session);
         setResults([]);
 
-        // Fetch existing results for this session
-        if (user) {
-            const resultsSnapshot = await getDocs(collection(db, `users/${user.uid}/genetic_analyses/${session.id}/results`));
-            const existingResults = resultsSnapshot.docs.map(d => d.data() as SnpLookupResult);
-            setResults(existingResults);
-        }
-
-        const rsidsToProcess = allRsids.filter(id => !session.processedRsids.includes(id));
+        if (!user) return;
+        
+        const resultsSnapshot = await getDocs(collection(db, `users/${user.uid}/genetic_analyses/${session.id}/results`));
+        const existingResults = resultsSnapshot.docs.map(d => d.data() as SnpLookupResult);
+        setResults(existingResults);
+        
+        const processedRsids = new Set(session.processedRsids);
+        const rsidsToProcess = rsidList.filter(id => !processedRsids.has(id));
         let processedInThisRun: string[] = [];
 
         const BATCH_SIZE = 10;
@@ -163,14 +163,14 @@ export function SnpLookup() {
                 const newProcessedCount = session.processedRsids.length + processedInThisRun.length;
                 const newProgress = Math.round((newProcessedCount / session.totalVariants) * 100);
                 setProgress(newProgress);
-
+                
                 const updatedSessionData = {
                     processedVariants: newProcessedCount,
                     processedRsids: [...session.processedRsids, ...processedInThisRun],
                     status: 'in_progress',
                 };
                  setActiveAnalysis(prev => prev ? {...prev, ...updatedSessionData} : null);
-                 if (user) await updateDoc(doc(db, `users/${user.uid}/genetic_analyses`, session.id), updatedSessionData);
+                 await updateDoc(doc(db, `users/${user.uid}/genetic_analyses`, session.id), updatedSessionData);
 
             } catch (error) {
                 console.error(`Error processing batch:`, error);
@@ -179,23 +179,22 @@ export function SnpLookup() {
         }
 
         const finalStatus = isProcessingFile.current ? 'completed' : 'paused';
-        if (user) {
-            const sessionDocRef = doc(db, `users/${user.uid}/genetic_analyses`, session.id);
-            await updateDoc(sessionDocRef, { status: finalStatus });
-            if (finalStatus === 'completed') {
-                setActiveAnalysis(prev => prev ? { ...prev, status: 'completed' } : null);
-            }
+        const sessionDocRef = doc(db, `users/${user.uid}/genetic_analyses`, session.id);
+        await updateDoc(sessionDocRef, { status: finalStatus });
+        
+        if (finalStatus === 'completed') {
+            setActiveAnalysis(prev => prev ? { ...prev, status: 'completed' } : null);
         }
 
         toast({ title: `Analysis ${finalStatus}` });
         isProcessingFile.current = false;
         setIsLoading(false);
-    };
+    }, [user, toast]);
 
-    const handleNewFileAnalysis = async (data: z.infer<typeof fileSchema>) => {
-        if (!user || !data.file) return;
+    const handleFileSelect = useCallback(async (file: File | null) => {
+        if (!user || !file) return;
 
-        const content = await data.file.text();
+        const content = await file.text();
         const allRsids = parseRsidsFromFile(content);
 
         if (allRsids.length === 0) {
@@ -203,21 +202,21 @@ export function SnpLookup() {
             return;
         }
 
-        const newSessionData: Omit<AnalysisSession, 'id' | 'processedRsids'> = {
-            fileName: data.file.name,
-            status: 'in_progress',
+        const newSessionData = {
+            fileName: file.name,
+            status: 'in_progress' as const,
             createdAt: new Date().toISOString(),
             totalVariants: allRsids.length,
             processedVariants: 0,
+            processedRsids: [],
         };
         
         const docRef = await addDoc(collection(db, `users/${user.uid}/genetic_analyses`), newSessionData);
-        const newSession: AnalysisSession = { ...newSessionData, id: docRef.id, processedRsids: [] };
-        
-        runAnalysis(newSession, allRsids);
-    };
+        runAnalysis({ ...newSessionData, id: docRef.id }, allRsids);
+
+    }, [user, runAnalysis, toast]);
     
-    const handleResumeFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleResumeFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file || !sessionToResume.current) return;
 
@@ -226,10 +225,9 @@ export function SnpLookup() {
         
         runAnalysis(sessionToResume.current, allRsids);
 
-        // Reset for next use
         sessionToResume.current = null;
         if(resumeFileInputRef.current) resumeFileInputRef.current.value = "";
-    };
+    }, [runAnalysis]);
 
     const handleResume = (session: AnalysisSession) => {
         if (isLoading) return;
@@ -246,15 +244,16 @@ export function SnpLookup() {
     };
 
     const handleChatQuery = async (data: { query: string }) => {
-        if (!data.query.trim() || !activeAnalysis) return;
+        if (!data.query.trim() || !activeAnalysis || !user) return;
         setIsChatLoading(true);
         const newMessages: ChatMessage[] = [...chatMessages, { role: 'user', content: data.query }];
         setChatMessages(newMessages);
 
         try {
             const result = await chatWithGeneticsResults({
+                analysisId: activeAnalysis.id,
+                userId: user.uid,
                 chatHistory: newMessages,
-                snpResultsJson: JSON.stringify(results),
             });
             setChatMessages([...newMessages, { role: 'model', content: result.answer }]);
         } catch (error) {
@@ -307,8 +306,8 @@ export function SnpLookup() {
                                 </TabsContent>
                                 <TabsContent value="file" className="mt-4">
                                      <Form {...fileForm}>
-                                        <form onSubmit={fileForm.handleSubmit(handleNewFileAnalysis)} className="space-y-4">
-                                            <FormField control={fileForm.control} name="file" render={({ field: { onChange, value, ...rest } }) => (
+                                        <form onSubmit={fileForm.handleSubmit((data) => handleFileSelect(data.file))} className="space-y-4">
+                                            <FormField control={fileForm.control} name="file" render={({ field: { onChange, ...rest } }) => (
                                                 <FormItem><FormLabel>VCF or TXT file (.vcf, .txt)</FormLabel><FormControl><Input type="file" accept=".vcf,.txt" onChange={(e) => onChange(e.target.files?.[0])} {...rest} className="file:text-primary" /></FormControl><FormMessage /></FormItem>
                                             )} />
                                             <Button type="submit" disabled={isLoading} className="w-full"><Upload className="mr-2 h-4 w-4" />Upload & Annotate</Button>
@@ -341,7 +340,7 @@ export function SnpLookup() {
                                             </div>
                                             <div className="flex gap-1">
                                                 {session.status === 'paused' && <Button size="sm" variant="ghost" onClick={() => handleResume(session)} disabled={isLoading}><RefreshCw className="mr-1 h-3 w-3"/>Resume</Button>}
-                                                {session.status !== 'in_progress' && <Button size="sm" variant="ghost" onClick={() => openChat(session)}>Chat</Button>}
+                                                {(session.status === 'completed' || session.status === 'paused') && <Button size="sm" variant="ghost" onClick={() => openChat(session)}>Chat</Button>}
                                             </div>
                                         </div>
                                     )) : <p className="text-sm text-center text-muted-foreground py-4">No past analyses found.</p>}
@@ -358,7 +357,7 @@ export function SnpLookup() {
                                 <CardTitle>Annotation Results</CardTitle>
                                 {activeAnalysis ? <CardDescription>Showing results for {activeAnalysis.fileName}</CardDescription> : <CardDescription>Results from your lookup will appear here.</CardDescription>}
                             </div>
-                            {activeAnalysis?.status === 'completed' && (
+                             {activeAnalysis?.status === 'completed' && (
                                 <Button variant="outline" onClick={() => openChat(activeAnalysis)}>
                                     <MessageCircle className="mr-2 h-4 w-4"/> Chat with AI
                                 </Button>
@@ -437,5 +436,6 @@ export function SnpLookup() {
         </div>
     );
 }
+
 
 
