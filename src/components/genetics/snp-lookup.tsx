@@ -1,11 +1,11 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dna, Upload, Search, FileText, Loader2, ChevronsUpDown, X, HelpCircle } from 'lucide-react';
+import { Dna, Upload, Search, FileText, Loader2, StopCircle, HelpCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useToast } from '@/hooks/use-toast';
 import { type SnpLookupResult, performSnpLookup } from '@/app/actions/snp-lookup-action';
 import { ScrollArea } from '../ui/scroll-area';
+import { Progress } from '../ui/progress';
 
 const rsidSchema = z.object({
   rsid: z.string().regex(/^rs\d+$/, { message: "Invalid rsID format (e.g., rs12345)." })
@@ -35,6 +36,9 @@ const fileSchema = z.object({
 export function SnpLookup() {
   const [results, setResults] = useState<SnpLookupResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [totalVariants, setTotalVariants] = useState(0);
+  const isProcessingFile = useRef(false);
   const { toast } = useToast();
 
   const rsidForm = useForm<z.infer<typeof rsidSchema>>({ 
@@ -50,13 +54,13 @@ export function SnpLookup() {
     defaultValues: { file: undefined }
   });
 
-  const handleLookup = async (type: 'rsid' | 'position', data: any) => {
+  const handleSingleLookup = async (type: 'rsid' | 'position', data: any) => {
     setIsLoading(true);
     setResults([]);
     try {
       const formData = new FormData();
       formData.append('type', type);
-      formData.append('data', JSON.stringify(data));
+      formData.append('data', JSON.stringify([data])); // Send as an array
       
       const lookupResults = await performSnpLookup(formData);
       setResults(lookupResults);
@@ -72,27 +76,84 @@ export function SnpLookup() {
     }
   };
 
+  const parseRsidsFromFile = (fileContent: string): string[] => {
+      const lines = fileContent.split('\n');
+      const rsids = new Set<string>(); // Use a set to avoid duplicate lookups
+      for (const line of lines) {
+          if (line.startsWith('#')) continue;
+          const fields = line.split(/\s+/); // Split by any whitespace
+          // The rsID is usually in the 3rd column (index 2) of a VCF file.
+          if (fields.length > 2 && fields[2].startsWith('rs')) {
+              rsids.add(fields[2]);
+          } else {
+              // Also check other fields for rsIDs just in case
+              for(const field of fields) {
+                  if (field.startsWith('rs')) {
+                      rsids.add(field);
+                      break; // Assume one rsID per line
+                  }
+              }
+          }
+      }
+      return Array.from(rsids);
+  };
+
   const handleFileLookup = async (data: z.infer<typeof fileSchema>) => {
+    isProcessingFile.current = true;
     setIsLoading(true);
     setResults([]);
-    try {
-      const formData = new FormData();
-      formData.append('type', 'file');
-      formData.append('file', data.file);
-      
-      const lookupResults = await performSnpLookup(formData);
-      setResults(lookupResults);
-      if (lookupResults.length === 0) {
-        toast({ title: "No Results Found", description: "No variants in the file could be annotated." });
-      } else {
-         toast({ title: "Lookup Complete", description: `Found annotations for ${lookupResults.length} variants.` });
-      }
-    } catch (error: any) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'File Processing Failed', description: error.message || 'Please check the file format and try again.' });
-    } finally {
-      setIsLoading(false);
+    setProgress(0);
+    setTotalVariants(0);
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const content = e.target?.result as string;
+        const allRsids = parseRsidsFromFile(content);
+        
+        if (allRsids.length === 0) {
+            toast({ variant: 'destructive', title: 'No rsIDs Found', description: "Could not find any valid rsIDs in the uploaded file." });
+            setIsLoading(false);
+            isProcessingFile.current = false;
+            return;
+        }
+
+        setTotalVariants(allRsids.length);
+        
+        const BATCH_SIZE = 10;
+        for (let i = 0; i < allRsids.length; i += BATCH_SIZE) {
+            if (!isProcessingFile.current) {
+                toast({ title: "Processing Cancelled", description: "File processing was stopped." });
+                break;
+            }
+            const batch = allRsids.slice(i, i + BATCH_SIZE);
+            try {
+                const formData = new FormData();
+                formData.append('type', 'rsid'); // Use rsid type for batched lookup
+                formData.append('data', JSON.stringify(batch.map(rsid => ({ rsid }))));
+                
+                const batchResults = await performSnpLookup(formData);
+                setResults(prev => [...prev, ...batchResults]);
+            } catch (error: any) {
+                console.error(`Error processing batch ${i/BATCH_SIZE + 1}:`, error);
+                toast({ variant: 'destructive', title: `Batch Failed`, description: `Could not process variants starting with ${batch[0]}.` });
+            }
+            setProgress(i + BATCH_SIZE > allRsids.length ? 100 : Math.round(((i + BATCH_SIZE) / allRsids.length) * 100));
+        }
+
+        toast({ title: "File Processing Complete", description: `Annotated ${results.length} out of ${allRsids.length} unique variants.` });
+        setIsLoading(false);
+        isProcessingFile.current = false;
+    };
+    reader.onerror = () => {
+        toast({ variant: 'destructive', title: 'File Read Error', description: "Could not read the uploaded file." });
+        setIsLoading(false);
+        isProcessingFile.current = false;
     }
+    reader.readAsText(data.file);
+  }
+
+  const stopFileProcessing = () => {
+    isProcessingFile.current = false;
   }
 
   const TooltipHeader = ({ children, tooltipText }: { children: React.ReactNode, tooltipText: string }) => (
@@ -117,7 +178,7 @@ export function SnpLookup() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Dna/> SNP Annotation Lookup</CardTitle>
           <CardDescription>
-            Enter a single SNP by rsID or chromosomal position, or upload a file (VCF format) to retrieve functional annotations from Ensembl.
+            Enter a single SNP by rsID or chromosomal position, or upload a VCF file to retrieve functional annotations from Ensembl.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -130,7 +191,7 @@ export function SnpLookup() {
             
             <TabsContent value="rsid" className="mt-4">
               <Form {...rsidForm}>
-                <form onSubmit={rsidForm.handleSubmit(data => handleLookup('rsid', data))} className="flex items-end gap-4">
+                <form onSubmit={rsidForm.handleSubmit(data => handleSingleLookup('rsid', data))} className="flex items-end gap-4">
                   <FormField control={rsidForm.control} name="rsid" render={({ field }) => (
                     <FormItem className="flex-grow"><FormLabel>dbSNP ID</FormLabel><FormControl><Input placeholder="e.g., rs1801133" {...field} /></FormControl><FormMessage /></FormItem>
                   )}/>
@@ -141,7 +202,7 @@ export function SnpLookup() {
 
             <TabsContent value="position" className="mt-4">
               <Form {...positionForm}>
-                <form onSubmit={positionForm.handleSubmit(data => handleLookup('position', data))} className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+                <form onSubmit={positionForm.handleSubmit(data => handleSingleLookup('position', data))} className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
                     <FormField control={positionForm.control} name="chromosome" render={({ field }) => (
                         <FormItem><FormLabel>Chromosome</FormLabel><FormControl><Input placeholder="e.g., 1" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
@@ -189,14 +250,26 @@ export function SnpLookup() {
             {results.length > 0 && <CardDescription>Found {results.length} annotation(s). Clinical significance from ClinVar if available.</CardDescription>}
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {isLoading && isProcessingFile.current && (
+                <div className="flex items-center gap-4">
+                    <div className="w-full">
+                        <div className="flex justify-between mb-1">
+                            <p className="text-sm font-bold">Processing file...</p>
+                            <p className="text-sm">{progress}%</p>
+                        </div>
+                        <Progress value={progress} />
+                    </div>
+                    <Button variant="destructive" size="icon" onClick={stopFileProcessing}><StopCircle /></Button>
+                </div>
+            )}
+            {isLoading && !isProcessingFile.current ? (
               <div className="flex justify-center items-center py-16">
                 <Loader2 className="w-12 h-12 animate-spin text-primary"/>
               </div>
             ) : (
                 <ScrollArea className="h-[400px] border rounded-md">
                     <Table>
-                        <TableHeader className="sticky top-0 bg-secondary">
+                        <TableHeader className="sticky top-0 bg-secondary z-10">
                         <TableRow>
                             <TableHead><TooltipHeader tooltipText="The identifier for the SNP, usually an rsID.">SNP ID</TooltipHeader></TableHead>
                             <TableHead><TooltipHeader tooltipText="The most significant functional consequence of the SNP (e.g., missense, synonymous).">Consequence</TooltipHeader></TableHead>
@@ -243,3 +316,5 @@ export function SnpLookup() {
     </div>
   );
 }
+
+    

@@ -2,7 +2,6 @@
 'use server';
 
 import { z } from 'zod';
-import { Readable } from 'stream';
 
 const ENSEMBL_API_URL = "https://rest.ensembl.org";
 
@@ -56,47 +55,6 @@ async function fetchVariantConsequences(identifier: string, species: string = 'h
     }
 }
 
-async function parseVcfStream(file: File): Promise<string[]> {
-    const ids: string[] = [];
-    const BATCH_SIZE = 100; // Limit to processing the first 100 variants
-    // @ts-ignore
-    const fileStream = Readable.from(file.stream());
-    let remaining = '';
-
-    for await (const chunk of fileStream) {
-        if (ids.length >= BATCH_SIZE) break;
-
-        remaining += chunk.toString();
-        let lastNewline = remaining.lastIndexOf('\n');
-        
-        if (lastNewline === -1) continue;
-
-        const lines = remaining.substring(0, lastNewline).split('\n');
-        remaining = remaining.substring(lastNewline + 1);
-        
-        for (const line of lines) {
-            if (ids.length >= BATCH_SIZE) break;
-            if (line.startsWith('#') || line.trim() === '') continue;
-            
-            const fields = line.split('\t');
-            if (fields.length >= 3) {
-                const rsid = fields[2];
-                if (rsid && rsid.startsWith('rs')) {
-                    ids.push(rsid);
-                }
-            }
-        }
-    }
-    // Process any remaining data after the last newline if we haven't hit the batch size
-    if (ids.length < BATCH_SIZE && remaining.trim() !== '' && !remaining.startsWith('#')) {
-        const fields = remaining.split('\t');
-        if (fields.length >= 3 && fields[2] && fields[2].startsWith('rs')) {
-            ids.push(fields[2]);
-        }
-    }
-    return ids;
-}
-
 
 // This function is now also exported to be used by the validation tool
 export async function lookupSnp(identifier: string): Promise<SnpLookupResult[]> {
@@ -104,38 +62,47 @@ export async function lookupSnp(identifier: string): Promise<SnpLookupResult[]> 
     const data = await fetchVariantConsequences(identifier);
 
     if (data && data.length > 0) {
+        // Ensembl VEP can return multiple entries for one ID if it maps to multiple locations.
+        // We iterate through each of them.
         for (const variantData of data) {
             const transcriptConsequences = variantData.transcript_consequences || [];
-            
-            // Find the most severe consequence or the first one with protein impact
-            const mostSevere = transcriptConsequences.find((c: any) => c.impact === 'HIGH' || c.impact === 'MODERATE' || c.amino_acids) || transcriptConsequences[0];
-            
-            let aminoAcidChange: string | undefined = undefined;
-            if (mostSevere?.protein_start && mostSevere?.amino_acids) {
-                const [ref, alt] = mostSevere.amino_acids.split('/');
-                const ref_3_letter = aminoAcidMap[ref] || ref;
-                const alt_3_letter = aminoAcidMap[alt] || alt;
-                aminoAcidChange = `${ref_3_letter}${mostSevere.protein_start}${alt_3_letter}`;
+            if (transcriptConsequences.length > 0) {
+                 // Often, one SNP has consequences on multiple transcripts. We list them all.
+                 for (const mostSevere of transcriptConsequences) {
+                    let aminoAcidChange: string | undefined = undefined;
+                    if (mostSevere?.protein_start && mostSevere?.amino_acids) {
+                        const [ref, alt] = mostSevere.amino_acids.split('/');
+                        const ref_3_letter = aminoAcidMap[ref] || ref;
+                        const alt_3_letter = aminoAcidMap[alt] || alt;
+                        aminoAcidChange = `${ref_3_letter}${mostSevere.protein_start}${alt_3_letter}`;
+                    }
+        
+                    // Find clinical significance from colocated variants
+                    let clinicalSignificance: string | undefined = variantData.clinical_significance?.[0];
+                    if (!clinicalSignificance && variantData.colocated_variants) {
+                        const clinvarEntry = variantData.colocated_variants.find((v: any) => v.clin_sig && v.id === variantData.id);
+                        if (clinvarEntry) {
+                            clinicalSignificance = clinvarEntry.clin_sig.join(', '); // Join if multiple exist
+                        }
+                    }
+        
+                    results.push({
+                        id: variantData.id,
+                        most_severe_consequence: mostSevere.consequence_terms.join(', '),
+                        gene: mostSevere?.gene_symbol,
+                        clinical_significance: clinicalSignificance,
+                        aminoAcidChange: aminoAcidChange,
+                        codonChange: mostSevere?.codons,
+                        transcriptId: mostSevere?.transcript_id,
+                    });
+                 }
+            } else {
+                 // Case where there are no transcript consequences but there might be other data
+                 results.push({
+                    id: variantData.id,
+                    most_severe_consequence: variantData.most_severe_consequence,
+                });
             }
-
-            // Find clinical significance from colocated variants
-            let clinicalSignificance: string | undefined = variantData.clinical_significance?.[0];
-            if (!clinicalSignificance && variantData.colocated_variants) {
-                const clinvarEntry = variantData.colocated_variants.find((v: any) => v.clin_sig);
-                if (clinvarEntry) {
-                    clinicalSignificance = clinvarEntry.clin_sig.join(', '); // Join if multiple exist
-                }
-            }
-
-            results.push({
-                id: variantData.id,
-                most_severe_consequence: variantData.most_severe_consequence,
-                gene: mostSevere?.gene_symbol,
-                clinical_significance: clinicalSignificance,
-                aminoAcidChange: aminoAcidChange,
-                codonChange: mostSevere?.codons,
-                transcriptId: mostSevere?.transcript_id,
-            });
         }
     }
     return results;
@@ -143,36 +110,27 @@ export async function lookupSnp(identifier: string): Promise<SnpLookupResult[]> 
 
 
 export async function performSnpLookup(formData: FormData): Promise<SnpLookupResult[]> {
-    const type = formData.get('type') as 'rsid' | 'position' | 'file';
+    const type = formData.get('type') as 'rsid' | 'position';
+    const dataString = formData.get('data') as string;
+    if (!dataString) throw new Error("No data provided for lookup.");
     
     let identifiers: string[] = [];
+    const parsedData = JSON.parse(dataString);
 
     if (type === 'rsid') {
-        const data = JSON.parse(formData.get('data') as string);
-        const parsed = rsidSchema.safeParse(data);
-        if (!parsed.success) throw new Error("Invalid rsID format.");
-        identifiers.push(parsed.data.rsid);
+        const validatedData = z.array(rsidSchema).parse(parsedData);
+        identifiers = validatedData.map(d => d.rsid);
     } else if (type === 'position') {
-        const data = JSON.parse(formData.get('data') as string);
-        const parsed = positionSchema.safeParse(data);
-        if (!parsed.success) throw new Error("Invalid position format.");
+        // For now, position lookup is one at a time from the UI
+        const validatedData = positionSchema.parse(parsedData[0]);
         // Format for Ensembl VEP lookup by position
-        const identifier = `${parsed.data.chromosome}:${parsed.data.position}-${parsed.data.position}/${parsed.data.allele}`;
+        const identifier = `${validatedData.chromosome}:${validatedData.position}/${validatedData.allele}`;
         identifiers.push(identifier);
-    } else if (type === 'file') {
-        const file = formData.get('file') as File;
-        if (!file) throw new Error("No file provided.");
-        
-        identifiers = await parseVcfStream(file);
-
-        if (identifiers.length === 0) {
-             throw new Error("No valid rsIDs found in the first 100 variants of the file. Please ensure it's a valid VCF with rsIDs in the 3rd column.");
-        }
     } else {
         throw new Error("Invalid lookup type.");
     }
     
-    // Process all identifiers found (up to the batch limit for files)
+    // Process all identifiers found
     // Using Promise.all to run API calls in parallel for performance.
     const allPromises = identifiers.map(id => lookupSnp(id));
     const allResultsNested = await Promise.all(allPromises);
@@ -181,3 +139,4 @@ export async function performSnpLookup(formData: FormData): Promise<SnpLookupRes
     return allResults;
 }
 
+    
