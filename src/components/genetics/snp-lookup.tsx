@@ -52,7 +52,6 @@ export function SnpLookup() {
   });
   const fileForm = useForm<z.infer<typeof fileSchema>>({ 
     resolver: zodResolver(fileSchema),
-    defaultValues: { file: undefined }
   });
 
   const handleSingleLookup = async (type: 'rsid' | 'position', data: any) => {
@@ -92,6 +91,11 @@ export function SnpLookup() {
   };
 
   const handleFileLookup = async (data: z.infer<typeof fileSchema>) => {
+    if (!data.file) {
+        toast({ variant: 'destructive', title: 'No File Selected', description: "Please select a file to upload." });
+        return;
+    }
+
     isProcessingFile.current = true;
     setIsLoading(true);
     setResults([]);
@@ -113,6 +117,7 @@ export function SnpLookup() {
         setTotalVariants(allRsids.length);
         
         const BATCH_SIZE = 10;
+        let cumulativeResults: SnpLookupResult[] = [];
         for (let i = 0; i < allRsids.length; i += BATCH_SIZE) {
             if (!isProcessingFile.current) {
                 toast({ title: "Processing Cancelled", description: "File processing was stopped." });
@@ -121,11 +126,12 @@ export function SnpLookup() {
             const batch = allRsids.slice(i, i + BATCH_SIZE);
             try {
                 const formData = new FormData();
-                formData.append('type', 'rsid'); // Use rsid type for batched lookup
+                formData.append('type', 'rsid');
                 formData.append('data', JSON.stringify(batch.map(rsid => ({ rsid }))));
                 
                 const batchResults = await performSnpLookup(formData);
-                setResults(prev => [...prev, ...batchResults]);
+                cumulativeResults = [...cumulativeResults, ...batchResults];
+                setResults(cumulativeResults);
             } catch (error: any) {
                 console.error(`Error processing batch ${i/BATCH_SIZE + 1}:`, error);
                 toast({ variant: 'destructive', title: `Batch Failed`, description: `Could not process variants starting with ${batch[0]}.` });
@@ -133,7 +139,7 @@ export function SnpLookup() {
             setProgress(i + BATCH_SIZE > allRsids.length ? 100 : Math.round(((i + BATCH_SIZE) / allRsids.length) * 100));
         }
 
-        toast({ title: "File Processing Complete", description: `Annotated ${results.length} out of ${allRsids.length} unique variants.` });
+        toast({ title: "File Processing Complete", description: `Found annotations for ${cumulativeResults.length} out of ${allRsids.length} unique variants.` });
         setIsLoading(false);
         isProcessingFile.current = false;
     };
@@ -171,7 +177,7 @@ export function SnpLookup() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Dna/> SNP Annotation Lookup</CardTitle>
           <CardDescription>
-            Enter a single SNP by rsID or chromosomal position, or upload a VCF file to retrieve functional annotations from Ensembl.
+            Enter a single SNP by rsID or chromosomal position, or upload a file to retrieve functional annotations from Ensembl.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -240,7 +246,7 @@ export function SnpLookup() {
         <Card>
           <CardHeader>
             <CardTitle>Annotation Results</CardTitle>
-            {results.length > 0 && <CardDescription>Found {results.length} annotation(s). Clinical significance from ClinVar if available.</CardDescription>}
+            {results.length > 0 && <CardDescription>Found {results.length} annotation(s).</CardDescription>}
           </CardHeader>
           <CardContent>
             {isLoading && isProcessingFile.current && (
@@ -267,10 +273,7 @@ export function SnpLookup() {
                             <TableHead><TooltipHeader tooltipText="The identifier for the SNP, usually an rsID.">SNP ID</TooltipHeader></TableHead>
                             <TableHead><TooltipHeader tooltipText="The most significant functional consequence of the SNP (e.g., missense, synonymous).">Consequence</TooltipHeader></TableHead>
                             <TableHead><TooltipHeader tooltipText="The gene in which the SNP is located.">Gene</TooltipHeader></TableHead>
-                            <TableHead><TooltipHeader tooltipText="The change in the amino acid sequence (Original AA, Position, New AA).">Amino Acid Change</TooltipHeader></TableHead>
-                            <TableHead><TooltipHeader tooltipText="The change in the DNA codon (e.g., from ATG to ACG).">Codon Change</TooltipHeader></TableHead>
                             <TableHead><TooltipHeader tooltipText="The Ensembl transcript this annotation applies to.">Transcript</TooltipHeader></TableHead>
-                            <TableHead><TooltipHeader tooltipText="Clinical significance as reported by ClinVar.">Clinical Significance</TooltipHeader></TableHead>
                         </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -283,19 +286,7 @@ export function SnpLookup() {
                             </TableCell>
                             <TableCell>{res.most_severe_consequence}</TableCell>
                             <TableCell>{res.gene || 'N/A'}</TableCell>
-                            <TableCell>{res.aminoAcidChange || 'N/A'}</TableCell>
-                            <TableCell>{res.codonChange || 'N/A'}</TableCell>
                             <TableCell className="font-mono text-xs">{res.transcriptId || 'N/A'}</TableCell>
-                            <TableCell className="capitalize text-sm">
-                                {res.clinical_significance ? (
-                                    <span className={`font-bold ${
-                                        res.clinical_significance.includes('pathogenic') ? 'text-destructive' :
-                                        res.clinical_significance.includes('benign') ? 'text-green-500' : ''
-                                    }`}>
-                                        {res.clinical_significance.replace(/_/g, ' ')}
-                                    </span>
-                                ) : 'N/A'}
-                            </TableCell>
                             </TableRow>
                         ))}
                         </TableBody>
