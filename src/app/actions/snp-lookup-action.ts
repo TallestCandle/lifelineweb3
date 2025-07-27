@@ -121,11 +121,20 @@ export async function performSnpLookup(formData: FormData): Promise<SnpLookupRes
                     aminoAcidChange = `${ref_3_letter}${mostSevere.protein_start}${alt_3_letter}`;
                 }
 
+                // Find clinical significance from colocated variants
+                let clinicalSignificance: string | undefined = variantData.clinical_significance?.[0];
+                if (!clinicalSignificance && variantData.colocated_variants) {
+                    const clinvarEntry = variantData.colocated_variants.find((v: any) => v.clin_sig);
+                    if (clinvarEntry) {
+                        clinicalSignificance = clinvarEntry.clin_sig[0];
+                    }
+                }
+
                 results.push({
                     id: variantData.id,
                     most_severe_consequence: variantData.most_severe_consequence,
                     gene: mostSevere?.gene_symbol,
-                    clinical_significance: variantData.clinical_significance?.[0],
+                    clinical_significance: clinicalSignificance,
                     aminoAcidChange: aminoAcidChange,
                     codonChange: mostSevere?.codons,
                     transcriptId: mostSevere?.transcript_id,
