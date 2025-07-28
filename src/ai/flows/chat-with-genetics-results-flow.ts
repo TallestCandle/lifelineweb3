@@ -19,14 +19,14 @@ const MessageSchema = z.object({
   content: z.string(),
 });
 
-export const ChatWithGeneticsResultsInputSchema = z.object({
+const ChatWithGeneticsResultsInputSchema = z.object({
     analysisId: z.string().describe("The ID for the user's current analysis session."),
     userId: z.string().describe("The ID of the user."),
     chatHistory: z.array(MessageSchema).describe("The full history of the conversation so far."),
 });
 export type ChatWithGeneticsResultsInput = z.infer<typeof ChatWithGeneticsResultsInputSchema>;
 
-export const ChatWithGeneticsResultsOutputSchema = z.object({
+const ChatWithGeneticsResultsOutputSchema = z.object({
     answer: z.string().describe("The AI's response to the user's question, in a helpful and conversational tone."),
 });
 export type ChatWithGeneticsResultsOutput = z.infer<typeof ChatWithGeneticsResultsOutputSchema>;
