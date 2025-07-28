@@ -76,7 +76,15 @@ export function SnpLookup() {
     });
     const validationForm = useForm<z.infer<typeof validationSchema>>({
         resolver: zodResolver(validationSchema),
-        defaultValues: { snpId: '', consequence: '', gene: '', transcript: '' }
+        defaultValues: { 
+            snpId: '', 
+            consequence: '', 
+            gene: '', 
+            transcript: '', 
+            aminoAcidChange: '', 
+            codonChange: '', 
+            clinicalSignificance: '' 
+        }
     });
 
     // Fetch analysis history
@@ -437,4 +445,3 @@ export function SnpLookup() {
         </div>
     );
 }
-
