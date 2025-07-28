@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 
 
 const rsidSchema = z.object({ rsid: z.string().regex(/^rs\d+$/, { message: "Invalid rsID format (e.g., rs12345)." }) });
-const fileSchema = z.object({ file: z.instanceof(File).refine(file => file.size < 100 * 1024 * 1024, 'File size must be under 100MB.') });
+const fileSchema = z.object({ file: z.instanceof(File).refine(file => file.size < 100 * 1024 * 1024, 'File size must be under 100MB.').optional() });
 
 const validationSchema = z.object({
   snpId: z.string().regex(/^rs\d+$/, { message: "Invalid rsID format." }),
@@ -72,7 +72,7 @@ export function SnpLookup() {
     const rsidForm = useForm<z.infer<typeof rsidSchema>>({ resolver: zodResolver(rsidSchema), defaultValues: { rsid: '' } });
     const fileForm = useForm<z.infer<typeof fileSchema>>({
         resolver: zodResolver(fileSchema),
-        defaultValues: { file: null },
+        defaultValues: { file: undefined },
     });
     const validationForm = useForm<z.infer<typeof validationSchema>>({
         resolver: zodResolver(validationSchema),
@@ -207,7 +207,8 @@ export function SnpLookup() {
         setIsLoading(false);
     }, [user, toast]);
 
-    const handleFileSelect = useCallback(async (file: File | null) => {
+    const handleFileSelect = useCallback(async (data: z.infer<typeof fileSchema>) => {
+        const file = data.file;
         if (!user || !file) return;
 
         const content = await file.text();
@@ -307,7 +308,7 @@ export function SnpLookup() {
                                 </TabsList>
                                 <TabsContent value="annotate" className="mt-4">
                                     <Form {...fileForm}>
-                                        <form onSubmit={fileForm.handleSubmit((data) => handleFileSelect(data.file))} className="space-y-4">
+                                        <form onSubmit={fileForm.handleSubmit(handleFileSelect)} className="space-y-4">
                                             <FormField control={fileForm.control} name="file" render={({ field: { onChange, ...rest } }) => (
                                                 <FormItem><FormLabel>VCF or TXT file (.vcf, .txt)</FormLabel><FormControl><Input type="file" accept=".vcf,.txt" onChange={(e) => onChange(e.target.files?.[0])} {...rest} className="file:text-primary" /></FormControl><FormMessage /></FormItem>
                                             )} />
