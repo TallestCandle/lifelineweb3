@@ -38,14 +38,13 @@ const getSnpDataForUser = ai.defineTool(
         description: 'Fetches the annotated data for a specific SNP from the user\'s analysis results.',
         inputSchema: z.object({
             rsid: z.string().describe("The rsID of the SNP to look up, e.g., 'rs1801133'."),
+            analysisId: z.string().describe("The ID of the analysis session."),
+            userId: z.string().describe("The ID of the user."),
         }),
         outputSchema: z.any(),
     },
-    async ({ rsid }, context) => {
-        const { analysisId, userId } = context as { analysisId: string; userId: string };
-        if (!userId || !analysisId) {
-            throw new Error('User ID and Analysis ID are required to fetch SNP data.');
-        }
+    async (input) => {
+        const { rsid, analysisId, userId } = input;
         
         const snpDocRef = doc(db, `users/${userId}/genetic_analyses/${analysisId}/results`, rsid);
         const docSnap = await getDoc(snpDocRef);
@@ -74,8 +73,12 @@ const prompt = ai.definePrompt({
 **CRITICAL RULES:**
 1.  **NO MEDICAL ADVICE:** Under no circumstances should you provide a medical diagnosis, predict disease risk, or give advice that could be interpreted as medical.
 2.  **EDUCATIONAL TONE:** Frame all interpretations in terms of predispositions, traits, or how the body might process something. Use phrases like "this variant is associated with," "some studies suggest," or "it may influence."
-3.  **USE YOUR TOOLS:** To answer a question about a specific SNP, you MUST use the \`getSnpDataForUser\` tool to look up its details from the user's results. Do not invent information or discuss SNPs you haven't looked up.
+3.  **USE YOUR TOOLS:** To answer a question about a specific SNP, you MUST use the \`getSnpDataForUser\` tool to look up its details from the user's results. You must pass the 'analysisId' and 'userId' to the tool, which are provided below. Do not invent information or discuss SNPs you haven't looked up.
 4.  **SAFETY FIRST:** For any health-related question, your answer MUST include a sentence encouraging the user to speak with a healthcare professional or a qualified genetic counselor for personal advice.
+
+**CONTEXT:**
+- User ID: {{userId}}
+- Analysis Session ID: {{analysisId}}
 
 **CONVERSATION HISTORY:**
 {{#each chatHistory}}
@@ -83,7 +86,7 @@ const prompt = ai.definePrompt({
 {{/each}}
 
 **YOUR TASK:**
-Based on the conversation history, answer the latest user question. Use the \`getSnpDataForUser\` tool to get the information needed to form your answer.`,
+Based on the conversation history and the provided context, answer the latest user question. Use the \`getSnpDataForUser\` tool with the correct \`userId\` and \`analysisId\` to get the information needed to form your answer.`,
 });
 
 const chatWithGeneticsResultsFlow = ai.defineFlow(
@@ -93,12 +96,8 @@ const chatWithGeneticsResultsFlow = ai.defineFlow(
     outputSchema: ChatWithGeneticsResultsOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input, {
-        context: {
-            analysisId: input.analysisId,
-            userId: input.userId,
-        }
-    });
+    // No longer need to pass context, it's now part of the main prompt input.
+    const { output } = await prompt(input);
     
     if (!output) {
         throw new Error("The AI model did not return a valid response.");
