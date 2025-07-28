@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dna, Upload, Search, FileText, Loader2, Pause, Play, HelpCircle, MessageSquare, Bot, RefreshCw, MessageCircle, Send } from 'lucide-react';
+import { Dna, Upload, Search, FileText, Loader2, Pause, Play, HelpCircle, Bot, RefreshCw, Send, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,13 +22,24 @@ import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
 import { collection, doc, addDoc, updateDoc, getDocs, query, where, onSnapshot, orderBy, writeBatch } from 'firebase/firestore';
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
-import { chatWithGeneticsResults } from '@/ai/flows/chat-with-genetics-results-flow';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { validateSnp, type ValidateSnpInput, type ValidateSnpOutput } from '@/ai/flows/validate-snp-flow';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { cn } from '@/lib/utils';
+
 
 const rsidSchema = z.object({ rsid: z.string().regex(/^rs\d+$/, { message: "Invalid rsID format (e.g., rs12345)." }) });
 const fileSchema = z.object({ file: z.instanceof(File).refine(file => file.size < 100 * 1024 * 1024, 'File size must be under 100MB.') });
+
+const validationSchema = z.object({
+  snpId: z.string().regex(/^rs\d+$/, { message: "Invalid rsID format." }),
+  consequence: z.string().min(1, 'Consequence is required.'),
+  gene: z.string().optional(),
+  transcript: z.string().optional(),
+  aminoAcidChange: z.string().optional(),
+  codonChange: z.string().optional(),
+  clinicalSignificance: z.string().optional(),
+});
+
 
 interface AnalysisSession {
     id: string;
@@ -38,11 +49,6 @@ interface AnalysisSession {
     totalVariants: number;
     processedVariants: number;
     processedRsids: string[];
-}
-
-interface ChatMessage {
-  role: 'user' | 'model';
-  content: string;
 }
 
 export function SnpLookup() {
@@ -58,18 +64,20 @@ export function SnpLookup() {
     const [analysisHistory, setAnalysisHistory] = useState<AnalysisSession[]>([]);
     const [activeAnalysis, setActiveAnalysis] = useState<AnalysisSession | null>(null);
     const [results, setResults] = useState<SnpLookupResult[]>([]);
-
-    // Chat state
-    const [isChatOpen, setIsChatOpen] = useState(false);
-    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-    const [isChatLoading, setIsChatLoading] = useState(false);
+    
+    // Validation state
+    const [isValidating, setIsValidating] = useState(false);
+    const [validationResult, setValidationResult] = useState<ValidateSnpOutput | null>(null);
 
     const rsidForm = useForm<z.infer<typeof rsidSchema>>({ resolver: zodResolver(rsidSchema), defaultValues: { rsid: '' } });
     const fileForm = useForm<z.infer<typeof fileSchema>>({
         resolver: zodResolver(fileSchema),
         defaultValues: { file: null },
     });
-    const chatForm = useForm({ defaultValues: { query: '' } });
+    const validationForm = useForm<z.infer<typeof validationSchema>>({
+        resolver: zodResolver(validationSchema),
+        defaultValues: { snpId: '', consequence: '', gene: '', transcript: '' }
+    });
 
     // Fetch analysis history
     useEffect(() => {
@@ -243,43 +251,36 @@ export function SnpLookup() {
         setIsLoading(false);
     };
 
-    const handleChatQuery = async (data: { query: string }) => {
-        if (!data.query.trim() || !activeAnalysis || !user) return;
-        setIsChatLoading(true);
-        const newMessages: ChatMessage[] = [...chatMessages, { role: 'user', content: data.query }];
-        setChatMessages(newMessages);
-
+    const handleValidation = async (data: z.infer<typeof validationSchema>) => {
+        setIsValidating(true);
+        setValidationResult(null);
         try {
-            const result = await chatWithGeneticsResults({
-                analysisId: activeAnalysis.id,
-                userId: user.uid,
-                chatHistory: newMessages,
-            });
-            setChatMessages([...newMessages, { role: 'model', content: result.answer }]);
-        } catch (error) {
-            setChatMessages([...newMessages, { role: 'model', content: "Sorry, I encountered an error. Please try again." }]);
+            const result = await validateSnp(data as ValidateSnpInput);
+            setValidationResult(result);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Validation Failed', description: error.message });
         } finally {
-            setIsChatLoading(false);
-            chatForm.reset();
+            setIsValidating(false);
         }
-    };
-    
-    const openChat = async (session: AnalysisSession) => {
-        setActiveAnalysis(session);
-        setIsChatLoading(true);
-        setIsChatOpen(true);
-        setChatMessages([]);
-        setResults([]);
-         if(user) {
-            const snap = await getDocs(collection(db, `users/${user.uid}/genetic_analyses/${session.id}/results`));
-            setResults(snap.docs.map(d => d.data() as SnpLookupResult));
-         }
-        setIsChatLoading(false);
     };
 
     const TooltipHeader = ({ children, tooltipText }: { children: React.ReactNode, tooltipText: string }) => (
         <TooltipProvider><Tooltip><TooltipTrigger asChild><div className="flex items-center gap-1 cursor-help">{children}<HelpCircle className="h-3.5 w-3.5 text-muted-foreground" /></div></TooltipTrigger><TooltipContent><p>{tooltipText}</p></TooltipContent></Tooltip></TooltipProvider>
     );
+
+    const ValidationRow = ({ label, result }: { label: string; result?: { isValid: boolean, databaseValue: string, explanation: string } }) => {
+        if (!result) return null;
+        return (
+            <TableRow>
+                <TableCell className="font-semibold">{label}</TableCell>
+                <TableCell>
+                    {result.isValid ? <CheckCircle className="text-green-500" /> : <XCircle className="text-destructive" />}
+                </TableCell>
+                <TableCell>{result.databaseValue}</TableCell>
+                <TableCell className="text-muted-foreground text-xs">{result.explanation}</TableCell>
+            </TableRow>
+        );
+    };
 
     return (
         <div className="space-y-8">
@@ -288,29 +289,32 @@ export function SnpLookup() {
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2"><Search /> New Lookup</CardTitle>
-                            <CardDescription>Start a new analysis.</CardDescription>
+                            <CardDescription>Analyze your raw DNA data.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <Tabs defaultValue="rsid">
+                            <Tabs defaultValue="annotate">
                                 <TabsList className="grid w-full grid-cols-2">
-                                    <TabsTrigger value="rsid">by rsID</TabsTrigger>
-                                    <TabsTrigger value="file">by File</TabsTrigger>
+                                    <TabsTrigger value="annotate">Annotate File</TabsTrigger>
+                                    <TabsTrigger value="validate">Validate SNP</TabsTrigger>
                                 </TabsList>
-                                <TabsContent value="rsid" className="mt-4">
-                                    <Form {...rsidForm}>
-                                        <form onSubmit={rsidForm.handleSubmit(handleSingleLookup)} className="flex items-end gap-4">
-                                            <FormField control={rsidForm.control} name="rsid" render={({ field }) => (<FormItem className="flex-grow"><FormLabel>dbSNP ID</FormLabel><FormControl><Input placeholder="e.g., rs1801133" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                            <Button type="submit" disabled={isLoading}><Search className="mr-2 h-4 w-4" />Lookup</Button>
-                                        </form>
-                                    </Form>
-                                </TabsContent>
-                                <TabsContent value="file" className="mt-4">
-                                     <Form {...fileForm}>
+                                <TabsContent value="annotate" className="mt-4">
+                                    <Form {...fileForm}>
                                         <form onSubmit={fileForm.handleSubmit((data) => handleFileSelect(data.file))} className="space-y-4">
                                             <FormField control={fileForm.control} name="file" render={({ field: { onChange, ...rest } }) => (
                                                 <FormItem><FormLabel>VCF or TXT file (.vcf, .txt)</FormLabel><FormControl><Input type="file" accept=".vcf,.txt" onChange={(e) => onChange(e.target.files?.[0])} {...rest} className="file:text-primary" /></FormControl><FormMessage /></FormItem>
                                             )} />
                                             <Button type="submit" disabled={isLoading} className="w-full"><Upload className="mr-2 h-4 w-4" />Upload & Annotate</Button>
+                                        </form>
+                                    </Form>
+                                </TabsContent>
+                                <TabsContent value="validate" className="mt-4">
+                                    <Form {...validationForm}>
+                                        <form onSubmit={validationForm.handleSubmit(handleValidation)} className="space-y-3">
+                                            <FormField control={validationForm.control} name="snpId" render={({ field }) => (<FormItem><FormLabel>SNP ID (rsID)</FormLabel><FormControl><Input placeholder="rs1801133" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                            <FormField control={validationForm.control} name="consequence" render={({ field }) => (<FormItem><FormLabel>Consequence</FormLabel><FormControl><Input placeholder="missense_variant" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                            <FormField control={validationForm.control} name="gene" render={({ field }) => (<FormItem><FormLabel>Gene (Optional)</FormLabel><FormControl><Input placeholder="MTHFR" {...field} /></FormControl></FormItem>)} />
+                                            <FormField control={validationForm.control} name="transcript" render={({ field }) => (<FormItem><FormLabel>Transcript (Optional)</FormLabel><FormControl><Input placeholder="ENST00000334827" {...field} /></FormControl></FormItem>)} />
+                                            <Button type="submit" disabled={isValidating} className="w-full">{isValidating ? <Loader2 className="animate-spin mr-2"/> : 'Validate Data'}</Button>
                                         </form>
                                     </Form>
                                 </TabsContent>
@@ -340,7 +344,6 @@ export function SnpLookup() {
                                             </div>
                                             <div className="flex gap-1">
                                                 {session.status === 'paused' && <Button size="sm" variant="ghost" onClick={() => handleResume(session)} disabled={isLoading}><RefreshCw className="mr-1 h-3 w-3"/>Resume</Button>}
-                                                {(session.status === 'completed' || session.status === 'paused') && <Button size="sm" variant="ghost" onClick={() => openChat(session)}>Chat</Button>}
                                             </div>
                                         </div>
                                     )) : <p className="text-sm text-center text-muted-foreground py-4">No past analyses found.</p>}
@@ -354,17 +357,12 @@ export function SnpLookup() {
                     <Card>
                         <CardHeader className="flex flex-row justify-between items-start">
                             <div>
-                                <CardTitle>Annotation Results</CardTitle>
-                                {activeAnalysis ? <CardDescription>Showing results for {activeAnalysis.fileName}</CardDescription> : <CardDescription>Results from your lookup will appear here.</CardDescription>}
+                                <CardTitle>Annotation & Validation</CardTitle>
+                                <CardDescription>Results from your lookups will appear here.</CardDescription>
                             </div>
-                             {activeAnalysis?.status === 'completed' && (
-                                <Button variant="outline" onClick={() => openChat(activeAnalysis)}>
-                                    <MessageCircle className="mr-2 h-4 w-4"/> Chat with AI
-                                </Button>
-                            )}
                         </CardHeader>
                         <CardContent>
-                            {isLoading && activeAnalysis && (
+                             {isLoading && activeAnalysis && (
                                 <div className="flex items-center gap-4">
                                     <div className="w-full">
                                         <div className="flex justify-between mb-1">
@@ -376,8 +374,40 @@ export function SnpLookup() {
                                     <Button variant="destructive" size="icon" onClick={handlePause}><Pause /></Button>
                                 </div>
                             )}
-                            {(results.length > 0 || (isLoading && activeAnalysis)) ? (
-                                <ScrollArea className="h-[500px] border rounded-md">
+
+                             {isValidating && <div className="flex justify-center p-4"><Loader2 className="animate-spin" /> <p className="ml-2">AI is validating...</p></div>}
+                            
+                             {validationResult && (
+                                <div className="space-y-4">
+                                    <Alert variant={validationResult.overallAssessment === 'Correct' ? 'default' : 'destructive'} className={cn(validationResult.overallAssessment === 'Correct' && 'border-green-500')}>
+                                        {validationResult.overallAssessment === 'Correct' ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                                        <AlertTitle>Overall Assessment: {validationResult.overallAssessment}</AlertTitle>
+                                        <AlertDescription>{validationResult.finalSummary}</AlertDescription>
+                                    </Alert>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Field</TableHead>
+                                                <TableHead>Valid</TableHead>
+                                                <TableHead>Database Value</TableHead>
+                                                <TableHead>Explanation</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            <ValidationRow label="SNP ID" result={validationResult.validationDetails.snpId} />
+                                            <ValidationRow label="Consequence" result={validationResult.validationDetails.consequence} />
+                                            <ValidationRow label="Gene" result={validationResult.validationDetails.gene} />
+                                            <ValidationRow label="Transcript" result={validationResult.validationDetails.transcript} />
+                                            <ValidationRow label="Amino Acid Change" result={validationResult.validationDetails.aminoAcidChange} />
+                                            <ValidationRow label="Codon Change" result={validationResult.validationDetails.codonChange} />
+                                            <ValidationRow label="Clinical Significance" result={validationResult.validationDetails.clinicalSignificance} />
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                             )}
+
+                            {(results.length > 0) ? (
+                                <ScrollArea className="h-[500px] border rounded-md mt-4">
                                     <Table>
                                         <TableHeader className="sticky top-0 bg-secondary z-10">
                                             <TableRow>
@@ -399,43 +429,12 @@ export function SnpLookup() {
                                         </TableBody>
                                     </Table>
                                 </ScrollArea>
-                            ) : !isLoading && <p className="text-center text-muted-foreground py-16">No results to display.</p>}
+                            ) : !isLoading && !isValidating && !validationResult && <p className="text-center text-muted-foreground py-16">No results to display.</p>}
                         </CardContent>
                     </Card>
                 </div>
             </div>
-            
-            <AlertDialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-                <AlertDialogContent className="max-w-2xl">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2"><Bot /> Chat with your results</AlertDialogTitle>
-                        <AlertDialogDescription>Ask the AI questions about the results from "{activeAnalysis?.fileName}". This is not medical advice.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <ScrollArea className="h-80 pr-6 -mr-6">
-                        <div className="space-y-4">
-                            {isChatLoading && chatMessages.length === 0 ? <Loader2 className="mx-auto w-8 h-8 animate-spin text-primary"/> :
-                            chatMessages.map((msg, i) => (
-                                <div key={i} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
-                                    {msg.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center"><Bot size={20}/></div>}
-                                    <div className={`max-w-xl rounded-lg p-3 ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]} className="prose prose-sm dark:prose-invert prose-p:my-0">{msg.content}</ReactMarkdown>
-                                    </div>
-                                </div>
-                            ))}
-                            {isChatLoading && chatMessages.length > 0 && <div className="flex justify-start"><Loader2 className="w-6 h-6 animate-spin text-primary"/></div>}
-                        </div>
-                    </ScrollArea>
-                    <Form {...chatForm}>
-                        <form onSubmit={chatForm.handleSubmit(handleChatQuery)} className="flex gap-2">
-                            <FormField control={chatForm.control} name="query" render={({ field }) => (<FormItem className="flex-grow"><FormControl><Input placeholder="e.g., Explain 'missense_variant'..." {...field} /></FormControl></FormItem>)}/>
-                            <Button type="submit" disabled={isChatLoading}><Send /></Button>
-                        </form>
-                    </Form>
-                </AlertDialogContent>
-            </AlertDialog>
         </div>
     );
 }
-
-
 
