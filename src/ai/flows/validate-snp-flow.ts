@@ -33,7 +33,7 @@ const ValidationResultSchema = z.object({
     explanation: z.string().describe("A clear explanation of the finding, especially if there is a mismatch. If a match, confirm it."),
 });
 
-export const ValidateSnpInputSchema = z.object({
+const ValidateSnpInputSchema = z.object({
   snpId: z.string().describe("The user's provided SNP ID (rsID)."),
   consequence: z.string().describe("The user's provided consequence."),
   gene: z.string().optional().describe("The user's provided gene."),
@@ -44,7 +44,7 @@ export const ValidateSnpInputSchema = z.object({
 });
 export type ValidateSnpInput = z.infer<typeof ValidateSnpInputSchema>;
 
-export const ValidateSnpOutputSchema = z.object({
+const ValidateSnpOutputSchema = z.object({
   overallAssessment: z.enum(['Correct', 'Incorrect', 'Partially Correct', 'Not Found']).describe("A single overall assessment of the provided data."),
   validationDetails: z.object({
     snpId: ValidationResultSchema,
