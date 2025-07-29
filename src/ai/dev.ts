@@ -14,3 +14,4 @@ import './flows/generate-bmi-advice-flow';
 import './flows/system-support-flow';
 import './flows/analyze-genetics-flow';
 import './flows/validate-snp-flow';
+import './flows/chat-with-genetics-results-flow';

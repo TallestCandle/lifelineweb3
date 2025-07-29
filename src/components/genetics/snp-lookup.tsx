@@ -23,6 +23,7 @@ import { db } from '@/lib/firebase';
 import { collection, doc, addDoc, updateDoc, getDocs, query, where, onSnapshot, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { validateSnp, type ValidateSnpInput, type ValidateSnpOutput } from '@/ai/flows/validate-snp-flow';
+import { chatWithGeneticsResults, type ChatWithGeneticsResultsInput } from '@/ai/flows/chat-with-genetics-results-flow';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { cn } from '@/lib/utils';
 import { relevantSnps } from '@/lib/relevant-snps';
@@ -42,6 +43,14 @@ const validationSchema = z.object({
   clinicalSignificance: z.string().optional(),
 });
 
+const chatSchema = z.object({
+    message: z.string().min(1, "Message cannot be empty."),
+});
+
+interface ChatMessage {
+  role: 'user' | 'model';
+  content: string;
+}
 
 interface AnalysisSession {
     id: string;
@@ -71,6 +80,11 @@ export function SnpLookup() {
     const [isValidating, setIsValidating] = useState(false);
     const [validationResult, setValidationResult] = useState<ValidateSnpOutput | null>(null);
     
+    // Chat state
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    const [isChatting, setIsChatting] = useState(false);
+    const [activeChatSessionId, setActiveChatSessionId] = useState<string | null>(null);
+
     // Ref for the new file input
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -82,14 +96,14 @@ export function SnpLookup() {
     const validationForm = useForm<z.infer<typeof validationSchema>>({
         resolver: zodResolver(validationSchema),
         defaultValues: { 
-            snpId: '', 
-            consequence: '', 
-            gene: '', 
-            transcript: '', 
-            aminoAcidChange: '', 
-            codonChange: '', 
-            clinicalSignificance: '' 
+            snpId: '', consequence: '', gene: '', transcript: '', 
+            aminoAcidChange: '', codonChange: '', clinicalSignificance: '' 
         }
+    });
+
+    const chatForm = useForm<z.infer<typeof chatSchema>>({
+        resolver: zodResolver(chatSchema),
+        defaultValues: { message: "" },
     });
 
     // Fetch analysis history
@@ -130,7 +144,6 @@ export function SnpLookup() {
             if (line.startsWith('#')) continue;
             const fields = line.split(/\s+/);
             const rsidField = fields.find(f => f.startsWith('rs') && /rs\d+/.test(f));
-            // Only add the rsID if it's in our curated list of relevant SNPs
             if (rsidField && relevantSnps.has(rsidField)) {
                 rsids.add(rsidField);
             }
@@ -161,6 +174,8 @@ export function SnpLookup() {
         setIsLoading(true);
         setActiveAnalysis(session);
         setResults([]);
+        setActiveChatSessionId(session.id); // Set the chat session ID
+        setChatMessages([]); // Clear previous chat messages
 
         if (!user) return;
         
@@ -208,6 +223,7 @@ export function SnpLookup() {
         
         if (finalStatus === 'completed') {
             setActiveAnalysis(prev => prev ? { ...prev, status: 'completed' } : null);
+            setChatMessages([{ role: 'model', content: "Your analysis is complete! Feel free to ask me anything about the annotated results below." }]);
         }
 
         toast({ title: `Analysis ${finalStatus}` });
@@ -292,7 +308,6 @@ export function SnpLookup() {
     const handleDeleteSession = async (sessionId: string) => {
         if (!user) return;
         
-        // Delete all documents in the 'results' subcollection
         const resultsCollectionRef = collection(db, `users/${user.uid}/genetic_analyses/${sessionId}/results`);
         const resultsSnapshot = await getDocs(resultsCollectionRef);
         const batch = writeBatch(db);
@@ -301,11 +316,57 @@ export function SnpLookup() {
         });
         await batch.commit();
 
-        // Delete the main analysis session document
         const sessionDocRef = doc(db, `users/${user.uid}/genetic_analyses`, sessionId);
         await deleteDoc(sessionDocRef);
+        
+        if (activeChatSessionId === sessionId) {
+            setActiveChatSessionId(null);
+            setChatMessages([]);
+            setResults([]);
+            setActiveAnalysis(null);
+        }
 
         toast({ title: "Analysis Deleted", description: "The session and its results have been removed." });
+    };
+
+    const handleChatSubmit = async (data: z.infer<typeof chatSchema>) => {
+        if (!user || !activeChatSessionId) return;
+        
+        const newMessages: ChatMessage[] = [...chatMessages, { role: 'user', content: data.message }];
+        setChatMessages(newMessages);
+        setIsChatting(true);
+        chatForm.reset();
+
+        try {
+            const input: ChatWithGeneticsResultsInput = {
+                userId: user.uid,
+                analysisId: activeChatSessionId,
+                chatHistory: newMessages,
+            };
+            const result = await chatWithGeneticsResults(input);
+            setChatMessages(prev => [...prev, { role: 'model', content: result.answer }]);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Chat Error', description: error.message || "The AI could not respond." });
+            setChatMessages(prev => prev.slice(0, -1)); // Remove the user's message on error
+        } finally {
+            setIsChatting(false);
+        }
+    };
+
+    const handleViewResults = async (session: AnalysisSession) => {
+        if (!user) return;
+        setIsLoading(true);
+        setActiveAnalysis(session);
+        setValidationResult(null);
+
+        const resultsSnapshot = await getDocs(collection(db, `users/${user.uid}/genetic_analyses/${session.id}/results`));
+        const existingResults = resultsSnapshot.docs.map(d => d.data() as SnpLookupResult);
+        setResults(existingResults);
+        
+        setActiveChatSessionId(session.id);
+        setChatMessages(session.status === 'completed' ? [{ role: 'model', content: "Analysis results loaded. Ask me anything about them!" }] : []);
+        
+        setIsLoading(false);
     };
 
     const TooltipHeader = ({ children, tooltipText }: { children: React.ReactNode, tooltipText: string }) => (
@@ -356,10 +417,6 @@ export function SnpLookup() {
                                             <FormField control={validationForm.control} name="snpId" render={({ field }) => (<FormItem><FormLabel>SNP ID (rsID)</FormLabel><FormControl><Input placeholder="rs1801133" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                             <FormField control={validationForm.control} name="consequence" render={({ field }) => (<FormItem><FormLabel>Consequence</FormLabel><FormControl><Input placeholder="missense_variant" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                             <FormField control={validationForm.control} name="gene" render={({ field }) => (<FormItem><FormLabel>Gene (Optional)</FormLabel><FormControl><Input placeholder="MTHFR" {...field} /></FormControl></FormItem>)} />
-                                            <FormField control={validationForm.control} name="transcript" render={({ field }) => (<FormItem><FormLabel>Transcript (Optional)</FormLabel><FormControl><Input placeholder="ENST00000334827" {...field} /></FormControl></FormItem>)} />
-                                            <FormField control={validationForm.control} name="aminoAcidChange" render={({ field }) => (<FormItem><FormLabel>Amino Acid Change (Optional)</FormLabel><FormControl><Input placeholder="A222V" {...field} /></FormControl></FormItem>)} />
-                                            <FormField control={validationForm.control} name="codonChange" render={({ field }) => (<FormItem><FormLabel>Codon Change (Optional)</FormLabel><FormControl><Input placeholder="C677T" {...field} /></FormControl></FormItem>)} />
-                                            <FormField control={validationForm.control} name="clinicalSignificance" render={({ field }) => (<FormItem><FormLabel>Clinical Significance (Optional)</FormLabel><FormControl><Input placeholder="benign" {...field} /></FormControl></FormItem>)} />
                                             <Button type="submit" disabled={isValidating} className="w-full">{isValidating ? <Loader2 className="animate-spin mr-2"/> : 'Validate Data'}</Button>
                                         </form>
                                     </Form>
@@ -389,6 +446,7 @@ export function SnpLookup() {
                                                 </p>
                                             </div>
                                             <div className="flex gap-1">
+                                                {session.status !== 'in_progress' && <Button size="sm" variant="ghost" onClick={() => handleViewResults(session)}>View</Button>}
                                                 {session.status === 'paused' && <Button size="sm" variant="ghost" onClick={() => handleResume(session)} disabled={isLoading}><RefreshCw className="mr-1 h-3 w-3"/>Resume</Button>}
                                                 <AlertDialog>
                                                     <AlertDialogTrigger asChild>
@@ -417,84 +475,118 @@ export function SnpLookup() {
                 </div>
                 
                 <div className="lg:col-span-2">
-                    <Card>
-                        <CardHeader className="flex flex-row justify-between items-start">
-                            <div>
-                                <CardTitle>Annotation & Validation</CardTitle>
-                                <CardDescription>Results from your lookups will appear here.</CardDescription>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                             {isLoading && activeAnalysis && (
-                                <div className="flex items-center gap-4">
-                                    <div className="w-full">
-                                        <div className="flex justify-between mb-1">
-                                            <p className="text-sm font-bold">Processing file...</p>
-                                            <p className="text-sm">{progress}% ({activeAnalysis?.processedVariants}/{activeAnalysis?.totalVariants})</p>
-                                        </div>
-                                        <Progress value={progress} />
+                    <Tabs defaultValue="results" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="results">Results</TabsTrigger>
+                            <TabsTrigger value="chat" disabled={!activeChatSessionId || activeAnalysis?.status !== 'completed'}>Chat with Results</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="results">
+                            <Card>
+                                <CardHeader className="flex flex-row justify-between items-start">
+                                    <div>
+                                        <CardTitle>Annotation & Validation</CardTitle>
+                                        <CardDescription>Results from your lookups will appear here.</CardDescription>
                                     </div>
-                                    <Button variant="destructive" size="icon" onClick={handlePause}><Pause /></Button>
-                                </div>
-                            )}
+                                </CardHeader>
+                                <CardContent>
+                                    {isLoading && activeAnalysis && (
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-full">
+                                                <div className="flex justify-between mb-1">
+                                                    <p className="text-sm font-bold">Processing file...</p>
+                                                    <p className="text-sm">{progress}% ({activeAnalysis?.processedVariants}/{activeAnalysis?.totalVariants})</p>
+                                                </div>
+                                                <Progress value={progress} />
+                                            </div>
+                                            <Button variant="destructive" size="icon" onClick={handlePause}><Pause /></Button>
+                                        </div>
+                                    )}
 
-                             {isValidating && <div className="flex justify-center p-4"><Loader2 className="animate-spin" /> <p className="ml-2">AI is validating...</p></div>}
-                            
-                             {validationResult && (
-                                <div className="space-y-4">
-                                    <Alert variant={validationResult.overallAssessment === 'Correct' ? 'default' : 'destructive'} className={cn(validationResult.overallAssessment === 'Correct' && 'border-green-500')}>
-                                        {validationResult.overallAssessment === 'Correct' ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-                                        <AlertTitle>Overall Assessment: {validationResult.overallAssessment}</AlertTitle>
-                                        <AlertDescription>{validationResult.finalSummary}</AlertDescription>
-                                    </Alert>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Field</TableHead>
-                                                <TableHead>Valid</TableHead>
-                                                <TableHead>Database Value</TableHead>
-                                                <TableHead>Explanation</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            <ValidationRow label="SNP ID" result={validationResult.validationDetails.snpId} />
-                                            <ValidationRow label="Consequence" result={validationResult.validationDetails.consequence} />
-                                            <ValidationRow label="Gene" result={validationResult.validationDetails.gene} />
-                                            <ValidationRow label="Transcript" result={validationResult.validationDetails.transcript} />
-                                            <ValidationRow label="Amino Acid Change" result={validationResult.validationDetails.aminoAcidChange} />
-                                            <ValidationRow label="Codon Change" result={validationResult.validationDetails.codonChange} />
-                                            <ValidationRow label="Clinical Significance" result={validationResult.validationDetails.clinicalSignificance} />
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                             )}
+                                    {isValidating && <div className="flex justify-center p-4"><Loader2 className="animate-spin" /> <p className="ml-2">AI is validating...</p></div>}
+                                    
+                                    {validationResult && (
+                                        <div className="space-y-4">
+                                            <Alert variant={validationResult.overallAssessment === 'Correct' ? 'default' : 'destructive'} className={cn(validationResult.overallAssessment === 'Correct' && 'border-green-500')}>
+                                                {validationResult.overallAssessment === 'Correct' ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                                                <AlertTitle>Overall Assessment: {validationResult.overallAssessment}</AlertTitle>
+                                                <AlertDescription>{validationResult.finalSummary}</AlertDescription>
+                                            </Alert>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Field</TableHead><TableHead>Valid</TableHead><TableHead>Database Value</TableHead><TableHead>Explanation</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    <ValidationRow label="SNP ID" result={validationResult.validationDetails.snpId} />
+                                                    <ValidationRow label="Consequence" result={validationResult.validationDetails.consequence} />
+                                                    <ValidationRow label="Gene" result={validationResult.validationDetails.gene} />
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    )}
 
-                            {(results.length > 0) ? (
-                                <ScrollArea className="h-[500px] border rounded-md mt-4">
-                                    <Table>
-                                        <TableHeader className="sticky top-0 bg-secondary z-10">
-                                            <TableRow>
-                                                <TableHead><TooltipHeader tooltipText="The identifier for the SNP, usually an rsID.">SNP ID</TooltipHeader></TableHead>
-                                                <TableHead><TooltipHeader tooltipText="The most significant functional consequence of the SNP.">Consequence</TooltipHeader></TableHead>
-                                                <TableHead><TooltipHeader tooltipText="The gene in which the SNP is located.">Gene</TooltipHeader></TableHead>
-                                                <TableHead><TooltipHeader tooltipText="The Ensembl transcript this annotation applies to.">Transcript</TooltipHeader></TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {results.map((res, index) => (
-                                                <TableRow key={`${res.id}-${index}`}>
-                                                    <TableCell className="font-mono"><a href={`https://www.ncbi.nlm.nih.gov/snp/${res.id}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{res.id}</a></TableCell>
-                                                    <TableCell>{res.most_severe_consequence}</TableCell>
-                                                    <TableCell>{res.gene || 'N/A'}</TableCell>
-                                                    <TableCell className="font-mono text-xs">{res.transcriptId || 'N/A'}</TableCell>
-                                                </TableRow>
+                                    {(results.length > 0) ? (
+                                        <ScrollArea className="h-[500px] border rounded-md mt-4">
+                                            <Table>
+                                                <TableHeader className="sticky top-0 bg-secondary z-10">
+                                                    <TableRow>
+                                                        <TableHead><TooltipHeader tooltipText="The identifier for the SNP, usually an rsID.">SNP ID</TooltipHeader></TableHead>
+                                                        <TableHead><TooltipHeader tooltipText="The most significant functional consequence of the SNP.">Consequence</TooltipHeader></TableHead>
+                                                        <TableHead><TooltipHeader tooltipText="The gene in which the SNP is located.">Gene</TooltipHeader></TableHead>
+                                                        <TableHead><TooltipHeader tooltipText="The Ensembl transcript this annotation applies to.">Transcript</TooltipHeader></TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {results.map((res, index) => (
+                                                        <TableRow key={`${res.id}-${index}`}>
+                                                            <TableCell className="font-mono"><a href={`https://www.ncbi.nlm.nih.gov/snp/${res.id}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{res.id}</a></TableCell>
+                                                            <TableCell>{res.most_severe_consequence}</TableCell>
+                                                            <TableCell>{res.gene || 'N/A'}</TableCell>
+                                                            <TableCell className="font-mono text-xs">{res.transcriptId || 'N/A'}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </ScrollArea>
+                                    ) : !isLoading && !isValidating && !validationResult && <p className="text-center text-muted-foreground py-16">No results to display.</p>}
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                        <TabsContent value="chat">
+                             <Card className="flex flex-col h-[600px]">
+                                <CardHeader>
+                                    <CardTitle>Chat with AI Counselor</CardTitle>
+                                    <CardDescription>Ask questions about your annotated results.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex-grow overflow-hidden flex flex-col">
+                                    <ScrollArea className="flex-grow pr-4">
+                                        <div className="space-y-4">
+                                            {chatMessages.map((msg, i) => (
+                                                <div key={i} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+                                                    {msg.role === 'model' && <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><Bot className="text-primary" size={20}/></div>}
+                                                    <p className={`p-3 rounded-lg max-w-md ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
+                                                        {msg.content}
+                                                    </p>
+                                                </div>
                                             ))}
-                                        </TableBody>
-                                    </Table>
-                                </ScrollArea>
-                            ) : !isLoading && !isValidating && !validationResult && <p className="text-center text-muted-foreground py-16">No results to display.</p>}
-                        </CardContent>
-                    </Card>
+                                            {isChatting && <div className="flex justify-start"><Loader2 className="animate-spin"/></div>}
+                                        </div>
+                                    </ScrollArea>
+                                    <div className="mt-4 pt-4 border-t">
+                                        <Form {...chatForm}>
+                                            <form onSubmit={chatForm.handleSubmit(handleChatSubmit)} className="flex items-center gap-2">
+                                                <FormField control={chatForm.control} name="message" render={({ field }) => (
+                                                    <FormItem className="flex-grow"><FormControl><Input placeholder="e.g., What does rs1801133 mean?" {...field} /></FormControl></FormItem>
+                                                )} />
+                                                <Button type="submit" disabled={isChatting}><Send/></Button>
+                                            </form>
+                                        </Form>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    </Tabs>
                 </div>
             </div>
         </div>
