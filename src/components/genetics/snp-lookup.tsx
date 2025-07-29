@@ -26,6 +26,7 @@ import { validateSnp, type ValidateSnpInput, type ValidateSnpOutput } from '@/ai
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { cn } from '@/lib/utils';
 import { relevantSnps } from '@/lib/relevant-snps';
+import { Label } from '@/components/ui/label';
 
 
 const rsidSchema = z.object({ rsid: z.string().regex(/^rs\d+$/, { message: "Invalid rsID format (e.g., rs12345)." }) });
