@@ -20,7 +20,7 @@ export type AnalyzeGeneticsInput = z.infer<typeof AnalyzeGeneticsInputSchema>;
 const GeneticMarkerSchema = z.object({
     marker: z.string().describe("The name of the genetic marker or gene (e.g., 'Lactose Intolerance', 'CYP1A2', 'MTHFR')."),
     genotype: z.string().describe("The user's specific genotype for this marker (e.g., 'C/C', 'A/G')."),
-    interpretation: z.string().describe("A clear, simple, and educational interpretation of the genotype. This MUST NOT be medical advice. It should focus on wellness, traits, or predispositions in non-clinical terms."),
+    interpretation: z.string().describe("A clear, direct interpretation of the genotype, including any known medical risks (good or bad) or health implications. This information should be comprehensive and not withhold potential negative findings."),
 });
 
 const AnalyzeGeneticsOutputSchema = z.object({
@@ -28,7 +28,7 @@ const AnalyzeGeneticsOutputSchema = z.object({
     healthMarkers: z.array(GeneticMarkerSchema).describe("Analysis of general wellness markers related to diet, fitness, and common health predispositions."),
     vitaminMetabolism: z.array(GeneticMarkerSchema).describe("Analysis of genes related to how the body processes or metabolizes certain vitamins (e.g., Vitamin B12, Vitamin D)."),
     drugResponse: z.array(GeneticMarkerSchema).describe("Analysis of common genes known to influence response to certain drugs (e.g., caffeine, statins)."),
-    summaryDisclaimer: z.string().describe("A concluding paragraph that summarizes the findings in a positive tone and strongly reiterates that this is not a medical diagnosis and results should be discussed with a healthcare provider before making any health decisions."),
+    summaryDisclaimer: z.string().describe("A concluding paragraph that summarizes the findings and provides a strong disclaimer. This MUST state that the information is for research and informational purposes ONLY, is not a medical diagnosis, and that a qualified healthcare provider and genetic counselor should be consulted before making any decisions based on this data."),
 });
 
 export type AnalyzeGeneticsOutput = z.infer<typeof AnalyzeGeneticsOutputSchema>;
@@ -42,13 +42,12 @@ const prompt = ai.definePrompt({
     model: googleAI.model('gemini-1.5-pro'), // Use a model with a larger context window
     input: { schema: AnalyzeGeneticsInputSchema },
     output: { schema: AnalyzeGeneticsOutputSchema },
-    prompt: `You are a genetics expert AI assistant from Lifeline AI. Your role is to analyze a user's raw DNA data for educational and wellness purposes only.
+    prompt: `You are an expert bioinformatician AI. Your role is to analyze a user's raw DNA data and provide a direct, unfiltered interpretation of the genetic markers found.
 
 **CRITICAL RULES:**
-1.  **NO MEDICAL ADVICE:** Under no circumstances should you provide a medical diagnosis, predict disease risk, or give advice that could be interpreted as medical.
-2.  **EDUCATIONAL TONE:** Frame all interpretations in terms of predispositions, traits, or how the body might process something. Use phrases like "likely to have," "may process differently," or "associated with."
-3.  **PLAIN ENGLISH:** Explain complex genetic concepts in a simple, easy-to-understand way.
-4.  **SAFETY FIRST:** For any health or drug-related marker, the interpretation MUST include a sentence encouraging the user to speak with a healthcare professional before making any decisions.
+1.  **DIRECT INTERPRETATION:** Provide a direct and clear interpretation for each marker. If a marker is associated with a medical risk (positive or negative), you must state it clearly. Do not withhold information.
+2.  **FACTUAL & UNBIASED:** Your analysis must be based on established scientific research. Present the information factually.
+3.  **COMPREHENSIVE ANALYSIS:** Scan the user's data for the specified markers and provide a complete analysis for each category.
 
 **USER'S RAW DNA DATA:**
 \`\`\`
@@ -56,26 +55,27 @@ const prompt = ai.definePrompt({
 \`\`\`
 
 **ANALYSIS TASK:**
-Analyze the provided raw DNA data. Scan for common, well-researched Single Nucleotide Polymorphisms (SNPs) and genes. Populate the following four categories with your findings. For each finding, provide the marker name, the user's genotype, and a safe, educational interpretation.
+Analyze the provided raw DNA data. Scan for common, well-researched Single Nucleotide Polymorphisms (SNPs) and genes. Populate the following four categories with your findings. For each finding, provide the marker name, the user's genotype, and a direct interpretation of what that genotype implies, including any associated risks.
 
 1.  **ancestryTraits:** Look for markers related to physical traits. Examples:
     *   HERC2/OCA2 for eye color.
     *   EDAR for hair thickness.
     *   MC1R for red hair/fair skin.
-2.  **healthMarkers:** Look for markers related to general wellness. Examples:
+2.  **healthMarkers:** Look for markers related to general wellness and disease risk. Examples:
     *   LCT gene for lactose intolerance.
-    *   FTO gene variants associated with metabolism and appetite.
-    *   ACTN3 for athletic performance type (endurance vs. power).
+    *   FTO gene variants associated with obesity risk.
+    *   ACTN3 for athletic performance type.
+    *   APOE variants for Alzheimer's risk.
 3.  **vitaminMetabolism:** Look for markers related to vitamin processing. Examples:
     *   MTHFR variants and folate metabolism.
     *   BCMO1 variants and beta-carotene (Vitamin A) conversion.
     *   GC/VDR variants and Vitamin D pathways.
 4.  **drugResponse:** Look for common pharmacogenomic markers. Examples:
     *   CYP1A2 and caffeine metabolism speed.
-    *   SLCO1B1 and response to statins.
+    *   SLCO1B1 and risk for statin-induced myopathy.
     *   CYP2C19 and response to clopidogrel (Plavix).
 
-Finally, write a 'summaryDisclaimer' that wraps up the findings positively and includes a strong disclaimer that these are not medical results and a doctor should be consulted for health decisions.
+Finally, write a 'summaryDisclaimer'. It must clearly state: "This is an AI-generated analysis of raw genetic data for informational and research purposes only. It is NOT a medical diagnosis or medical advice. Genetic information is complex and this report does not encompass all factors influencing health and disease. You MUST consult with a qualified healthcare provider and a genetic counselor before making any health-related decisions."
 
 Generate the entire response in the required JSON format.`,
 });
