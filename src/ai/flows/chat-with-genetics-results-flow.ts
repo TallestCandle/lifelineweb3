@@ -10,6 +10,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import type { SnpLookupResult } from '@/app/actions/snp-lookup-action';
 
 const MessageSchema = z.object({
   role: z.enum(['user', 'model']),
