@@ -25,6 +25,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { validateSnp, type ValidateSnpInput, type ValidateSnpOutput } from '@/ai/flows/validate-snp-flow';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { cn } from '@/lib/utils';
+import { relevantSnps } from '@/lib/relevant-snps';
 
 
 const rsidSchema = z.object({ rsid: z.string().regex(/^rs\d+$/, { message: "Invalid rsID format (e.g., rs12345)." }) });
@@ -125,7 +126,10 @@ export function SnpLookup() {
             if (line.startsWith('#')) continue;
             const fields = line.split(/\s+/);
             const rsidField = fields.find(f => f.startsWith('rs') && /rs\d+/.test(f));
-            if (rsidField) rsids.add(rsidField);
+            // Only add the rsID if it's in our curated list of relevant SNPs
+            if (rsidField && relevantSnps.has(rsidField)) {
+                rsids.add(rsidField);
+            }
         }
         return Array.from(rsids);
     };
@@ -215,7 +219,11 @@ export function SnpLookup() {
         const allRsids = parseRsidsFromFile(content);
 
         if (allRsids.length === 0) {
-            toast({ variant: 'destructive', title: 'No rsIDs Found' });
+            toast({ 
+                variant: 'destructive', 
+                title: 'No Relevant SNPs Found',
+                description: 'We scanned your file but did not find any of the medically relevant SNPs we currently track. Future updates will expand our database.'
+            });
             return;
         }
 
