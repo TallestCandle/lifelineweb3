@@ -70,7 +70,11 @@ export function SnpLookup() {
     const [isValidating, setIsValidating] = useState(false);
     const [validationResult, setValidationResult] = useState<ValidateSnpOutput | null>(null);
 
-    const rsidForm = useForm<z.infer<typeof rsidSchema>>({ resolver: zodResolver(rsidSchema), defaultValues: { rsid: '' } });
+    const rsidForm = useForm<z.infer<typeof rsidSchema>>({ 
+        resolver: zodResolver(rsidSchema), 
+        defaultValues: { rsid: '' } 
+    });
+
     const fileForm = useForm<z.infer<typeof fileSchema>>({
         resolver: zodResolver(fileSchema),
         defaultValues: { file: undefined },
