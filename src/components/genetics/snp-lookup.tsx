@@ -29,7 +29,6 @@ import { relevantSnps } from '@/lib/relevant-snps';
 
 
 const rsidSchema = z.object({ rsid: z.string().regex(/^rs\d+$/, { message: "Invalid rsID format (e.g., rs12345)." }) });
-const fileSchema = z.object({ file: z.instanceof(File).refine(file => file.size < 100 * 1024 * 1024, 'File size must be under 100MB.').optional() });
 
 const validationSchema = z.object({
   snpId: z.string().regex(/^rs\d+$/, { message: "Invalid rsID format." }),
@@ -69,16 +68,15 @@ export function SnpLookup() {
     // Validation state
     const [isValidating, setIsValidating] = useState(false);
     const [validationResult, setValidationResult] = useState<ValidateSnpOutput | null>(null);
+    
+    // Ref for the new file input
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const rsidForm = useForm<z.infer<typeof rsidSchema>>({ 
         resolver: zodResolver(rsidSchema), 
         defaultValues: { rsid: '' } 
     });
-
-    const fileForm = useForm<z.infer<typeof fileSchema>>({
-        resolver: zodResolver(fileSchema),
-        defaultValues: { file: undefined },
-    });
+    
     const validationForm = useForm<z.infer<typeof validationSchema>>({
         resolver: zodResolver(validationSchema),
         defaultValues: { 
@@ -215,9 +213,13 @@ export function SnpLookup() {
         setIsLoading(false);
     }, [user, toast]);
 
-    const handleFileSelect = useCallback(async (data: z.infer<typeof fileSchema>) => {
-        const file = data.file;
-        if (!user || !file) return;
+    const handleFileSelect = useCallback(async (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.preventDefault();
+        const file = fileInputRef.current?.files?.[0];
+        if (!user || !file) {
+            toast({ variant: 'destructive', title: 'No file selected', description: 'Please select a file to annotate.' });
+            return;
+        }
 
         const content = await file.text();
         const allRsids = parseRsidsFromFile(content);
@@ -319,14 +321,13 @@ export function SnpLookup() {
                                     <TabsTrigger value="validate">Validate SNP</TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="annotate" className="mt-4">
-                                    <Form {...fileForm}>
-                                        <form onSubmit={fileForm.handleSubmit(handleFileSelect)} className="space-y-4">
-                                            <FormField control={fileForm.control} name="file" render={({ field: { onChange, ...rest } }) => (
-                                                <FormItem><FormLabel>VCF or TXT file (.vcf, .txt)</FormLabel><FormControl><Input type="file" accept=".vcf,.txt" onChange={(e) => onChange(e.target.files?.[0])} {...rest} className="file:text-primary" /></FormControl><FormMessage /></FormItem>
-                                            )} />
-                                            <Button type="submit" disabled={isLoading} className="w-full"><Upload className="mr-2 h-4 w-4" />Upload & Annotate</Button>
-                                        </form>
-                                    </Form>
+                                    <form className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="dna-file">VCF or TXT file (.vcf, .txt)</Label>
+                                            <Input id="dna-file" type="file" accept=".vcf,.txt" ref={fileInputRef} className="file:text-primary" />
+                                        </div>
+                                        <Button onClick={handleFileSelect} disabled={isLoading} className="w-full"><Upload className="mr-2 h-4 w-4" />Upload & Annotate</Button>
+                                    </form>
                                 </TabsContent>
                                 <TabsContent value="validate" className="mt-4">
                                     <Form {...validationForm}>
