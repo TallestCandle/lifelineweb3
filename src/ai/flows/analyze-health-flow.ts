@@ -33,7 +33,7 @@ export type AnalyzeHealthInput = z.infer<typeof AnalyzeHealthInputSchema>;
 // Zod schema for the structured output from the AI.
 const AnalyzeHealthOutputSchema = z.object({
     summary: z.string().describe("A short, readable summary of the health status based on the provided data. This should be easily understandable for a non-medical user."),
-    advice: z.string().describe("Specific, actionable advice for the user based on the health data. Keep it concise and clear."),
+    advice: z.string().describe("Specific, actionable medical advice for the user based on the health data. Keep it concise and clear."),
     urgency: z.enum(['Good', 'Mild', 'Moderate', 'Critical']).describe("An urgency level classification. 'Good' for no issues, 'Mild' for minor concerns, 'Moderate' for issues that need attention, and 'Critical' for serious red flags requiring immediate action."),
     potentialConditions: z.array(z.object({
         condition: z.string().describe("The name of the potential health condition."),
@@ -54,7 +54,7 @@ const analyzeHealthPrompt = ai.definePrompt({
     name: 'analyzeHealthPrompt',
     input: { schema: AnalyzeHealthInputSchema },
     output: { schema: AnalyzeHealthOutputSchema },
-    prompt: `You are an advanced AI diagnostic assistant from Lifeline AI. Your purpose is to analyze user-provided health data and cross-reference it with millions of anonymized medical data points to identify potential health conditions. IMPORTANT: You are not providing a medical diagnosis. You are providing a probabilistic analysis for informational purposes to help the user have a more informed conversation with a healthcare professional.
+    prompt: `You are an advanced AI diagnostic doctor from Lifeline AI. Your purpose is to analyze user-provided health data and provide a preliminary medical analysis and advice.
 
 Based on the following health data, perform a comprehensive analysis.
 
@@ -75,7 +75,7 @@ Health Data:
 
 Please provide a response in the required JSON format with four fields:
 1.  'summary': A short, readable summary of the user's overall health status.
-2.  'advice': Specific, actionable advice. If the 'urgency' level is 'Moderate' or 'Critical', your 'advice' MUST include a strong recommendation to create a case in the Clinic to start an investigation.
+2.  'advice': Specific, actionable medical advice. If the 'urgency' level is 'Moderate' or 'Critical', your 'advice' MUST include a strong recommendation to create a case in the Clinic to start an investigation.
 3.  'urgency': The urgency level ('Good', 'Mild', 'Moderate', 'Critical').
 4.  'potentialConditions': An array of potential conditions. For each condition, give a 'condition' name, an estimated 'probability' (as a percentage from 0 to 100), and a brief 'explanation' linking your reasoning to the specific data points provided (e.g., "High probability due to elevated temperature and positive nitrite in urine test").`,
 });

@@ -43,8 +43,8 @@ const GenerateMonthlyReportOutputSchema = z.object({
     explanation: z.string().describe("A brief but clear justification for the assigned risk level, referencing specific data points or trends."),
   }),
   recommendations: z.object({
-    title: z.string().default("Personalized Recommendations"),
-    points: z.array(z.string()).describe("A list of 3-5 actionable, personalized recommendations for the user to focus on in the upcoming month, based directly on this report's findings."),
+    title: z.string().default("Personalized Recommendations & Medical Advice"),
+    points: z.array(z.string()).describe("A list of 3-5 actionable, personalized recommendations and medical advice for the user to focus on in the upcoming month, based directly on this report's findings."),
   }),
 });
 
@@ -58,7 +58,7 @@ const prompt = ai.definePrompt({
     name: 'generateMonthlyReportPrompt',
     input: { schema: GenerateMonthlyReportInputSchema },
     output: { schema: GenerateMonthlyReportOutputSchema },
-    prompt: `You are a world-class medical diagnostician AI from Lifeline AI, tasked with creating a comprehensive, in-depth monthly health report for a patient. Your analysis must be extraordinarily sharp, identifying trends and correlations that a human doctor might overlook. The tone should be professional, authoritative, but understandable to a layperson. This is a top-tier, premium analysis.
+    prompt: `You are a world-class medical diagnostician AI from Lifeline AI, tasked with creating a comprehensive, in-depth monthly health report for a patient. Your analysis must be extraordinarily sharp, identifying trends and correlations that a human doctor might overlook. The tone should be professional, authoritative, but understandable to a layperson. This is a top-tier, premium analysis that includes direct medical advice.
 
 **Patient Name:** {{name}}
 **Reporting Period:** {{month}}
@@ -79,7 +79,7 @@ Generate a structured report based on the provided data. Adhere strictly to the 
 4.  **Urine Test Strip Insights:** Analyze the results as a whole. Do the markers together point to something? e.g., "The presence of both glucose and ketones in urine on several occasions could suggest issues with glycemic control." If no data is available, state that clearly.
 5.  **Trends & Correlations (Crucial):** This is where you demonstrate your advanced capability. Uncover non-obvious patterns. Examples: "A correlation was observed between days with reported high blood pressure and subsequent trace levels of protein in urine." or "Emergency alerts were triggered twice, both within hours of a recorded low oxygen saturation event, indicating a potential link." Be specific. If there are no significant correlations, state that the data appears stable and uncorrelated.
 6.  **Risk Assessment:** Assign a risk level ('Low', 'Medium', 'High', 'Critical') and provide a strong justification.
-7.  **Personalized Recommendations:** Provide 3-5 clear, actionable recommendations directly tied to your findings in this report. If the 'riskAssessment.level' is 'Medium', 'High', or 'Critical', one of the 'recommendations.points' MUST be to create a case in the Clinic to discuss the report's findings with a doctor.
+7.  **Personalized Recommendations & Medical Advice:** Provide 3-5 clear, actionable recommendations and medical advice directly tied to your findings in this report. If the 'riskAssessment.level' is 'Medium', 'High', or 'Critical', one of the 'recommendations.points' MUST be to create a case in the Clinic to discuss the report's findings with a doctor.
 
 Do not invent data. If a data category (e.g., test strips) is empty, state that in the relevant section of your analysis. Produce the report in the required JSON format.`,
 });
