@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dna, Upload, Search, FileText, Loader2, Pause, Play, HelpCircle, Bot, RefreshCw, Send, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Dna, Upload, Search, FileText, Loader2, Pause, Play, HelpCircle, Bot, RefreshCw, Send, CheckCircle, XCircle, AlertTriangle, Trash2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,13 +20,14 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Progress } from '../ui/progress';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, doc, addDoc, updateDoc, getDocs, query, where, onSnapshot, orderBy, writeBatch } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, getDocs, query, where, onSnapshot, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { validateSnp, type ValidateSnpInput, type ValidateSnpOutput } from '@/ai/flows/validate-snp-flow';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { cn } from '@/lib/utils';
 import { relevantSnps } from '@/lib/relevant-snps';
 import { Label } from '@/components/ui/label';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 
 const rsidSchema = z.object({ rsid: z.string().regex(/^rs\d+$/, { message: "Invalid rsID format (e.g., rs12345)." }) });
@@ -287,6 +288,25 @@ export function SnpLookup() {
             setIsValidating(false);
         }
     };
+    
+    const handleDeleteSession = async (sessionId: string) => {
+        if (!user) return;
+        
+        // Delete all documents in the 'results' subcollection
+        const resultsCollectionRef = collection(db, `users/${user.uid}/genetic_analyses/${sessionId}/results`);
+        const resultsSnapshot = await getDocs(resultsCollectionRef);
+        const batch = writeBatch(db);
+        resultsSnapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+
+        // Delete the main analysis session document
+        const sessionDocRef = doc(db, `users/${user.uid}/genetic_analyses`, sessionId);
+        await deleteDoc(sessionDocRef);
+
+        toast({ title: "Analysis Deleted", description: "The session and its results have been removed." });
+    };
 
     const TooltipHeader = ({ children, tooltipText }: { children: React.ReactNode, tooltipText: string }) => (
         <TooltipProvider><Tooltip><TooltipTrigger asChild><div className="flex items-center gap-1 cursor-help">{children}<HelpCircle className="h-3.5 w-3.5 text-muted-foreground" /></div></TooltipTrigger><TooltipContent><p>{tooltipText}</p></TooltipContent></Tooltip></TooltipProvider>
@@ -370,6 +390,23 @@ export function SnpLookup() {
                                             </div>
                                             <div className="flex gap-1">
                                                 {session.status === 'paused' && <Button size="sm" variant="ghost" onClick={() => handleResume(session)} disabled={isLoading}><RefreshCw className="mr-1 h-3 w-3"/>Resume</Button>}
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button size="icon" variant="ghost" className="h-7 w-7"><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Delete this analysis?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                This action cannot be undone. This will permanently delete the analysis session and all its annotated results.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteSession(session.id)}>Delete</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
                                             </div>
                                         </div>
                                     )) : <p className="text-sm text-center text-muted-foreground py-4">No past analyses found.</p>}
