@@ -21,24 +21,14 @@ import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
 import { collection, doc, addDoc, updateDoc, getDocs, query, where, onSnapshot, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import { validateSnp, type ValidateSnpInput, type ValidateSnpOutput } from '@/ai/flows/validate-snp-flow';
 import { chatWithGeneticsResults, type ChatWithGeneticsResultsInput } from '@/ai/flows/chat-with-genetics-results-flow';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { cn } from '@/lib/utils';
 import { relevantSnps } from '@/lib/relevant-snps';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Label } from '../ui/label';
 
 const rsidSchema = z.object({ rsid: z.string().regex(/^rs\d+$/, { message: "Invalid rsID format (e.g., rs12345)." }) });
-
-const validationSchema = z.object({
-  snpId: z.string().regex(/^rs\d+$/, { message: "Invalid rsID format." }),
-  consequence: z.string().min(1, 'Consequence is required.'),
-  gene: z.string().optional(),
-  transcript: z.string().optional(),
-  aminoAcidChange: z.string().optional(),
-  codonChange: z.string().optional(),
-  clinicalSignificance: z.string().optional(),
-});
 
 const chatSchema = z.object({
     message: z.string().min(1, "Message cannot be empty."),
@@ -63,8 +53,6 @@ export function SnpLookup() {
     const { user } = useAuth();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
-    const [lookupResults, setLookupResults] = useState<SnpLookupResult[]>([]);
-    const [validationResult, setValidationResult] = useState<ValidateSnpOutput | null>(null);
     
     // Annotation process state
     const [analysisHistory, setAnalysisHistory] = useState<AnalysisSession[]>([]);
@@ -80,19 +68,6 @@ export function SnpLookup() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const isPausedRef = useRef(isPaused);
     useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
-
-    const rsidForm = useForm<z.infer<typeof rsidSchema>>({ 
-        resolver: zodResolver(rsidSchema), 
-        defaultValues: { rsid: '' } 
-    });
-    
-    const validationForm = useForm<z.infer<typeof validationSchema>>({
-        resolver: zodResolver(validationSchema),
-        defaultValues: { 
-            snpId: '', consequence: '', gene: '', transcript: '', 
-            aminoAcidChange: '', codonChange: '', clinicalSignificance: '' 
-        }
-    });
 
     const chatForm = useForm<z.infer<typeof chatSchema>>({
         resolver: zodResolver(chatSchema),
@@ -289,11 +264,14 @@ export function SnpLookup() {
                         <CardContent>
                              <form className="space-y-4">
                                 <div className="space-y-2">
-                                    <label htmlFor="dna-file" className="text-sm font-bold">VCF or TXT file (.vcf, .txt)</label>
+                                    <Label htmlFor="dna-file">VCF or TXT file (.vcf, .txt)</Label>
                                     <Input id="dna-file" type="file" accept=".vcf,.txt" ref={fileInputRef} className="file:text-primary" />
                                 </div>
-                                <Button onClick={handleFileSelect} disabled={isLoading || !!activeAnalysis} className="w-full"><Upload className="mr-2 h-4 w-4" />Upload & Annotate</Button>
-                                {activeAnalysis && <p className="text-xs text-center text-muted-foreground">An analysis is already in progress. Please clear it before starting a new one.</p>}
+                                <Button onClick={handleFileSelect} disabled={isLoading || (!!activeAnalysis && activeAnalysis.status !== 'completed')} className="w-full">
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Upload & Annotate
+                                </Button>
+                                {activeAnalysis && activeAnalysis.status !== 'completed' && <p className="text-xs text-center text-muted-foreground">An analysis is in progress. Please clear it before starting a new one.</p>}
                             </form>
                         </CardContent>
                     </Card>
@@ -372,8 +350,8 @@ export function SnpLookup() {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {annotatedResults.map(res => (
-                                                    <TableRow key={res.id}>
+                                                {annotatedResults.map((res, index) => (
+                                                    <TableRow key={`${res.id}-${res.transcriptId || index}`}>
                                                         <TableCell className="font-mono">{res.id}</TableCell>
                                                         <TableCell>{res.most_severe_consequence}</TableCell>
                                                         <TableCell>{res.gene || 'N/A'}</TableCell>
