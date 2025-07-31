@@ -1,6 +1,15 @@
 
-import { SnpLookup } from "@/components/genetics/snp-lookup";
+"use client";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader } from '@/components/ui/loader';
 
-export default function GeneticsPage() {
-  return <SnpLookup />;
+// This page has been removed. Redirect to the dashboard.
+export default function RemovedGeneticsPage() {
+    const router = useRouter();
+    useEffect(() => {
+        router.replace('/');
+    }, [router]);
+
+    return <Loader />;
 }

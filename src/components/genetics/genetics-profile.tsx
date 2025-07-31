@@ -1,11 +1,5 @@
 
-"use client";
-
-import React from 'react';
-import { SnpLookup } from './snp-lookup';
-
+// This component has been removed as the feature is no longer available.
 export function GeneticsProfile() {
-    return (
-        <SnpLookup />
-    );
+    return null;
 }
