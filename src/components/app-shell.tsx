@@ -50,7 +50,7 @@ import { InstallButton } from './pwa/install-button';
 
 const mainMenuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/log", label: "AI Logger", icon: Camera },
+  { href: "/log", label: "Vitals Logger", icon: Camera },
   { href: "/deep-dive", label: "Deep Dive", icon: BrainCircuit },
   { href: "/clinic", label: "Clinic", icon: Building2 },
   { href: "/dietician", label: "AI Dietician", icon: Salad },
