@@ -128,6 +128,7 @@ export function PeriodTracker() {
     },
   });
 
+  // Effect to subscribe to Firestore updates
   useEffect(() => {
     if (!user) {
         setIsLoading(false);
@@ -137,16 +138,21 @@ export function PeriodTracker() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CycleLog));
         setCycleLogs(logs);
-        if (logs.length > 0) {
-            form.reset({
-                lastPeriodStartDate: parseISO(logs[0].startDate),
-                cycleLength: logs[0].cycleLength,
-            });
-        }
         setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, form]);
+  }, [user]);
+
+  // Effect to update the form when the latest log changes
+  useEffect(() => {
+      if (latestLog) {
+          form.reset({
+              lastPeriodStartDate: parseISO(latestLog.startDate),
+              cycleLength: latestLog.cycleLength,
+          });
+      }
+  }, [latestLog, form]);
+
 
   const cycleData = useMemo(() => {
     if (!latestLog) return null;
