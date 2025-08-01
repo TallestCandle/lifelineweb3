@@ -141,15 +141,6 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarSeparator className="my-2" />
             <InstallButton />
             <SidebarMenuItem>
-                <Wrapper {...wrapperProps}>
-                    <Link href="/emergency">
-                        <SidebarMenuButton asChild isActive={pathname === '/emergency'} tooltip="Emergency" className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive data-[active=true]:bg-destructive data-[active=true]:text-destructive-foreground" icon={<Siren/>}>
-                            <span>Emergency</span>
-                        </SidebarMenuButton>
-                    </Link>
-                </Wrapper>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
                 <SidebarMenuButton onClick={handleLogout} tooltip="Logout" icon={<LogOut/>}>
                     Logout
                 </SidebarMenuButton>
