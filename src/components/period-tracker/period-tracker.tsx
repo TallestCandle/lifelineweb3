@@ -108,7 +108,10 @@ export function PeriodTracker() {
     }
   };
 
-  const dayRenderer = (day: Date): React.ReactNode => {
+  const dayRenderer = (props: { date: Date; displayMonth: Date }): React.ReactNode => {
+    const { date: day } = props;
+    if (!day) return null;
+
     if (!cycleData) return <span className="text-foreground">{format(day, "d")}</span>;
 
     const { lastPeriodStart, nextPeriodStart, periodLength, fertileWindowStart, fertileWindowEnd, ovulationDay } = cycleData;
@@ -165,7 +168,7 @@ export function PeriodTracker() {
                   day: "w-full h-12 text-base",
               }}
               components={{
-                  DayContent: dayRenderer,
+                  DayContent: dayRenderer as any,
               }}
             />
              <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm">
