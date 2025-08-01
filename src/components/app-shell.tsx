@@ -23,6 +23,7 @@ import {
   Calculator,
   Ruler,
   LifeBuoy,
+  HeartHandshake,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
@@ -106,6 +107,15 @@ function AppLayout({ children }: { children: React.ReactNode }) {
                     <Link href="/body-metrics">
                         <SidebarMenuButton asChild isActive={pathname === '/body-metrics'} tooltip="Body Metrics" icon={<Ruler/>}>
                             <span>Body Metrics</span>
+                        </SidebarMenuButton>
+                    </Link>
+                </Wrapper>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+                <Wrapper {...wrapperProps}>
+                    <Link href="/period-tracker">
+                        <SidebarMenuButton asChild isActive={pathname === '/period-tracker'} tooltip="Period Tracker" icon={<HeartHandshake/>}>
+                            <span>Period Tracker</span>
                         </SidebarMenuButton>
                     </Link>
                 </Wrapper>
