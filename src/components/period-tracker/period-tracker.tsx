@@ -42,7 +42,6 @@ const CycleDial = ({ cycleData }: { cycleData: any }) => {
   const { cycleLength, daysUntilNextPeriod, currentDayInCycle, periodLength, fertileWindowStart, fertileWindowEnd, ovulationDay, lastPeriodStart, nextPeriodStart } = cycleData;
 
   const radius = 80;
-  const circumference = 2 * Math.PI * radius;
 
   const getCoordinatesForDay = (day: number, customRadius = radius) => {
     const angle = (day / cycleLength) * 360;
@@ -151,7 +150,7 @@ export function PeriodTracker() {
         setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user, isLoading, form]);
+  }, [user]);
 
   const cycleData = useMemo(() => {
     if (!latestLog) return null;
@@ -184,10 +183,14 @@ export function PeriodTracker() {
 
   const onSubmit = async (data: PeriodTrackerFormValues) => {
     if (!user) return;
+
+    // Use the validated data directly from the arguments
+    const { lastPeriodStartDate, cycleLength } = data;
+
     try {
       await addDoc(collection(db, `users/${user.uid}/cycles`), {
-        startDate: data.lastPeriodStartDate.toISOString(),
-        cycleLength: data.cycleLength,
+        startDate: lastPeriodStartDate.toISOString(),
+        cycleLength: cycleLength,
       });
       toast({ title: 'Cycle Logged', description: 'Your new cycle information has been saved.' });
       form.reset({ cycleLength: 28, lastPeriodStartDate: undefined }); // Clear form after successful submission
@@ -214,7 +217,7 @@ export function PeriodTracker() {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <p className="text-muted-foreground">The Period Tracker is designed for users who identify as female. Based on your profile, this feature is not enabled for your account.</p>
+                <p className="text-muted-foreground">The Period Tracker is designed for users who track menstrual cycles. Based on your profile, this feature is not enabled for your account.</p>
             </CardContent>
         </Card>
     );
