@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -11,13 +12,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Droplet, HeartHandshake, Loader2, Sparkles } from 'lucide-react';
+import { CalendarIcon, Droplet, HeartHandshake, Loader2, Sparkles, UserX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy, addDoc, limit } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { useProfile } from '@/context/profile-provider';
 
 const periodTrackerSchema = z.object({
   lastPeriodStartDate: z.date({
@@ -36,6 +38,7 @@ interface CycleLog {
 
 export function PeriodTracker() {
   const { user } = useAuth();
+  const { profile, loading: profileLoading } = useProfile();
   const { toast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [cycleLogs, setCycleLogs] = useState<CycleLog[]>([]);
@@ -142,8 +145,27 @@ export function PeriodTracker() {
     );
   };
   
-  if (isLoading) {
-    return <Loader2 className="w-8 h-8 animate-spin text-primary" />;
+  if (isLoading || profileLoading) {
+    return (
+        <div className="flex justify-center items-center h-full">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+    );
+  }
+
+  if (profile?.gender !== 'Female') {
+    return (
+        <Card className="w-full max-w-lg mx-auto text-center">
+            <CardHeader>
+                <CardTitle className="flex items-center justify-center gap-2">
+                    <UserX className="w-8 h-8"/> Feature Unavailable
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-muted-foreground">The Period Tracker is designed for users who identify as female. Based on your profile, this feature is not enabled for your account.</p>
+            </CardContent>
+        </Card>
+    );
   }
 
   return (
@@ -151,6 +173,7 @@ export function PeriodTracker() {
       <div className="md:col-span-2 space-y-8">
         <Card>
           <CardHeader>
+            <CardTitle className="flex items-center gap-2"><HeartHandshake className="w-8 h-8 text-primary"/> Period Tracker</CardTitle>
             <CardDescription>Log your cycle to get predictions for your next period, fertile window, and ovulation day.</CardDescription>
           </CardHeader>
           <CardContent>
