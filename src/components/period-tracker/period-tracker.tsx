@@ -5,14 +5,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { addDays, subDays, format, parseISO, isSameDay } from 'date-fns';
+import { addDays, subDays, format, parseISO, isSameDay, differenceInDays, startOfDay } from 'date-fns';
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Droplet, HeartHandshake, Loader2, Sparkles, UserX } from 'lucide-react';
+import { CalendarIcon, Droplet, HeartHandshake, Loader2, Sparkles, UserX, Target, Wind, Leaf } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
@@ -36,11 +36,72 @@ interface CycleLog {
   cycleLength: number;
 }
 
+// --- SVG Cycle Dial Component ---
+const CycleDial = ({ cycleData }: { cycleData: any }) => {
+  if (!cycleData) return null;
+  const { cycleLength, daysUntilNextPeriod, currentDayInCycle, periodLength, fertileWindowStart, fertileWindowEnd, ovulationDay, lastPeriodStart } = cycleData;
+
+  const radius = 80;
+  const circumference = 2 * Math.PI * radius;
+
+  const getCoordinatesForDay = (day: number) => {
+    const angle = (day / cycleLength) * 360;
+    const x = 100 + radius * Math.cos((angle - 90) * (Math.PI / 180));
+    const y = 100 + radius * Math.sin((angle - 90) * (Math.PI / 180));
+    return { x, y };
+  };
+
+  const describeArc = (startDay: number, endDay: number) => {
+    const startAngle = (startDay / cycleLength) * 360;
+    const endAngle = (endDay / cycleLength) * 360;
+
+    const start = getCoordinatesForDay(startDay);
+    const end = getCoordinatesForDay(endDay);
+
+    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+
+    return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
+  };
+  
+  const fertileStartDay = differenceInDays(fertileWindowStart, lastPeriodStart);
+  const fertileEndDay = differenceInDays(fertileWindowEnd, lastPeriodStart);
+  const ovulationDisplayDay = differenceInDays(ovulationDay, lastPeriodStart);
+
+  const currentDayIndicator = getCoordinatesForDay(currentDayInCycle);
+
+  return (
+    <div className="flex justify-center items-center">
+      <svg viewBox="0 0 200 200" className="w-full h-auto max-w-sm">
+        {/* Background track */}
+        <circle cx="100" cy="100" r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth="12" />
+
+        {/* Period arc */}
+        <path d={describeArc(0, periodLength)} fill="none" stroke="hsl(var(--destructive)/0.5)" strokeWidth="12" />
+        <path d={describeArc(cycleLength, cycleLength + periodLength)} fill="none" stroke="hsl(var(--destructive)/0.5)" strokeWidth="12" />
+        
+        {/* Fertile window arc */}
+        <path d={describeArc(fertileStartDay, fertileEndDay)} fill="none" stroke="hsl(var(--primary)/0.4)" strokeWidth="12" />
+
+        {/* Ovulation day marker */}
+        <circle cx={getCoordinatesForDay(ovulationDisplayDay).x} cy={getCoordinatesForDay(ovulationDisplayDay).y} r="8" fill="hsl(var(--primary))" />
+
+        {/* Current day indicator */}
+        <circle cx={currentDayIndicator.x} cy={currentDayIndicator.y} r="5" fill="hsl(var(--foreground))" stroke="hsl(var(--background))" strokeWidth="2" />
+        
+        {/* Center Text */}
+        <text x="100" y="85" textAnchor="middle" className="text-4xl font-bold fill-foreground">{daysUntilNextPeriod}</text>
+        <text x="100" y="105" textAnchor="middle" className="text-sm fill-muted-foreground">days until</text>
+        <text x="100" y="125" textAnchor="middle" className="text-lg font-bold fill-primary">Next Period</text>
+      </svg>
+    </div>
+  );
+};
+
+
 export function PeriodTracker() {
   const { user } = useAuth();
   const { profile, loading: profileLoading } = useProfile();
   const { toast } = useToast();
-  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [cycleLogs, setCycleLogs] = useState<CycleLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -76,14 +137,18 @@ export function PeriodTracker() {
   const cycleData = useMemo(() => {
     if (!latestLog) return null;
 
-    const lastPeriodStart = parseISO(latestLog.startDate);
+    const today = startOfDay(new Date());
+    const lastPeriodStart = startOfDay(parseISO(latestLog.startDate));
     const cycleLength = latestLog.cycleLength;
-    const periodLength = 5; // Average period length
+    const periodLength = 5;
 
     const nextPeriodStart = addDays(lastPeriodStart, cycleLength);
     const ovulationDay = subDays(nextPeriodStart, 14);
     const fertileWindowStart = subDays(ovulationDay, 5);
     const fertileWindowEnd = ovulationDay;
+    
+    const daysUntilNextPeriod = differenceInDays(nextPeriodStart, today);
+    const currentDayInCycle = differenceInDays(today, lastPeriodStart);
 
     return {
       lastPeriodStart,
@@ -92,6 +157,9 @@ export function PeriodTracker() {
       fertileWindowStart,
       fertileWindowEnd,
       periodLength,
+      cycleLength,
+      daysUntilNextPeriod: daysUntilNextPeriod > 0 ? daysUntilNextPeriod : 0,
+      currentDayInCycle: currentDayInCycle >= 0 ? currentDayInCycle % cycleLength : 0,
     };
   }, [latestLog]);
 
@@ -107,42 +175,6 @@ export function PeriodTracker() {
       console.error("Error logging cycle:", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Could not save your cycle information.' });
     }
-  };
-
-  const dayRenderer = (props: { date: Date; displayMonth: Date }): React.ReactNode => {
-    const { date: day } = props;
-    if (!day) return null;
-
-    if (!cycleData) return <span className="text-foreground">{format(day, "d")}</span>;
-
-    const { lastPeriodStart, nextPeriodStart, periodLength, fertileWindowStart, fertileWindowEnd, ovulationDay } = cycleData;
-    let modifierClass = '';
-    let isPeriod = false;
-
-    // Check last period
-    for (let i = 0; i < periodLength; i++) {
-        if (isSameDay(day, addDays(lastPeriodStart, i))) {
-            isPeriod = true;
-            break;
-        }
-    }
-    // Check next predicted period
-    for (let i = 0; i < periodLength; i++) {
-        if (isSameDay(day, addDays(nextPeriodStart, i))) {
-            isPeriod = true;
-            break;
-        }
-    }
-    
-    if (isPeriod) modifierClass = 'bg-red-400/20 text-red-300 rounded-full';
-    if (day >= fertileWindowStart && day <= fertileWindowEnd) modifierClass = 'bg-green-400/20 text-green-300 rounded-full';
-    if (isSameDay(day, ovulationDay)) modifierClass = 'bg-primary/30 text-primary rounded-full ring-2 ring-primary';
-    
-    return (
-        <span className={cn("flex items-center justify-center w-full h-full", modifierClass)}>
-            {format(day, "d")}
-        </span>
-    );
   };
   
   if (isLoading || profileLoading) {
@@ -177,24 +209,17 @@ export function PeriodTracker() {
             <CardDescription>Log your cycle to get predictions for your next period, fertile window, and ovulation day.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Calendar
-              mode="single"
-              selected={currentMonth}
-              onMonthChange={setCurrentMonth}
-              month={currentMonth}
-              className="p-0"
-              classNames={{
-                  day_today: "bg-accent/50 text-accent-foreground",
-                  day: "w-full h-12 text-base",
-              }}
-              components={{
-                  DayContent: dayRenderer as any,
-              }}
-            />
-             <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-red-400/80"></span> Period</div>
-                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-400/80"></span> Fertile Window</div>
-                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-primary/80 ring-1 ring-primary-foreground"></span> Ovulation Day</div>
+            {cycleData ? (
+                <CycleDial cycleData={cycleData}/>
+            ) : (
+                <div className="text-center py-10 text-muted-foreground">
+                    <p>Log your first cycle to see your personalized dial.</p>
+                </div>
+            )}
+             <div className="mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
+                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-destructive/50"></span> Period</div>
+                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-primary/40"></span> Fertile Window</div>
+                <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-primary ring-1 ring-primary-foreground"></span> Ovulation Day</div>
             </div>
           </CardContent>
         </Card>
@@ -262,7 +287,7 @@ export function PeriodTracker() {
         {cycleData && (
             <Card className="bg-secondary/50">
                 <CardHeader>
-                    <CardTitle className="text-lg">Cycle Insights</CardTitle>
+                    <CardTitle className="text-lg">Key Dates</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                     <Alert>
@@ -274,9 +299,16 @@ export function PeriodTracker() {
                     </Alert>
                      <Alert>
                         <Sparkles className="h-4 w-4" />
-                        <AlertTitle>Fertile Window</AlertTitle>
+                        <AlertTitle>Next Fertile Window</AlertTitle>
                         <AlertDescription>
                             Your fertile window is likely between <span className="font-bold">{format(cycleData.fertileWindowStart, 'MMM d')}</span> and <span className="font-bold">{format(cycleData.fertileWindowEnd, 'MMM d')}</span>.
+                        </AlertDescription>
+                    </Alert>
+                    <Alert>
+                        <Target className="h-4 w-4" />
+                        <AlertTitle>Next Ovulation</AlertTitle>
+                        <AlertDescription>
+                            Estimated ovulation on <span className="font-bold">{format(cycleData.ovulationDay, 'MMMM d, yyyy')}</span>.
                         </AlertDescription>
                     </Alert>
                 </CardContent>
