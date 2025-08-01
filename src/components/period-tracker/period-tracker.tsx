@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Droplet, HeartHandshake, Loader2, Sparkles, UserX, Target, Wind, Leaf } from 'lucide-react';
+import { CalendarIcon, Droplet, HeartHandshake, Loader2, Sparkles, UserX, Target, Wind, Leaf, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
@@ -125,8 +125,21 @@ export function PeriodTracker() {
     resolver: zodResolver(periodTrackerSchema),
     defaultValues: {
       cycleLength: 28,
+      lastPeriodStartDate: undefined,
     },
   });
+
+  const loadLatestLogIntoForm = () => {
+    if (latestLog) {
+      form.reset({
+        lastPeriodStartDate: parseISO(latestLog.startDate),
+        cycleLength: latestLog.cycleLength,
+      });
+      toast({ title: 'Data Loaded', description: 'Your most recent cycle log has been loaded into the form.' });
+    } else {
+      toast({ variant: 'destructive', title: 'No Data', description: 'There are no past cycle logs to load.' });
+    }
+  };
 
   // Effect to subscribe to Firestore updates
   useEffect(() => {
@@ -138,21 +151,18 @@ export function PeriodTracker() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CycleLog));
         setCycleLogs(logs);
+        
+        // Only populate form on initial load if it's empty
+        if (isLoading && logs[0] && !form.getValues('lastPeriodStartDate')) {
+            form.reset({
+                lastPeriodStartDate: parseISO(logs[0].startDate),
+                cycleLength: logs[0].cycleLength,
+            });
+        }
         setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user]);
-
-  // Effect to update the form when the latest log changes
-  useEffect(() => {
-      if (latestLog) {
-          form.reset({
-              lastPeriodStartDate: parseISO(latestLog.startDate),
-              cycleLength: latestLog.cycleLength,
-          });
-      }
-  }, [latestLog, form]);
-
+  }, [user, isLoading, form]);
 
   const cycleData = useMemo(() => {
     if (!latestLog) return null;
@@ -190,7 +200,8 @@ export function PeriodTracker() {
         startDate: data.lastPeriodStartDate.toISOString(),
         cycleLength: data.cycleLength,
       });
-      toast({ title: 'Cycle Logged', description: 'Your cycle information has been saved.' });
+      toast({ title: 'Cycle Logged', description: 'Your new cycle information has been saved.' });
+      form.reset({ cycleLength: 28, lastPeriodStartDate: undefined }); // Clear form after successful submission
     } catch (error) {
       console.error("Error logging cycle:", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Could not save your cycle information.' });
@@ -247,8 +258,14 @@ export function PeriodTracker() {
 
       <div className="space-y-8">
         <Card>
-          <CardHeader>
-            <CardTitle>Log Your Cycle</CardTitle>
+          <CardHeader className="flex justify-between items-start">
+            <div>
+                <CardTitle>Log Your Cycle</CardTitle>
+                <CardDescription>Update your cycle info here.</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={loadLatestLogIntoForm} disabled={!latestLog}>
+                <RefreshCw className="mr-2 h-4 w-4"/> Load Latest
+            </Button>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -298,7 +315,10 @@ export function PeriodTracker() {
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full">Save Cycle</Button>
+                <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? <Loader2 className="animate-spin mr-2"/> : null}
+                  Save Cycle Log
+                </Button>
               </form>
             </Form>
           </CardContent>
