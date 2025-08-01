@@ -39,15 +39,15 @@ interface CycleLog {
 // --- SVG Cycle Dial Component ---
 const CycleDial = ({ cycleData }: { cycleData: any }) => {
   if (!cycleData) return null;
-  const { cycleLength, daysUntilNextPeriod, currentDayInCycle, periodLength, fertileWindowStart, fertileWindowEnd, ovulationDay, lastPeriodStart } = cycleData;
+  const { cycleLength, daysUntilNextPeriod, currentDayInCycle, periodLength, fertileWindowStart, fertileWindowEnd, ovulationDay, lastPeriodStart, nextPeriodStart } = cycleData;
 
   const radius = 80;
   const circumference = 2 * Math.PI * radius;
 
-  const getCoordinatesForDay = (day: number) => {
+  const getCoordinatesForDay = (day: number, customRadius = radius) => {
     const angle = (day / cycleLength) * 360;
-    const x = 100 + radius * Math.cos((angle - 90) * (Math.PI / 180));
-    const y = 100 + radius * Math.sin((angle - 90) * (Math.PI / 180));
+    const x = 100 + customRadius * Math.cos((angle - 90) * (Math.PI / 180));
+    const y = 100 + customRadius * Math.sin((angle - 90) * (Math.PI / 180));
     return { x, y };
   };
 
@@ -69,30 +69,44 @@ const CycleDial = ({ cycleData }: { cycleData: any }) => {
 
   const currentDayIndicator = getCoordinatesForDay(currentDayInCycle);
 
+  const nextPeriodDate = getCoordinatesForDay(0, radius + 12);
+  const periodEndDate = getCoordinatesForDay(periodLength, radius + 12);
+  const fertileStartDate = getCoordinatesForDay(fertileStartDay, radius + 12);
+  const fertileEndDate = getCoordinatesForDay(fertileEndDay, radius + 12);
+
   return (
-    <div className="flex justify-center items-center">
-      <svg viewBox="0 0 200 200" className="w-full h-auto max-w-sm">
-        {/* Background track */}
-        <circle cx="100" cy="100" r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth="12" />
+    <div className="flex flex-col justify-center items-center">
+        <h3 className="text-xl font-bold text-primary mb-2">
+            {format(nextPeriodStart, 'MMMM yyyy')}
+        </h3>
+        <svg viewBox="0 0 200 200" className="w-full h-auto max-w-sm">
+            {/* Background track */}
+            <circle cx="100" cy="100" r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth="12" />
 
-        {/* Period arc */}
-        <path d={describeArc(0, periodLength)} fill="none" stroke="hsl(var(--destructive)/0.5)" strokeWidth="12" />
-        <path d={describeArc(cycleLength, cycleLength + periodLength)} fill="none" stroke="hsl(var(--destructive)/0.5)" strokeWidth="12" />
-        
-        {/* Fertile window arc */}
-        <path d={describeArc(fertileStartDay, fertileEndDay)} fill="none" stroke="hsl(var(--primary)/0.4)" strokeWidth="12" />
+            {/* Period arc */}
+            <path d={describeArc(0, periodLength)} fill="none" stroke="hsl(var(--destructive)/0.5)" strokeWidth="12" />
+            <path d={describeArc(cycleLength, cycleLength + periodLength)} fill="none" stroke="hsl(var(--destructive)/0.5)" strokeWidth="12" />
+            
+            {/* Fertile window arc */}
+            <path d={describeArc(fertileStartDay, fertileEndDay)} fill="none" stroke="hsl(var(--primary)/0.4)" strokeWidth="12" />
 
-        {/* Ovulation day marker */}
-        <circle cx={getCoordinatesForDay(ovulationDisplayDay).x} cy={getCoordinatesForDay(ovulationDisplayDay).y} r="8" fill="hsl(var(--primary))" />
+            {/* Ovulation day marker */}
+            <circle cx={getCoordinatesForDay(ovulationDisplayDay).x} cy={getCoordinatesForDay(ovulationDisplayDay).y} r="8" fill="hsl(var(--primary))" />
 
-        {/* Current day indicator */}
-        <circle cx={currentDayIndicator.x} cy={currentDayIndicator.y} r="5" fill="hsl(var(--foreground))" stroke="hsl(var(--background))" strokeWidth="2" />
-        
-        {/* Center Text */}
-        <text x="100" y="85" textAnchor="middle" className="text-4xl font-bold fill-foreground">{daysUntilNextPeriod}</text>
-        <text x="100" y="105" textAnchor="middle" className="text-sm fill-muted-foreground">days until</text>
-        <text x="100" y="125" textAnchor="middle" className="text-lg font-bold fill-primary">Next Period</text>
-      </svg>
+            {/* Current day indicator */}
+            <circle cx={currentDayIndicator.x} cy={currentDayIndicator.y} r="5" fill="hsl(var(--foreground))" stroke="hsl(var(--background))" strokeWidth="2" />
+            
+            {/* Date Labels */}
+            <text x={nextPeriodDate.x} y={nextPeriodDate.y} textAnchor="middle" dy="4" className="text-[10px] font-bold fill-foreground">{format(nextPeriodStart, 'd')}</text>
+            <text x={periodEndDate.x} y={periodEndDate.y} textAnchor="middle" dy="4" className="text-[10px] font-bold fill-foreground">{format(addDays(nextPeriodStart, periodLength), 'd')}</text>
+            <text x={fertileStartDate.x} y={fertileStartDate.y} textAnchor="middle" dy="4" className="text-[10px] font-bold fill-foreground">{format(fertileWindowStart, 'd')}</text>
+            <text x={fertileEndDate.x} y={fertileEndDate.y} textAnchor="middle" dy="4" className="text-[10px] font-bold fill-foreground">{format(fertileWindowEnd, 'd')}</text>
+
+            {/* Center Text */}
+            <text x="100" y="85" textAnchor="middle" className="text-4xl font-bold fill-foreground">{daysUntilNextPeriod}</text>
+            <text x="100" y="105" textAnchor="middle" className="text-sm fill-muted-foreground">days until</text>
+            <text x="100" y="125" textAnchor="middle" className="text-lg font-bold fill-primary">Next Period</text>
+        </svg>
     </div>
   );
 };
