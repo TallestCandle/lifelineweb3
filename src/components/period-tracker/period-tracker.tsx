@@ -69,11 +69,6 @@ const CycleDial = ({ cycleData }: { cycleData: any }) => {
 
   const currentDayIndicator = getCoordinatesForDay(currentDayInCycle);
 
-  const nextPeriodDate = getCoordinatesForDay(0, radius + 12);
-  const periodEndDate = getCoordinatesForDay(periodLength, radius + 12);
-  const fertileStartDate = getCoordinatesForDay(fertileStartDay, radius + 12);
-  const fertileEndDate = getCoordinatesForDay(fertileEndDay, radius + 12);
-
   return (
     <div className="flex flex-col justify-center items-center">
         <h3 className="text-xl font-bold text-primary mb-2">
@@ -96,12 +91,6 @@ const CycleDial = ({ cycleData }: { cycleData: any }) => {
             {/* Current day indicator */}
             <circle cx={currentDayIndicator.x} cy={currentDayIndicator.y} r="5" fill="hsl(var(--foreground))" stroke="hsl(var(--background))" strokeWidth="2" />
             
-            {/* Date Labels */}
-            <text x={nextPeriodDate.x} y={nextPeriodDate.y} textAnchor="middle" dy="4" className="text-[10px] font-bold fill-foreground">{format(nextPeriodStart, 'd')}</text>
-            <text x={periodEndDate.x} y={periodEndDate.y} textAnchor="middle" dy="4" className="text-[10px] font-bold fill-foreground">{format(addDays(nextPeriodStart, periodLength), 'd')}</text>
-            <text x={fertileStartDate.x} y={fertileStartDate.y} textAnchor="middle" dy="4" className="text-[10px] font-bold fill-foreground">{format(fertileWindowStart, 'd')}</text>
-            <text x={fertileEndDate.x} y={fertileEndDate.y} textAnchor="middle" dy="4" className="text-[10px] font-bold fill-foreground">{format(fertileWindowEnd, 'd')}</text>
-
             {/* Center Text */}
             <text x="100" y="85" textAnchor="middle" className="text-4xl font-bold fill-foreground">{daysUntilNextPeriod}</text>
             <text x="100" y="105" textAnchor="middle" className="text-sm fill-muted-foreground">days until</text>
