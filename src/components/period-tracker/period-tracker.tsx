@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -152,7 +151,6 @@ export function PeriodTracker() {
       <div className="md:col-span-2 space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><HeartHandshake /> Period & Ovulation Tracker</CardTitle>
             <CardDescription>Log your cycle to get predictions for your next period, fertile window, and ovulation day.</CardDescription>
           </CardHeader>
           <CardContent>
