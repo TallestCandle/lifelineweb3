@@ -16,9 +16,8 @@ import { CalendarIcon, Droplet, HeartHandshake, Loader2, Sparkles } from 'lucide
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, query, orderBy, getDocs, onSnapshot, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, limit } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '../ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 const periodTrackerSchema = z.object({
