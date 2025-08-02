@@ -16,6 +16,7 @@ import { Loader2, ShieldCheck, UserCog, UserPlus, Stethoscope, Users } from 'luc
 import { Separator } from '../ui/separator';
 import { Input } from '../ui/input';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { Skeleton } from '../ui/skeleton';
 
 const settingsSchema = z.object({
   isPatientSignupDisabled: z.boolean().default(false),
@@ -270,4 +271,3 @@ export function AdminDashboard() {
     </div>
   );
 }
-
