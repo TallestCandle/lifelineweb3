@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -19,6 +19,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Stethoscope, ArrowLeft } from 'lucide-react';
 import { Loader } from '../ui/loader';
 import type { UserRole } from '@/context/auth-provider';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { ShieldAlert } from 'lucide-react';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -31,6 +33,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function AuthForm({ onBack }: { onBack: () => void }) {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignupDisabled, setIsSignupDisabled] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -38,6 +41,16 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
     resolver: zodResolver(formSchema),
     defaultValues: { email: "", password: "", name: "" },
   });
+
+  useEffect(() => {
+    const checkSignupStatus = async () => {
+        const settingsDoc = await getDoc(doc(db, 'system_settings', 'signup_controls'));
+        if (settingsDoc.exists() && settingsDoc.data().isPatientSignupDisabled) {
+            setIsSignupDisabled(true);
+        }
+    };
+    checkSignupStatus();
+  }, []);
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
@@ -62,6 +75,9 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
         toast({ title: "Login Successful", description: "Welcome back!" });
         router.push('/');
       } else {
+        if(isSignupDisabled) {
+            throw new Error("Patient sign-ups are currently disabled by the administrator.");
+        }
         if (!data.name) {
             form.setError("name", { type: "manual", message: "Name is required for sign up." });
             setIsLoading(false);
@@ -128,6 +144,15 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
           <CardDescription>{isLogin ? "Sign in to access your dashboard." : "Get started with your health journey."}</CardDescription>
         </CardHeader>
         <CardContent>
+          {!isLogin && isSignupDisabled && (
+            <Alert variant="destructive" className="mb-4">
+                <ShieldAlert className="h-4 w-4" />
+                <AlertTitle>Sign-ups Disabled</AlertTitle>
+                <AlertDescription>
+                    New patient registrations are currently not being accepted. Please check back later.
+                </AlertDescription>
+            </Alert>
+          )}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               {!isLogin && (
@@ -171,7 +196,7 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading || (!isLogin && isSignupDisabled)}>
                 {isLoading ? 'Processing...' : (isLogin ? 'Log In' : 'Sign Up')}
               </Button>
             </form>

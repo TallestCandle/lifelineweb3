@@ -7,11 +7,13 @@ import { useEffect } from 'react';
 import { Loader } from '../ui/loader';
 import { AppShell } from '../app-shell';
 import { DoctorAppShell } from '../doctor/doctor-app-shell';
+import { AdminAppShell } from '../admin/admin-app-shell';
 import { ProfileProvider } from '@/context/profile-provider';
 
 const PUBLIC_USER_ROUTES = ['/auth', '/landing'];
 const PUBLIC_DOCTOR_ROUTES = ['/doctor/auth'];
-const ALL_PUBLIC_ROUTES = [...PUBLIC_USER_ROUTES, ...PUBLIC_DOCTOR_ROUTES];
+const PUBLIC_ADMIN_ROUTES = ['/admin/auth'];
+const ALL_PUBLIC_ROUTES = [...PUBLIC_USER_ROUTES, ...PUBLIC_DOCTOR_ROUTES, ...PUBLIC_ADMIN_ROUTES];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
     const { user, role, loading: authLoading } = useAuth();
@@ -19,6 +21,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     const router = useRouter();
 
     const isDoctorRoute = pathname.startsWith('/doctor/');
+    const isAdminRoute = pathname.startsWith('/admin/');
     const isPublicRoute = ALL_PUBLIC_ROUTES.some(route => pathname === route);
 
     useEffect(() => {
@@ -29,33 +32,35 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             if (!isPublicRoute) {
                 if (isDoctorRoute) {
                     router.replace('/doctor/auth');
+                } else if (isAdminRoute) {
+                    router.replace('/admin/auth');
                 } else {
                     router.replace('/landing');
                 }
             }
         // User is logged in
         } else {
-            // User has a role and is trying to access a protected route
             if (role) {
-                if (isDoctorRoute && role !== 'doctor') {
-                    // Patient trying to access doctor routes
+                if (isAdminRoute && role !== 'admin') {
                     router.replace('/');
-                } else if (!isDoctorRoute && role === 'doctor') {
-                    // Doctor trying to access patient routes
-                    router.replace('/doctor/dashboard');
+                } else if (isDoctorRoute && role !== 'doctor') {
+                    router.replace('/');
+                } else if (!isDoctorRoute && !isAdminRoute && (role === 'doctor' || role === 'admin')) {
+                    router.replace(role === 'doctor' ? '/doctor/dashboard' : '/admin/dashboard');
                 }
             }
             
-            // User is trying to access a public route (like /auth)
             if (isPublicRoute) {
-                if (role === 'doctor') {
+                 if (role === 'admin') {
+                    router.replace('/admin/dashboard');
+                } else if (role === 'doctor') {
                      router.replace('/doctor/dashboard');
                 } else {
                     router.replace('/');
                 }
             }
         }
-    }, [authLoading, user, role, isPublicRoute, router, pathname, isDoctorRoute]);
+    }, [authLoading, user, role, isPublicRoute, router, pathname, isDoctorRoute, isAdminRoute]);
 
     if (authLoading || (!user && !isPublicRoute) || (user && isPublicRoute)) {
         return <Loader />;
@@ -65,15 +70,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (user && !role) {
         return <Loader />;
     }
-    
-    if (user && role === 'doctor' && !isDoctorRoute) {
-        return <Loader />; // Doctor on patient route, waiting for redirect
-    }
-    if (user && role === 'patient' && isDoctorRoute) {
-        return <Loader />; // Patient on doctor route, waiting for redirect
-    }
 
     if (user) {
+        if (isAdminRoute && role !== 'admin') return <Loader />;
+        if (isDoctorRoute && role !== 'doctor') return <Loader />;
+        if (!isAdminRoute && !isDoctorRoute && role !== 'patient') return <Loader />;
+
+        if (isAdminRoute) {
+            return <AdminAppShell>{children}</AdminAppShell>
+        }
         if (isDoctorRoute) {
             return <DoctorAppShell>{children}</DoctorAppShell>;
         }

@@ -8,14 +8,14 @@ import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Stethoscope, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { Shield, ArrowLeft, ShieldAlert } from 'lucide-react';
 import { Loader } from '../ui/loader';
 import type { UserRole } from '@/context/auth-provider';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -28,7 +28,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function DoctorAuthForm() {
+export function AdminAuthForm() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSignupDisabled, setIsSignupDisabled] = useState(false);
@@ -40,11 +40,18 @@ export function DoctorAuthForm() {
     defaultValues: { email: "", password: "", name: "" },
   });
 
-  useEffect(() => {
+   useEffect(() => {
     const checkSignupStatus = async () => {
         const settingsDoc = await getDoc(doc(db, 'system_settings', 'signup_controls'));
-        if (settingsDoc.exists() && settingsDoc.data().isDoctorSignupDisabled) {
+        if (settingsDoc.exists() && settingsDoc.data().isAdminSignupDisabled) {
             setIsSignupDisabled(true);
+        } else {
+            // Also disable if any admin already exists
+            const adminQuery = query(collection(db, 'users'), where('role', '==', 'admin'));
+            const adminSnapshot = await getDocs(adminQuery);
+            if (!adminSnapshot.empty) {
+                setIsSignupDisabled(true);
+            }
         }
     };
     checkSignupStatus();
@@ -53,7 +60,7 @@ export function DoctorAuthForm() {
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
     if (!auth) {
-        toast({ variant: "destructive", title: "Configuration Error", description: "Firebase is not configured. Please check your environment variables." });
+        toast({ variant: "destructive", title: "Configuration Error", description: "Firebase is not configured." });
         setIsLoading(false);
         return;
     }
@@ -61,20 +68,19 @@ export function DoctorAuthForm() {
       if (isLogin) {
         const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
         
-        // Verify user role
         const userDocRef = doc(db, 'users', userCredential.user.uid);
         const docSnap = await getDoc(userDocRef);
 
-        if (!docSnap.exists() || docSnap.data().role !== 'doctor') {
-          await auth.signOut(); // Log out the user
-          throw new Error("This is not a doctor account. Please use the patient portal to log in.");
+        if (!docSnap.exists() || docSnap.data().role !== 'admin') {
+          await auth.signOut();
+          throw new Error("This account does not have administrative privileges.");
         }
         
-        toast({ title: "Doctor Login Successful", description: "Welcome back, Doctor!" });
-        router.push('/doctor/dashboard');
+        toast({ title: "Admin Login Successful" });
+        router.push('/admin/dashboard');
       } else {
         if (isSignupDisabled) {
-            throw new Error("Doctor sign-ups are currently disabled by the administrator.");
+            throw new Error("Admin sign-ups are disabled. An admin account already exists.");
         }
         if (!data.name) {
             form.setError("name", { type: "manual", message: "Name is required for sign up." });
@@ -86,12 +92,15 @@ export function DoctorAuthForm() {
         
         await updateProfile(user, { displayName: data.name });
 
-        // Set user role in Firestore
         const userDocRef = doc(db, 'users', user.uid);
-        await setDoc(userDocRef, { role: 'doctor' as UserRole });
+        await setDoc(userDocRef, { 
+            role: 'admin' as UserRole,
+            name: data.name,
+            email: data.email
+        });
         
-        toast({ title: "Doctor Sign Up Successful", description: "Your account has been created. Please complete your profile." });
-        router.push('/doctor/dashboard');
+        toast({ title: "Admin Account Created", description: "Welcome! You are the first administrator." });
+        router.push('/admin/dashboard');
       }
     } catch (error: any) {
       let errorMessage = error.message || "An unexpected error occurred. Please try again.";
@@ -116,27 +125,27 @@ export function DoctorAuthForm() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-secondary/50">
-      <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[radial-gradient(hsl(var(--primary)/0.15)_1px,transparent_1px)] [background-size:32px_32px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_60%,transparent_100%)]"></div>
-      <Card className="w-full max-w-md mx-4 relative bg-card/80 backdrop-blur-sm border-primary/20">
-         <Button variant="ghost" size="icon" className="absolute top-4 left-4" onClick={() => router.push('/auth')}>
+    <div className="flex items-center justify-center min-h-screen bg-background">
+       <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[radial-gradient(hsl(var(--primary)/0.1)_1px,transparent_1px)] [background-size:32px_32px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_60%,transparent_100%)]"></div>
+      <Card className="w-full max-w-md mx-4 bg-card/80 backdrop-blur-sm border-primary/20 relative">
+        <Button variant="ghost" size="icon" className="absolute top-4 left-4" onClick={() => router.push('/auth')}>
           <ArrowLeft />
         </Button>
         <CardHeader className="text-center pt-16">
             <div className="flex justify-center items-center gap-2 mb-4">
-                <Stethoscope className="w-10 h-10 text-primary"/>
+                <Shield className="w-10 h-10 text-primary"/>
                 <h1 className="text-3xl font-bold">Lifeline AI</h1>
             </div>
-          <CardTitle>{isLogin ? "Doctor Portal" : "Doctor Registration"}</CardTitle>
-          <CardDescription>{isLogin ? "Sign in to the clinical dashboard." : "Create a new doctor account."}</CardDescription>
+          <CardTitle>{isLogin ? "Admin Login" : "Admin Sign Up"}</CardTitle>
+          <CardDescription>{isLogin ? "Access the system's control panel." : "Create the first admin account."}</CardDescription>
         </CardHeader>
         <CardContent>
           {!isLogin && isSignupDisabled && (
-            <Alert variant="destructive" className="mb-4">
+             <Alert variant="destructive" className="mb-4">
                 <ShieldAlert className="h-4 w-4" />
                 <AlertTitle>Sign-ups Disabled</AlertTitle>
                 <AlertDescription>
-                    New doctor registrations are currently not being accepted. Please check back later.
+                    An administrator account already exists. Only one admin account can be created through this page.
                 </AlertDescription>
             </Alert>
           )}
@@ -150,7 +159,7 @@ export function DoctorAuthForm() {
                     <FormItem>
                       <FormLabel>Full Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Dr. Jane Doe" {...field} />
+                        <Input placeholder="Admin User" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -164,7 +173,7 @@ export function DoctorAuthForm() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="you@example.com" {...field} />
+                      <Input placeholder="admin@example.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -191,7 +200,7 @@ export function DoctorAuthForm() {
         </CardContent>
         <CardFooter className="text-center flex-col">
           <p className="text-sm text-muted-foreground">
-            {isLogin ? "Don't have a doctor account?" : "Already have a doctor account?"}{' '}
+            {isLogin ? "Need to create the first admin account?" : "Already an admin?"}{' '}
             <Button variant="link" onClick={toggleForm} className="p-0 h-auto">
               {isLogin ? 'Sign Up' : 'Log In'}
             </Button>
