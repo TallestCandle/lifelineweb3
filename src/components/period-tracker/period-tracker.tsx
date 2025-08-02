@@ -39,7 +39,7 @@ interface CycleLog {
 // --- SVG Cycle Dial Component ---
 const CycleDial = ({ cycleData }: { cycleData: any }) => {
   if (!cycleData) return null;
-  const { cycleLength, daysUntilNextPeriod, currentDayInCycle, periodLength, fertileWindowStart, fertileWindowEnd, ovulationDay, lastPeriodStart, nextPeriodStart } = cycleData;
+  const { cycleLength, daysUntilNextPeriod, currentDayInCycle, periodLength, ovulationDay, lastPeriodStart, nextPeriodStart, fertileWindowStart, fertileWindowEnd } = cycleData;
 
   const radius = 80;
 
@@ -86,7 +86,7 @@ const CycleDial = ({ cycleData }: { cycleData: any }) => {
 
             {/* Ovulation day marker */}
             <circle cx={getCoordinatesForDay(ovulationDisplayDay).x} cy={getCoordinatesForDay(ovulationDisplayDay).y} r="8" fill="hsl(var(--primary))" />
-
+            
             {/* Current day indicator */}
             <circle cx={currentDayIndicator.x} cy={currentDayIndicator.y} r="5" fill="hsl(var(--foreground))" stroke="hsl(var(--background))" strokeWidth="2" />
             
@@ -139,14 +139,6 @@ export function PeriodTracker() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CycleLog));
         setCycleLogs(logs);
-        
-        // Only populate form on initial load if it's empty
-        if (isLoading && logs[0] && !form.getValues('lastPeriodStartDate')) {
-            form.reset({
-                lastPeriodStartDate: parseISO(logs[0].startDate),
-                cycleLength: logs[0].cycleLength,
-            });
-        }
         setIsLoading(false);
     });
     return () => unsubscribe();
@@ -184,16 +176,13 @@ export function PeriodTracker() {
   const onSubmit = async (data: PeriodTrackerFormValues) => {
     if (!user) return;
 
-    // Use the validated data directly from the arguments
-    const { lastPeriodStartDate, cycleLength } = data;
-
     try {
       await addDoc(collection(db, `users/${user.uid}/cycles`), {
-        startDate: lastPeriodStartDate.toISOString(),
-        cycleLength: cycleLength,
+        startDate: data.lastPeriodStartDate.toISOString(),
+        cycleLength: data.cycleLength,
       });
       toast({ title: 'Cycle Logged', description: 'Your new cycle information has been saved.' });
-      form.reset({ cycleLength: 28, lastPeriodStartDate: undefined }); // Clear form after successful submission
+      form.reset({ cycleLength: 28, lastPeriodStartDate: undefined });
     } catch (error) {
       console.error("Error logging cycle:", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Could not save your cycle information.' });
@@ -350,3 +339,5 @@ export function PeriodTracker() {
     </div>
   );
 }
+
+    
