@@ -1,25 +1,28 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { addDays, subDays, format, parseISO, isSameDay, differenceInDays, startOfDay } from 'date-fns';
+import { addDays, subDays, format, parseISO, differenceInDays, startOfDay } from 'date-fns';
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Droplet, HeartHandshake, Loader2, Sparkles, UserX, Target, Wind, Leaf, RefreshCw } from 'lucide-react';
+import { CalendarIcon, Droplet, HeartHandshake, Loader2, Sparkles, UserX, Target, RefreshCw, FileClock, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, addDoc, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, limit, doc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { useProfile } from '@/context/profile-provider';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
+
 
 const periodTrackerSchema = z.object({
   lastPeriodStartDate: z.date({
@@ -39,14 +42,14 @@ interface CycleLog {
 // --- SVG Cycle Dial Component ---
 const CycleDial = ({ cycleData }: { cycleData: any }) => {
   if (!cycleData) return null;
-  const { cycleLength, daysUntilNextPeriod, currentDayInCycle, periodLength, ovulationDay, lastPeriodStart, nextPeriodStart, fertileWindowStart, fertileWindowEnd } = cycleData;
+  const { cycleLength, daysUntilNextPeriod, currentDayInCycle, periodLength, lastPeriodStart, nextPeriodStart, fertileWindowStart, fertileWindowEnd, ovulationDay } = cycleData;
 
   const radius = 80;
 
-  const getCoordinatesForDay = (day: number, customRadius = radius) => {
+  const getCoordinatesForDay = (day: number) => {
     const angle = (day / cycleLength) * 360;
-    const x = 100 + customRadius * Math.cos((angle - 90) * (Math.PI / 180));
-    const y = 100 + customRadius * Math.sin((angle - 90) * (Math.PI / 180));
+    const x = 100 + radius * Math.cos((angle - 90) * (Math.PI / 180));
+    const y = 100 + radius * Math.sin((angle - 90) * (Math.PI / 180));
     return { x, y };
   };
 
@@ -74,23 +77,13 @@ const CycleDial = ({ cycleData }: { cycleData: any }) => {
             {format(nextPeriodStart, 'MMMM yyyy')}
         </h3>
         <svg viewBox="0 0 200 200" className="w-full h-auto max-w-sm">
-            {/* Background track */}
             <circle cx="100" cy="100" r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth="12" />
-
-            {/* Period arc */}
             <path d={describeArc(0, periodLength)} fill="none" stroke="hsl(var(--destructive)/0.5)" strokeWidth="12" />
             <path d={describeArc(cycleLength, cycleLength + periodLength)} fill="none" stroke="hsl(var(--destructive)/0.5)" strokeWidth="12" />
-            
-            {/* Fertile window arc */}
             <path d={describeArc(fertileStartDay, fertileEndDay)} fill="none" stroke="hsl(var(--primary)/0.4)" strokeWidth="12" />
-
-            {/* Ovulation day marker */}
             <circle cx={getCoordinatesForDay(ovulationDisplayDay).x} cy={getCoordinatesForDay(ovulationDisplayDay).y} r="8" fill="hsl(var(--primary))" />
-            
-            {/* Current day indicator */}
             <circle cx={currentDayIndicator.x} cy={currentDayIndicator.y} r="5" fill="hsl(var(--foreground))" stroke="hsl(var(--background))" strokeWidth="2" />
             
-            {/* Center Text */}
             <text x="100" y="85" textAnchor="middle" className="text-4xl font-bold fill-foreground">{daysUntilNextPeriod}</text>
             <text x="100" y="105" textAnchor="middle" className="text-sm fill-muted-foreground">days until</text>
             <text x="100" y="125" textAnchor="middle" className="text-lg font-bold fill-primary">Next Period</text>
@@ -107,8 +100,6 @@ export function PeriodTracker() {
   const [cycleLogs, setCycleLogs] = useState<CycleLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const latestLog = cycleLogs[0];
-
   const form = useForm<PeriodTrackerFormValues>({
     resolver: zodResolver(periodTrackerSchema),
     defaultValues: {
@@ -117,7 +108,14 @@ export function PeriodTracker() {
     },
   });
 
-  const loadLatestLogIntoForm = () => {
+  const latestLog = useMemo(() => {
+    if (cycleLogs.length > 0) {
+      return cycleLogs[0];
+    }
+    return null;
+  }, [cycleLogs]);
+
+  const loadLatestLogIntoForm = useCallback(() => {
     if (latestLog) {
       form.reset({
         lastPeriodStartDate: parseISO(latestLog.startDate),
@@ -127,9 +125,8 @@ export function PeriodTracker() {
     } else {
       toast({ variant: 'destructive', title: 'No Data', description: 'There are no past cycle logs to load.' });
     }
-  };
+  }, [latestLog, form, toast]);
 
-  // Effect to subscribe to Firestore updates
   useEffect(() => {
     if (!user) {
         setIsLoading(false);
@@ -175,12 +172,12 @@ export function PeriodTracker() {
 
   const onSubmit = async (data: PeriodTrackerFormValues) => {
     if (!user) return;
-
-    try {
-      await addDoc(collection(db, `users/${user.uid}/cycles`), {
+    const submissionData = {
         startDate: data.lastPeriodStartDate.toISOString(),
         cycleLength: data.cycleLength,
-      });
+    };
+    try {
+      await addDoc(collection(db, `users/${user.uid}/cycles`), submissionData);
       toast({ title: 'Cycle Logged', description: 'Your new cycle information has been saved.' });
       form.reset({ cycleLength: 28, lastPeriodStartDate: undefined });
     } catch (error) {
@@ -189,6 +186,17 @@ export function PeriodTracker() {
     }
   };
   
+  const deleteLog = async (logId: string) => {
+    if (!user) return;
+    try {
+        await deleteDoc(doc(db, `users/${user.uid}/cycles`, logId));
+        toast({ title: 'Log Deleted', description: 'The cycle log has been removed.' });
+    } catch (error) {
+        console.error("Error deleting log:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not delete the log.' });
+    }
+  };
+
   if (isLoading || profileLoading) {
     return (
         <div className="flex justify-center items-center h-full">
@@ -234,6 +242,52 @@ export function PeriodTracker() {
                 <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-primary ring-1 ring-primary-foreground"></span> Ovulation Day</div>
             </div>
           </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><FileClock/> Cycle History</CardTitle>
+                <CardDescription>View and manage your past cycle logs.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {cycleLogs.length > 0 ? (
+                    <Accordion type="single" collapsible className="w-full">
+                        {cycleLogs.map(log => (
+                            <AccordionItem value={log.id} key={log.id}>
+                                <AccordionTrigger>
+                                    Cycle starting {format(parseISO(log.startDate), 'MMMM d, yyyy')}
+                                </AccordionTrigger>
+                                <AccordionContent className="flex justify-between items-center">
+                                    <p className="text-sm text-muted-foreground">
+                                        Logged with a cycle length of {log.cycleLength} days.
+                                    </p>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4"/> Delete</Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This will permanently delete this cycle log. This action cannot be undone.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => deleteLog(log.id)}>
+                                                    Confirm Delete
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                ) : (
+                    <p className="text-center text-muted-foreground py-8">No cycle history yet.</p>
+                )}
+            </CardContent>
         </Card>
       </div>
 
@@ -339,5 +393,3 @@ export function PeriodTracker() {
     </div>
   );
 }
-
-    
