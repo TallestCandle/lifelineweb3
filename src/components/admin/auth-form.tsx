@@ -70,6 +70,10 @@ export function AdminAuthForm() {
           await auth.signOut();
           throw new Error("This account does not have administrative privileges.");
         }
+        if (docSnap.data().status === 'suspended') {
+            await auth.signOut();
+            throw new Error("This account has been suspended.");
+        }
         
         toast({ title: "Admin Login Successful" });
         router.push('/admin/dashboard');
@@ -91,11 +95,15 @@ export function AdminAuthForm() {
         await setDoc(userDocRef, { 
             role: 'admin' as UserRole,
             name: data.name,
-            email: data.email
+            email: data.email,
+            status: 'pending', // New admins are pending approval
+            permissions: {
+                canManageSignups: false,
+            }
         });
         
-        toast({ title: "Admin Account Created", description: "Welcome! Your account has been registered." });
-        router.push('/admin/dashboard');
+        toast({ title: "Admin Account Created", description: "Your account is pending approval from a super admin." });
+        router.push('/admin/auth'); // Redirect to login after signup
       }
     } catch (error: any) {
       let errorMessage = error.message || "An unexpected error occurred. Please try again.";
