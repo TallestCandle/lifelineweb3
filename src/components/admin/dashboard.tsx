@@ -14,8 +14,6 @@ import { Switch } from '@/components/ui/switch';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Loader2, ShieldCheck, UserCog, UserPlus, Stethoscope, Users } from 'lucide-react';
 import { Separator } from '../ui/separator';
-import { Input } from '../ui/input';
-import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Skeleton } from '../ui/skeleton';
 
 const settingsSchema = z.object({
@@ -25,13 +23,6 @@ const settingsSchema = z.object({
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
-
-const newAdminSchema = z.object({
-  name: z.string().min(2, "Name is required."),
-  email: z.string().email("Invalid email address."),
-});
-
-type NewAdminFormValues = z.infer<typeof newAdminSchema>;
 
 interface AdminUser {
     id: string;
@@ -51,11 +42,6 @@ export function AdminDashboard() {
       isDoctorSignupDisabled: false,
       isAdminSignupDisabled: true,
     },
-  });
-
-  const newAdminForm = useForm<NewAdminFormValues>({
-      resolver: zodResolver(newAdminSchema),
-      defaultValues: { name: "", email: "" },
   });
 
   useEffect(() => {
@@ -103,14 +89,6 @@ export function AdminDashboard() {
     }
   };
   
-  const onNewAdminSubmit = (data: NewAdminFormValues) => {
-    // This is a placeholder. Secure user creation must be done server-side.
-    toast({
-        title: "Feature In Development",
-        description: "Secure admin creation requires server-side logic which is not yet implemented.",
-    });
-  };
-
   return (
     <div className="space-y-8">
       <div>
@@ -183,7 +161,7 @@ export function AdminDashboard() {
                                             <Switch
                                                 checked={!field.value}
                                                 onCheckedChange={(checked) => field.onChange(!checked)}
-                                            />
+                                                />
                                             </FormControl>
                                         </FormItem>
                                     )}
@@ -209,46 +187,9 @@ export function AdminDashboard() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Users/> Admin Management</CardTitle>
-                        <CardDescription>Create and manage administrator accounts.</CardDescription>
+                        <CardDescription>View and manage administrator accounts.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <div>
-                             <h4 className="font-bold mb-2 text-md">Create New Admin</h4>
-                             <Form {...newAdminForm}>
-                                <form onSubmit={newAdminForm.handleSubmit(onNewAdminSubmit)} className="space-y-4 p-4 border rounded-lg">
-                                     <FormField
-                                        control={newAdminForm.control}
-                                        name="name"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Full Name</FormLabel>
-                                                <FormControl><Input placeholder="New Admin Name" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={newAdminForm.control}
-                                        name="email"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Email Address</FormLabel>
-                                                <FormControl><Input placeholder="new.admin@example.com" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <Alert>
-                                        <AlertTitle>Note</AlertTitle>
-                                        <AlertDescription>
-                                           For security, new admin creation is handled by a server-side function. This UI is a placeholder until the backend logic is implemented. Clicking the button is currently disabled.
-                                        </AlertDescription>
-                                    </Alert>
-                                    <Button type="submit" disabled>Create Admin</Button>
-                                </form>
-                             </Form>
-                        </div>
-                         <Separator />
                          <div>
                             <h4 className="font-bold mb-2 text-md">Current Administrators</h4>
                             <div className="space-y-2">
