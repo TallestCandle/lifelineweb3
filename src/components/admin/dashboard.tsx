@@ -86,7 +86,7 @@ export function AdminDashboard() {
     try {
       setIsLoading(true);
       const settingsDocRef = doc(db, 'system_settings', 'signup_controls');
-      await setDoc(settingsDocRef, { ...data, isAdminSignupDisabled: true }, { merge: true });
+      await setDoc(settingsDocRef, data, { merge: true });
       toast({
         title: 'Settings Saved',
         description: 'Your changes to signup controls have been saved.',
@@ -177,12 +177,12 @@ export function AdminDashboard() {
                                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-secondary/50">
                                             <div className="space-y-0.5">
                                             <FormLabel className="text-base flex items-center gap-2"><ShieldCheck/> Admin Sign-ups</FormLabel>
-                                            <p className="text-sm text-muted-foreground">Public registration is disabled after the first admin account is created.</p>
+                                            <p className="text-sm text-muted-foreground">Allow new administrators to register.</p>
                                             </div>
                                             <FormControl>
                                             <Switch
                                                 checked={!field.value}
-                                                disabled={true}
+                                                onCheckedChange={(checked) => field.onChange(!checked)}
                                             />
                                             </FormControl>
                                         </FormItem>

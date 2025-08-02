@@ -8,7 +8,7 @@ import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
@@ -31,7 +31,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function AdminAuthForm() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignupDisabled, setIsSignupDisabled] = useState(false);
+  const [isSignupDisabled, setIsSignupDisabled] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -46,12 +46,7 @@ export function AdminAuthForm() {
         if (settingsDoc.exists() && settingsDoc.data().isAdminSignupDisabled) {
             setIsSignupDisabled(true);
         } else {
-            // Also disable if any admin already exists
-            const adminQuery = query(collection(db, 'users'), where('role', '==', 'admin'));
-            const adminSnapshot = await getDocs(adminQuery);
-            if (!adminSnapshot.empty) {
-                setIsSignupDisabled(true);
-            }
+            setIsSignupDisabled(false);
         }
     };
     checkSignupStatus();
@@ -80,7 +75,7 @@ export function AdminAuthForm() {
         router.push('/admin/dashboard');
       } else {
         if (isSignupDisabled) {
-            throw new Error("Admin sign-ups are disabled. An admin account already exists.");
+            throw new Error("Admin sign-ups are currently disabled by the main administrator.");
         }
         if (!data.name) {
             form.setError("name", { type: "manual", message: "Name is required for sign up." });
@@ -99,7 +94,7 @@ export function AdminAuthForm() {
             email: data.email
         });
         
-        toast({ title: "Admin Account Created", description: "Welcome! You are the first administrator." });
+        toast({ title: "Admin Account Created", description: "Welcome! Your account has been registered." });
         router.push('/admin/dashboard');
       }
     } catch (error: any) {
@@ -137,7 +132,7 @@ export function AdminAuthForm() {
                 <h1 className="text-3xl font-bold">Lifeline AI</h1>
             </div>
           <CardTitle>{isLogin ? "Admin Login" : "Admin Sign Up"}</CardTitle>
-          <CardDescription>{isLogin ? "Access the system's control panel." : "Create the first admin account."}</CardDescription>
+          <CardDescription>{isLogin ? "Access the system's control panel." : "Create an administrator account."}</CardDescription>
         </CardHeader>
         <CardContent>
           {!isLogin && isSignupDisabled && (
@@ -145,7 +140,7 @@ export function AdminAuthForm() {
                 <ShieldAlert className="h-4 w-4" />
                 <AlertTitle>Sign-ups Disabled</AlertTitle>
                 <AlertDescription>
-                    An administrator account already exists. Only one admin account can be created through this page.
+                    The main administrator has currently disabled new admin registrations.
                 </AlertDescription>
             </Alert>
           )}
@@ -200,7 +195,7 @@ export function AdminAuthForm() {
         </CardContent>
         <CardFooter className="text-center flex-col">
           <p className="text-sm text-muted-foreground">
-            {isLogin ? "Need to create the first admin account?" : "Already an admin?"}{' '}
+            {isLogin ? "Need to create an admin account?" : "Already an admin?"}{' '}
             <Button variant="link" onClick={toggleForm} className="p-0 h-auto">
               {isLogin ? 'Sign Up' : 'Log In'}
             </Button>
