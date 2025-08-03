@@ -31,10 +31,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
+import { Label } from '../ui/label';
 
 const settingsSchema = z.object({
   isPatientSignupDisabled: z.boolean().default(false),
@@ -250,17 +252,18 @@ export function AdminDashboard() {
                             <h4 className="font-bold mb-2 text-md">Current Administrators</h4>
                             <div className="space-y-2">
                                 {isLoading ? <Skeleton className="h-10 w-full" /> : admins.map(admin => {
-                                  const StatusIcon = statusConfig[admin.status].icon;
+                                  const statusInfo = statusConfig[admin.status] || statusConfig.pending;
+                                  const StatusIcon = statusInfo.icon;
                                   return (
                                     <div key={admin.id} className="flex justify-between items-center p-3 bg-secondary rounded-md">
                                         <div className="flex items-center gap-3">
-                                            <StatusIcon className={cn("w-5 h-5", statusConfig[admin.status].color)} />
+                                            <StatusIcon className={cn("w-5 h-5", statusInfo.color)} />
                                             <div>
                                                 <p className="font-semibold">{admin.name}</p>
                                                 <p className="text-sm text-muted-foreground">{admin.email}</p>
                                             </div>
                                         </div>
-                                        <Badge variant={admin.status === 'active' ? 'default' : 'secondary'} className="capitalize">{admin.status}</Badge>
+                                        <Badge variant={admin.status === 'active' ? 'default' : 'secondary'} className="capitalize">{admin.status || 'pending'}</Badge>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="ghost" size="icon" disabled={user?.uid === admin.id}><MoreVertical className="h-4 w-4"/></Button>
@@ -334,3 +337,5 @@ export function AdminDashboard() {
     </div>
   );
 }
+
+    
