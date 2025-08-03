@@ -31,7 +31,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
@@ -81,8 +80,14 @@ export function AdminDashboard() {
         // Fetch current user's permissions first
         const currentUserDocRef = doc(db, 'users', user.uid);
         const currentUserSnap = await getDoc(currentUserDocRef);
-        if (currentUserSnap.exists() && currentUserSnap.data().permissions) {
-            setCurrentUserPermissions(currentUserSnap.data().permissions);
+        if (currentUserSnap.exists()) {
+            const userData = currentUserSnap.data();
+            // If permissions object doesn't exist, this is the super admin.
+            if (!userData.permissions) {
+                setCurrentUserPermissions({ canManageSignups: true });
+            } else {
+                setCurrentUserPermissions(userData.permissions);
+            }
         }
 
         // Fetch system-wide settings
