@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
@@ -19,6 +19,7 @@ import { Shield, ArrowLeft, ShieldAlert } from 'lucide-react';
 import { Loader } from '../ui/loader';
 import type { UserRole } from '@/context/auth-provider';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -32,6 +33,8 @@ export function AdminAuthForm() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSignupDisabled, setIsSignupDisabled] = useState(true);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
   const router = useRouter();
   const { toast } = useToast();
 
@@ -118,12 +121,41 @@ export function AdminAuthForm() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    if (!resetEmail) {
+      toast({ variant: "destructive", title: "Email Required", description: "Please enter your email address." });
+      return;
+    }
+    if (!auth) {
+        toast({ variant: "destructive", title: "Configuration Error", description: "Firebase is not configured." });
+        return;
+    }
+    setIsLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      toast({
+        title: "Password Reset Email Sent",
+        description: "If an account exists for this email, a reset link has been sent to it.",
+      });
+      setIsResetDialogOpen(false);
+    } catch (error: any) {
+      console.error("Password reset error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not send password reset email. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const toggleForm = () => {
     setIsLogin(!isLogin);
     form.reset();
   };
 
-  if (isLoading) {
+  if (isLoading && !isResetDialogOpen) {
     return <Loader />
   }
 
@@ -201,7 +233,12 @@ export function AdminAuthForm() {
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="text-center flex-col">
+        <CardFooter className="text-center flex-col gap-2">
+           {isLogin && (
+            <Button variant="link" size="sm" onClick={() => setIsResetDialogOpen(true)}>
+              Forgot Password?
+            </Button>
+          )}
           <p className="text-sm text-muted-foreground">
             {isLogin ? "Need to create an admin account?" : "Already an admin?"}{' '}
             <Button variant="link" onClick={toggleForm} className="p-0 h-auto">
@@ -210,6 +247,37 @@ export function AdminAuthForm() {
           </p>
         </CardFooter>
       </Card>
+
+      <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Enter the email address associated with your admin account, and we will send you a link to reset your password.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+             <div className="space-y-2">
+                <FormLabel htmlFor="reset-email">Email Address</FormLabel>
+                <Input
+                  id="reset-email"
+                  placeholder="admin@example.com"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  type="email"
+                />
+              </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsResetDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handlePasswordReset} disabled={isLoading}>
+              {isLoading ? 'Sending...' : 'Send Reset Link'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+    
