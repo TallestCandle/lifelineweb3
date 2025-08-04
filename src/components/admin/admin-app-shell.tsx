@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Shield, LogOut, Settings } from "lucide-react"
+import { Shield, LogOut, Settings, Newspaper } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { signOut } from "firebase/auth"
 import { auth } from "@/lib/firebase"
@@ -38,6 +38,9 @@ export function AdminAppShell({ children }: { children: React.ReactNode }) {
         <div className="flex-1 p-4 space-y-2">
             <Button asChild variant={pathname === '/admin/dashboard' ? 'secondary' : 'ghost'} className="w-full justify-start">
                 <Link href="/admin/dashboard"><Settings className="mr-2"/>Dashboard</Link>
+            </Button>
+            <Button asChild variant={pathname.startsWith('/admin/blog') ? 'secondary' : 'ghost'} className="w-full justify-start">
+                <Link href="/admin/blog"><Newspaper className="mr-2"/>Blog</Link>
             </Button>
         </div>
          <div className="p-4 border-t">
