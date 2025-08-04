@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { Loader2, ShieldCheck, UserCog, UserPlus, Stethoscope, Users, MoreVertical, Trash2, ShieldX, ShieldQuestion, ToggleRight } from 'lucide-react';
-import { Separator } from '../ui/separator';
 import { Skeleton } from '../ui/skeleton';
 import { useAuth } from '@/context/auth-provider';
 import {
