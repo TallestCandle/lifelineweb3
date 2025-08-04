@@ -21,6 +21,7 @@ import { Switch } from '../ui/switch';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Link from 'next/link';
+import { Label } from '../ui/label';
 
 const postSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters'),
