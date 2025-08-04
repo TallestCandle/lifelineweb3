@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
-import { Loader2, ShieldCheck, UserCog, UserPlus, Stethoscope, Users, MoreVertical, Trash2, ShieldX, ShieldQuestion, ToggleRight } from 'lucide-react';
+import { Loader2, ShieldCheck, UserCog, UserPlus, Stethoscope, Users, MoreVertical, Trash2, ShieldX, ShieldQuestion, ToggleRight, ShieldAlert } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { useAuth } from '@/context/auth-provider';
 import {
@@ -35,6 +35,7 @@ import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { Label } from '../ui/label';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 const settingsSchema = z.object({
   signupControls: z.object({
