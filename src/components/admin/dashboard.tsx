@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
-import { Loader2, ShieldCheck, UserCog, UserPlus, Stethoscope, Users, MoreVertical, Trash2, ShieldX, ShieldQuestion } from 'lucide-react';
+import { Loader2, ShieldCheck, UserCog, UserPlus, Stethoscope, Users, MoreVertical, Trash2, ShieldX, ShieldQuestion, ToggleRight } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { Skeleton } from '../ui/skeleton';
 import { useAuth } from '@/context/auth-provider';
@@ -38,9 +38,16 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from '../ui/label';
 
 const settingsSchema = z.object({
-  isPatientSignupDisabled: z.boolean().default(false),
-  isDoctorSignupDisabled: z.boolean().default(false),
-  isAdminSignupDisabled: z.boolean().default(true),
+  signupControls: z.object({
+    isPatientSignupDisabled: z.boolean().default(false),
+    isDoctorSignupDisabled: z.boolean().default(false),
+    isAdminSignupDisabled: z.boolean().default(true),
+  }),
+  featureFlags: z.object({
+    isClinicEnabled: z.boolean().default(true),
+    isReportEnabled: z.boolean().default(true),
+    isPrescriptionsEnabled: z.boolean().default(true),
+  })
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
@@ -51,7 +58,7 @@ interface AdminUser {
     email: string;
     status: 'active' | 'suspended' | 'pending';
     permissions: {
-        canManageSignups: boolean;
+        canManageSystem: boolean;
     };
 }
 
@@ -60,15 +67,22 @@ export function AdminDashboard() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [admins, setAdmins] = useState<AdminUser[]>([]);
-  const [currentUserPermissions, setCurrentUserPermissions] = useState({ canManageSignups: false });
+  const [currentUserPermissions, setCurrentUserPermissions] = useState({ canManageSystem: false });
   const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null);
 
   const settingsForm = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
-      isPatientSignupDisabled: false,
-      isDoctorSignupDisabled: false,
-      isAdminSignupDisabled: true,
+      signupControls: {
+        isPatientSignupDisabled: false,
+        isDoctorSignupDisabled: false,
+        isAdminSignupDisabled: true,
+      },
+      featureFlags: {
+        isClinicEnabled: true,
+        isReportEnabled: true,
+        isPrescriptionsEnabled: true,
+      }
     },
   });
 
@@ -84,17 +98,21 @@ export function AdminDashboard() {
             const userData = currentUserSnap.data();
             // If permissions object doesn't exist, this is the super admin.
             if (!userData.permissions) {
-                setCurrentUserPermissions({ canManageSignups: true });
+                setCurrentUserPermissions({ canManageSystem: true });
             } else {
                 setCurrentUserPermissions(userData.permissions);
             }
         }
 
         // Fetch system-wide settings
-        const settingsDocRef = doc(db, 'system_settings', 'signup_controls');
+        const settingsDocRef = doc(db, 'system_settings', 'controls');
         const settingsSnap = await getDoc(settingsDocRef);
         if (settingsSnap.exists()) {
-          settingsForm.reset(settingsSnap.data());
+          const data = settingsSnap.data();
+          settingsForm.reset({
+            signupControls: data.signupControls || settingsForm.getValues('signupControls'),
+            featureFlags: data.featureFlags || settingsForm.getValues('featureFlags')
+          });
         }
 
         // Fetch all admin users
@@ -115,11 +133,11 @@ export function AdminDashboard() {
   const onSettingsSubmit = async (data: SettingsFormValues) => {
     try {
       setIsLoading(true);
-      const settingsDocRef = doc(db, 'system_settings', 'signup_controls');
+      const settingsDocRef = doc(db, 'system_settings', 'controls');
       await setDoc(settingsDocRef, data, { merge: true });
       toast({
         title: 'Settings Saved',
-        description: 'Your changes to signup controls have been saved.',
+        description: 'Your changes have been saved successfully.',
       });
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -159,7 +177,7 @@ export function AdminDashboard() {
       }
   };
 
-  const canManage = currentUserPermissions.canManageSignups;
+  const canManage = currentUserPermissions.canManageSystem;
 
   const statusConfig: Record<AdminUser['status'], { color: string; icon: React.ElementType }> = {
     active: { color: 'text-green-500', icon: ShieldCheck },
@@ -174,79 +192,50 @@ export function AdminDashboard() {
         <p className="text-lg text-muted-foreground">Manage system-wide settings and controls.</p>
       </div>
 
-        <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
+      <Form {...settingsForm}>
+        <form onSubmit={settingsForm.handleSubmit(onSettingsSubmit)} className="grid gap-8 lg:grid-cols-2 lg:items-start">
             <div className="space-y-8">
-                <Card>
-                    <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><UserCog/> Registration Control</CardTitle>
-                    <CardDescription>
-                        Enable or disable new user sign-ups for different roles.
-                    </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? (
-                            <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin"/></div>
-                        ) : (
-                        <Form {...settingsForm}>
-                            <form onSubmit={settingsForm.handleSubmit(onSettingsSubmit)} className="space-y-6">
-                            <fieldset disabled={!canManage} className="space-y-4 group">
-                                <div className="space-y-4 group-disabled:opacity-50 group-disabled:cursor-not-allowed">
-                                    <FormField
-                                        control={settingsForm.control}
-                                        name="isPatientSignupDisabled"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                                                <div className="space-y-0.5">
-                                                    <FormLabel className="text-base flex items-center gap-2"><UserPlus/> Patient Sign-ups</FormLabel>
-                                                </div>
-                                                <FormControl><Switch checked={!field.value} onCheckedChange={(checked) => field.onChange(!checked)} /></FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={settingsForm.control}
-                                        name="isDoctorSignupDisabled"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                                                <div className="space-y-0.5">
-                                                <FormLabel className="text-base flex items-center gap-2"><Stethoscope/> Doctor Sign-ups</FormLabel>
-                                                </div>
-                                                <FormControl><Switch checked={!field.value} onCheckedChange={(checked) => field.onChange(!checked)}/></FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={settingsForm.control}
-                                        name="isAdminSignupDisabled"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-secondary/50">
-                                                <div className="space-y-0.5">
-                                                <FormLabel className="text-base flex items-center gap-2"><ShieldCheck/> Admin Sign-ups</FormLabel>
-                                                </div>
-                                                <FormControl><Switch checked={!field.value} onCheckedChange={(checked) => field.onChange(!checked)} /></FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                                {!canManage && <p className="text-sm text-destructive font-bold">You do not have permission to change these settings.</p>}
-                            </fieldset>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><UserCog/> Registration Control</CardTitle>
+                  <CardDescription>Enable or disable new user sign-ups for different roles.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <fieldset disabled={!canManage} className="space-y-4 group">
+                    <div className="space-y-4 group-disabled:opacity-50 group-disabled:cursor-not-allowed">
+                      <FormField control={settingsForm.control} name="signupControls.isPatientSignupDisabled" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><div className="space-y-0.5"><FormLabel className="text-base flex items-center gap-2"><UserPlus/> Patient Sign-ups</FormLabel></div><FormControl><Switch checked={!field.value} onCheckedChange={(checked) => field.onChange(!checked)} /></FormControl></FormItem>)} />
+                      <FormField control={settingsForm.control} name="signupControls.isDoctorSignupDisabled" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><div className="space-y-0.5"><FormLabel className="text-base flex items-center gap-2"><Stethoscope/> Doctor Sign-ups</FormLabel></div><FormControl><Switch checked={!field.value} onCheckedChange={(checked) => field.onChange(!checked)}/></FormControl></FormItem>)} />
+                      <FormField control={settingsForm.control} name="signupControls.isAdminSignupDisabled" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-secondary/50"><div className="space-y-0.5"><FormLabel className="text-base flex items-center gap-2"><ShieldCheck/> Admin Sign-ups</FormLabel></div><FormControl><Switch checked={!field.value} onCheckedChange={(checked) => field.onChange(!checked)} /></FormControl></FormItem>)} />
+                    </div>
+                  </fieldset>
+                </CardContent>
+              </Card>
 
-                            <Separator className="my-6"/>
-
-                            <div className="flex justify-end">
-                                <Button type="submit" disabled={isLoading || !canManage}>
-                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Save Settings
-                                </Button>
-                            </div>
-                            </form>
-                        </Form>
-                        )}
-                    </CardContent>
-                </Card>
+               <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><ToggleRight/> Feature Control</CardTitle>
+                  <CardDescription>Enable or disable major application features for all users.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <fieldset disabled={!canManage} className="space-y-4 group">
+                    <div className="space-y-4 group-disabled:opacity-50 group-disabled:cursor-not-allowed">
+                       <FormField control={settingsForm.control} name="featureFlags.isClinicEnabled" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><FormLabel className="text-base">Clinic</FormLabel><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
+                       <FormField control={settingsForm.control} name="featureFlags.isReportEnabled" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><FormLabel className="text-base">Health Report</FormLabel><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
+                       <FormField control={settingsForm.control} name="featureFlags.isPrescriptionsEnabled" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><FormLabel className="text-base">Prescriptions</FormLabel><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
+                    </div>
+                  </fieldset>
+                </CardContent>
+              </Card>
+              
+              <div className="flex justify-end sticky bottom-4">
+                  <Button type="submit" size="lg" disabled={isLoading || !canManage} className="shadow-2xl">
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save All Settings
+                  </Button>
+              </div>
             </div>
             
-            <div className="space-y-8">
+            <div className="space-y-8 lg:sticky lg:top-24">
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Users/> Admin Management</CardTitle>
@@ -254,9 +243,8 @@ export function AdminDashboard() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                          <div>
-                            <h4 className="font-bold mb-2 text-md">Current Administrators</h4>
                             <div className="space-y-2">
-                                {isLoading ? <Skeleton className="h-10 w-full" /> : admins.map(admin => {
+                                {isLoading ? <Skeleton className="h-24 w-full" /> : admins.map(admin => {
                                   const statusInfo = statusConfig[admin.status] || statusConfig.pending;
                                   const StatusIcon = statusInfo.icon;
                                   return (
@@ -271,7 +259,7 @@ export function AdminDashboard() {
                                         <Badge variant={admin.status === 'active' ? 'default' : 'secondary'} className="capitalize">{admin.status || 'pending'}</Badge>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" disabled={user?.uid === admin.id}><MoreVertical className="h-4 w-4"/></Button>
+                                                <Button variant="ghost" size="icon" disabled={user?.uid === admin.id || !canManage}><MoreVertical className="h-4 w-4"/></Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
@@ -300,8 +288,18 @@ export function AdminDashboard() {
                         </div>
                     </CardContent>
                 </Card>
+                {!canManage && (
+                  <Alert variant="destructive">
+                    <ShieldAlert className="h-4 w-4" />
+                    <AlertTitle>Permissions Required</AlertTitle>
+                    <AlertDescription>
+                      You do not have sufficient permissions to manage system settings or other administrators.
+                    </AlertDescription>
+                  </Alert>
+                )}
             </div>
-        </div>
+        </form>
+      </Form>
         
         {selectedAdmin && (
             <Dialog open={!!selectedAdmin} onOpenChange={() => setSelectedAdmin(null)}>
@@ -325,11 +323,11 @@ export function AdminDashboard() {
                             </select>
                         </div>
                         <div className="flex items-center justify-between rounded-lg border p-4">
-                            <Label htmlFor="permissions-switch" className="font-bold">Can Manage Signups</Label>
+                            <Label htmlFor="permissions-switch" className="font-bold">Can Manage System</Label>
                              <Switch
                                 id="permissions-switch"
-                                checked={selectedAdmin.permissions?.canManageSignups}
-                                onCheckedChange={(checked) => handleUpdateAdmin(selectedAdmin.id, { permissions: { canManageSignups: checked } })}
+                                checked={selectedAdmin.permissions?.canManageSystem}
+                                onCheckedChange={(checked) => handleUpdateAdmin(selectedAdmin.id, { permissions: { canManageSystem: checked } })}
                             />
                         </div>
                     </div>
@@ -342,5 +340,3 @@ export function AdminDashboard() {
     </div>
   );
 }
-
-    

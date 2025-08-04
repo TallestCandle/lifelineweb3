@@ -42,9 +42,12 @@ export function RoleSelection() {
             I am a Doctor
           </Button>
         </CardContent>
-         <CardFooter>
+         <CardFooter className="flex flex-col items-center justify-center gap-4">
             <Button variant="link" onClick={() => router.push('/landing')}>
               Back to Landing Page
+            </Button>
+             <Button variant="link" size="sm" className="text-xs" onClick={() => router.push('/admin/auth')}>
+                Admin Portal
             </Button>
         </CardFooter>
       </Card>

@@ -9,6 +9,7 @@ import { AppShell } from '../app-shell';
 import { DoctorAppShell } from '../doctor/doctor-app-shell';
 import { AdminAppShell } from '../admin/admin-app-shell';
 import { ProfileProvider } from '@/context/profile-provider';
+import { SettingsProvider } from '@/context/settings-provider';
 
 const PUBLIC_USER_ROUTES = ['/auth', '/landing'];
 const PUBLIC_DOCTOR_ROUTES = ['/doctor/auth'];
@@ -83,11 +84,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             return <DoctorAppShell>{children}</DoctorAppShell>;
         }
         return (
+          <SettingsProvider>
             <ProfileProvider>
                 <AppShell>
                     {children}
                 </AppShell>
             </ProfileProvider>
+          </SettingsProvider>
         );
     }
 

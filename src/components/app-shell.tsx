@@ -48,20 +48,29 @@ import {
 } from '@/components/ui/sidebar';
 import { SheetClose } from './ui/sheet';
 import { InstallButton } from './pwa/install-button';
+import { useSettings } from '@/context/settings-provider';
 
-const mainMenuItems: { href: string; label: string; icon: LucideIcon }[] = [
+interface MenuItem {
+    href: string;
+    label: string;
+    icon: LucideIcon;
+    featureFlag?: 'isClinicEnabled' | 'isReportEnabled' | 'isPrescriptionsEnabled';
+}
+
+const mainMenuItems: MenuItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/log", label: "Vitals Logger", icon: Camera },
   { href: "/deep-dive", label: "Deep Dive", icon: BrainCircuit },
-  { href: "/clinic", label: "Clinic", icon: Building2 },
+  { href: "/clinic", label: "Clinic", icon: Building2, featureFlag: 'isClinicEnabled' },
   { href: "/dietician", label: "AI Dietician", icon: Salad },
-  { href: "/report", label: "Health Report", icon: FileText },
-  { href: "/reminders", label: "Prescriptions", icon: FileSpreadsheet },
+  { href: "/report", label: "Health Report", icon: FileText, featureFlag: 'isReportEnabled' },
+  { href: "/reminders", label: "Prescriptions", icon: FileSpreadsheet, featureFlag: 'isPrescriptionsEnabled' },
 ];
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { settings, loading: settingsLoading } = useSettings();
 
   const handleLogout = async () => {
     try {
@@ -73,6 +82,13 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const filteredMainMenuItems = mainMenuItems.filter(item => {
+    if (item.featureFlag) {
+        return settings?.featureFlags?.[item.featureFlag] ?? true;
+    }
+    return true;
+  });
+
   const sidebarMenu = (isMobile: boolean) => {
     const Wrapper = isMobile ? SheetClose : React.Fragment;
     const wrapperProps = isMobile ? { asChild: true } : {};
@@ -80,7 +96,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     return (
         <SidebarMenu>
             <SidebarSeparator className="mb-2" />
-            {mainMenuItems.map((item) => (
+            {filteredMainMenuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                     <Wrapper {...wrapperProps}>
                         <Link href={item.href}>

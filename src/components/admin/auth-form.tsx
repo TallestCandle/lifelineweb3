@@ -42,8 +42,8 @@ export function AdminAuthForm() {
 
    useEffect(() => {
     const checkSignupStatus = async () => {
-        const settingsDoc = await getDoc(doc(db, 'system_settings', 'signup_controls'));
-        if (settingsDoc.exists() && settingsDoc.data().isAdminSignupDisabled) {
+        const settingsDoc = await getDoc(doc(db, 'system_settings', 'controls'));
+        if (settingsDoc.exists() && settingsDoc.data().signupControls.isAdminSignupDisabled) {
             setIsSignupDisabled(true);
         } else {
             setIsSignupDisabled(false);
@@ -98,7 +98,7 @@ export function AdminAuthForm() {
             email: data.email,
             status: 'pending', // New admins are pending approval
             permissions: {
-                canManageSignups: false,
+                canManageSystem: false,
             }
         });
         
