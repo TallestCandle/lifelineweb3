@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { AppShell } from '@/components/app-shell';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Newspaper } from 'lucide-react';
 import { ProfileProvider } from '@/context/profile-provider';
 import { SettingsProvider } from '@/context/settings-provider';
+import Image from 'next/image';
 
 interface Post {
   id: string;
@@ -56,8 +57,15 @@ export default async function BlogListPage() {
                                     <Link href={`/blog/${featuredPost.slug}`}>Read More <ArrowRight className="ml-2"/></Link>
                                 </Button>
                             </div>
-                            <div className="bg-primary/10 min-h-64 md:min-h-full">
-                                {/* Placeholder for an image */}
+                            <div className="bg-primary/10 min-h-64 md:min-h-full flex items-center justify-center p-4">
+                                <Image 
+                                    src="https://placehold.co/600x400.png"
+                                    alt="Featured post placeholder"
+                                    width={600}
+                                    height={400}
+                                    className="rounded-lg object-cover"
+                                    data-ai-hint="health technology"
+                                />
                             </div>
                         </CardContent>
                     </Card>
@@ -87,8 +95,9 @@ export default async function BlogListPage() {
                 </div>
 
                 {posts.length === 0 && (
-                    <div className="text-center py-20">
-                        <h2 className="text-2xl font-bold">No posts yet.</h2>
+                    <div className="text-center py-20 bg-secondary/30 rounded-lg">
+                        <Newspaper className="mx-auto h-12 w-12 text-muted-foreground" />
+                        <h2 className="mt-4 text-2xl font-bold">No posts yet.</h2>
                         <p className="text-muted-foreground mt-2">Check back soon for health insights!</p>
                     </div>
                 )}
