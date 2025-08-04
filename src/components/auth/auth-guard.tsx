@@ -14,6 +14,9 @@ import { SettingsProvider } from '@/context/settings-provider';
 const PUBLIC_USER_ROUTES = ['/auth', '/landing'];
 const PUBLIC_DOCTOR_ROUTES = ['/doctor/auth'];
 const PUBLIC_ADMIN_ROUTES = ['/admin/auth'];
+// Blog routes are accessible to everyone, logged in or not.
+const ALWAYS_ACCESSIBLE_ROUTES = ['/blog']; 
+
 const ALL_PUBLIC_ROUTES = [...PUBLIC_USER_ROUTES, ...PUBLIC_DOCTOR_ROUTES, ...PUBLIC_ADMIN_ROUTES];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -23,14 +26,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     const isDoctorRoute = pathname.startsWith('/doctor/');
     const isAdminRoute = pathname.startsWith('/admin/');
-    const isPublicRoute = ALL_PUBLIC_ROUTES.some(route => pathname === route);
+    // A route is considered "public" if it's in the main auth lists.
+    const isPublicAuthRoute = ALL_PUBLIC_ROUTES.some(route => pathname === route);
+    // A route is "always accessible" if it's a content page like the blog.
+    const isAlwaysAccessible = ALWAYS_ACCESSIBLE_ROUTES.some(prefix => pathname.startsWith(prefix));
 
     useEffect(() => {
         if (authLoading) return;
 
+        // If the route is always accessible (like the blog), don't apply any guard logic.
+        if (isAlwaysAccessible) return;
+
         // User is not logged in
         if (!user) {
-            if (!isPublicRoute) {
+            if (!isPublicAuthRoute) {
                 if (isDoctorRoute) {
                     router.replace('/doctor/auth');
                 } else if (isAdminRoute) {
@@ -51,7 +60,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 }
             }
             
-            if (isPublicRoute) {
+            if (isPublicAuthRoute) {
                  if (role === 'admin') {
                     router.replace('/admin/dashboard');
                 } else if (role === 'doctor') {
@@ -61,9 +70,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 }
             }
         }
-    }, [authLoading, user, role, isPublicRoute, router, pathname, isDoctorRoute, isAdminRoute]);
+    }, [authLoading, user, role, isPublicAuthRoute, isAlwaysAccessible, router, pathname, isDoctorRoute, isAdminRoute]);
 
-    if (authLoading || (!user && !isPublicRoute) || (user && isPublicRoute)) {
+    if (authLoading || (!isAlwaysAccessible && !user && !isPublicAuthRoute) || (!isAlwaysAccessible && user && isPublicAuthRoute)) {
         return <Loader />;
     }
     
@@ -72,10 +81,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         return <Loader />;
     }
 
+    // Determine the correct shell for the user
     if (user) {
         if (isAdminRoute && role !== 'admin') return <Loader />;
         if (isDoctorRoute && role !== 'doctor') return <Loader />;
-        if (!isAdminRoute && !isDoctorRoute && role !== 'patient') return <Loader />;
+        if (!isAdminRoute && !isDoctorRoute && !isAlwaysAccessible && role !== 'patient') return <Loader />;
 
         if (isAdminRoute) {
             return <AdminAppShell>{children}</AdminAppShell>
@@ -93,6 +103,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           </SettingsProvider>
         );
     }
-
+    
+    // For completely public pages like landing, blog, etc. that don't need a shell
     return <>{children}</>;
 }
