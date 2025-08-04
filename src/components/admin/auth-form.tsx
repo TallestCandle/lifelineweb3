@@ -20,6 +20,7 @@ import { Loader } from '../ui/loader';
 import type { UserRole } from '@/context/auth-provider';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from '../ui/label';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -258,7 +259,7 @@ export function AdminAuthForm() {
           </DialogHeader>
           <div className="space-y-4 py-4">
              <div className="space-y-2">
-                <FormLabel htmlFor="reset-email">Email Address</FormLabel>
+                <Label htmlFor="reset-email">Email Address</Label>
                 <Input
                   id="reset-email"
                   placeholder="admin@example.com"
@@ -279,5 +280,3 @@ export function AdminAuthForm() {
     </div>
   );
 }
-
-    
