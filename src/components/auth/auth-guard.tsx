@@ -14,7 +14,6 @@ import { SettingsProvider } from '@/context/settings-provider';
 const PUBLIC_USER_ROUTES = ['/auth', '/landing'];
 const PUBLIC_DOCTOR_ROUTES = ['/doctor/auth'];
 const PUBLIC_ADMIN_ROUTES = ['/admin/auth'];
-// Blog routes are accessible to everyone, logged in or not.
 const ALWAYS_ACCESSIBLE_ROUTES = ['/blog']; 
 
 const ALL_PUBLIC_ROUTES = [...PUBLIC_USER_ROUTES, ...PUBLIC_DOCTOR_ROUTES, ...PUBLIC_ADMIN_ROUTES];
@@ -26,18 +25,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     const isDoctorRoute = pathname.startsWith('/doctor/');
     const isAdminRoute = pathname.startsWith('/admin/');
-    // A route is considered "public" if it's in the main auth lists.
     const isPublicAuthRoute = ALL_PUBLIC_ROUTES.some(route => pathname === route);
-    // A route is "always accessible" if it's a content page like the blog.
     const isAlwaysAccessible = ALWAYS_ACCESSIBLE_ROUTES.some(prefix => pathname.startsWith(prefix));
 
     useEffect(() => {
         if (authLoading) return;
 
-        // If the route is always accessible (like the blog), don't apply any redirect logic.
         if (isAlwaysAccessible) return;
 
-        // User is not logged in
         if (!user) {
             if (!isPublicAuthRoute) {
                 if (isDoctorRoute) {
@@ -48,7 +43,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                     router.replace('/landing');
                 }
             }
-        // User is logged in
         } else {
             if (role) {
                 if (isAdminRoute && role !== 'admin') {
@@ -76,18 +70,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         return <Loader />;
     }
     
-    // Additional loader to prevent content flashing while role check is happening
     if (user && !role && !isAlwaysAccessible) {
         return <Loader />;
     }
     
-    // If the route is public (like the blog), render it without any app shell,
-    // regardless of whether the user is logged in or not.
+    // Always render public pages like the blog without any app shell.
     if (isAlwaysAccessible) {
         return <>{children}</>;
     }
 
-    // Determine the correct shell for the user
+    // Determine the correct shell for authenticated users on private routes.
     if (user) {
         if (isAdminRoute && role !== 'admin') return <Loader />;
         if (isDoctorRoute && role !== 'doctor') return <Loader />;
@@ -110,6 +102,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         );
     }
     
-    // For completely public auth pages (login/signup) that don't need a shell
+    // For public auth pages that don't need a shell (login/signup).
     return <>{children}</>;
 }
