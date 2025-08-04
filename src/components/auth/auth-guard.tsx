@@ -34,7 +34,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (authLoading) return;
 
-        // If the route is always accessible (like the blog), don't apply any guard logic.
+        // If the route is always accessible (like the blog), don't apply any redirect logic.
         if (isAlwaysAccessible) return;
 
         // User is not logged in
@@ -77,15 +77,21 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
     
     // Additional loader to prevent content flashing while role check is happening
-    if (user && !role) {
+    if (user && !role && !isAlwaysAccessible) {
         return <Loader />;
+    }
+    
+    // If the route is public (like the blog), render it without any app shell,
+    // regardless of whether the user is logged in or not.
+    if (isAlwaysAccessible) {
+        return <>{children}</>;
     }
 
     // Determine the correct shell for the user
     if (user) {
         if (isAdminRoute && role !== 'admin') return <Loader />;
         if (isDoctorRoute && role !== 'doctor') return <Loader />;
-        if (!isAdminRoute && !isDoctorRoute && !isAlwaysAccessible && role !== 'patient') return <Loader />;
+        if (!isAdminRoute && !isDoctorRoute && role !== 'patient') return <Loader />;
 
         if (isAdminRoute) {
             return <AdminAppShell>{children}</AdminAppShell>
@@ -104,6 +110,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         );
     }
     
-    // For completely public pages like landing, blog, etc. that don't need a shell
+    // For completely public auth pages (login/signup) that don't need a shell
     return <>{children}</>;
 }
