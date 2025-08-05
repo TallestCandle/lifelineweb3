@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { db } from '@/lib/firebase';
@@ -12,20 +12,19 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PlusCircle, Edit, Trash2, Loader2, Eye, EyeOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { Switch } from '../ui/switch';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import Link from 'next/link';
 import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
+
 
 const postSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters'),
-  content: z.string().min(50, 'Content must be at least 50 characters'),
+  content: z.string().min(10, 'Content must be at least 10 characters'),
   isPublished: z.boolean().default(false),
 });
 
@@ -35,7 +34,7 @@ interface Post {
   id: string;
   title: string;
   slug: string;
-  content: string;
+  content: string; 
   isPublished: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -163,7 +162,7 @@ export function BlogManager() {
                   <div>
                     <h3 className="font-bold text-lg">{post.title}</h3>
                     <p className="text-sm text-muted-foreground">
-                      By {post.authorName} on {format(post.createdAt.toDate(), 'MMM d, yyyy')}
+                      By {post.authorName} on {post.createdAt ? format(post.createdAt.toDate(), 'MMM d, yyyy') : '...'}
                     </p>
                      <Link href={`/blog/${post.slug}`} target="_blank" className="text-xs text-primary hover:underline">
                         View Post
@@ -188,54 +187,36 @@ export function BlogManager() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{editingPost ? 'Edit Post' : 'Create New Post'}</DialogTitle>
             <DialogDescription>
-              Write your content using Markdown. A live preview is shown below.
+              Write your content using Markdown.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex-grow flex flex-col overflow-hidden">
-                <div className="grid md:grid-cols-2 gap-4 flex-grow overflow-hidden">
-                    <div className="space-y-4 flex flex-col">
-                        <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="Your amazing post title" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="content" render={({ field }) => (
-                            <FormItem className="flex-grow flex flex-col">
-                                <FormLabel>Content (Markdown)</FormLabel>
-                                <FormControl><Textarea placeholder="Start writing your masterpiece..." {...field} className="flex-grow resize-none font-mono" /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                    </div>
-                    <div className="space-y-2 flex flex-col">
-                        <Label>Live Preview</Label>
-                        <Card className="flex-grow overflow-y-auto">
-                            <CardContent className="prose dark:prose-invert max-w-none p-4">
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                    {form.watch('content')}
-                                </ReactMarkdown>
-                            </CardContent>
-                        </Card>
-                    </div>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="Your amazing post title" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              
+              <FormField control={form.control} name="content" render={({ field }) => (<FormItem><FormLabel>Content (Markdown)</FormLabel><FormControl><Textarea placeholder="Write your post content here..." {...field} className="min-h-[300px]" /></FormControl><FormMessage /></FormItem>)} />
+
+              <DialogFooter className="!justify-between border-t pt-4">
+                 <FormField control={form.control} name="isPublished" render={({ field }) => (
+                    <FormItem className="flex items-center gap-2">
+                       <FormControl>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} id="isPublished"/>
+                       </FormControl>
+                       <Label htmlFor="isPublished" className="font-normal">Publish Post</Label>
+                    </FormItem>
+                 )} />
+                <div>
+                    <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                        {form.formState.isSubmitting && <Loader2 className="animate-spin mr-2"/>}
+                        Save Post
+                    </Button>
                 </div>
-                <DialogFooter className="pt-4 border-t !justify-between">
-                     <FormField control={form.control} name="isPublished" render={({ field }) => (
-                        <FormItem className="flex items-center gap-2">
-                           <FormControl>
-                                <Switch checked={field.value} onCheckedChange={field.onChange} id="isPublished"/>
-                           </FormControl>
-                           <Label htmlFor="isPublished" className="font-normal">Publish Post</Label>
-                        </FormItem>
-                     )} />
-                    <div>
-                        <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={form.formState.isSubmitting}>
-                            {form.formState.isSubmitting && <Loader2 className="animate-spin mr-2"/>}
-                            Save Post
-                        </Button>
-                    </div>
-                </DialogFooter>
+              </DialogFooter>
             </form>
           </Form>
         </DialogContent>
@@ -243,3 +224,5 @@ export function BlogManager() {
     </div>
   );
 }
+
+    

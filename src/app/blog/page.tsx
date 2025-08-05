@@ -10,7 +10,7 @@ interface Post {
   id: string;
   title: string;
   slug: string;
-  content: string;
+  content: string; // Markdown string
   createdAt: Date;
   authorName: string;
 }
@@ -21,7 +21,7 @@ const posts: Post[] = [
     id: '1',
     title: 'The Future of Health is Proactive, Not Reactive',
     slug: 'future-of-health-proactive',
-    content: "For decades, healthcare has followed a simple model: you get sick, you see a doctor, you get treated. But what if we could shift from this reactive stance to a proactive one? What if we could identify the subtle signs of disease long before they become life-altering events? This is the promise of proactive health, a revolution powered by technology like Lifeline AI. By continuously monitoring key biomarkers, our platform helps you and your doctor see the invisible patterns and trends in your health, allowing for interventions that can prevent major health crises like strokes, heart attacks, and kidney failure. It's about moving from treating illness to cultivating wellness.",
+    content: "For decades, healthcare has followed a simple model: you get sick, you see a doctor, you get treated. But what if we could shift from this reactive stance to a proactive one? What if we could identify the subtle signs of disease long before they become life-altering events?\n\nThis is the promise of proactive health, a revolution powered by technology like Lifeline AI. By continuously monitoring key biomarkers, our platform helps you and your doctor see the invisible patterns and trends in your health, allowing for interventions that can prevent major health crises like strokes, heart attacks, and kidney failure. It's about moving from treating illness to cultivating wellness.",
     createdAt: new Date('2024-07-15T10:00:00Z'),
     authorName: 'Dr. Evelyn Reed',
   },
@@ -51,6 +51,11 @@ const posts: Post[] = [
   },
 ];
 
+// Function to extract the first paragraph
+function getFirstParagraph(content: string): string {
+  const firstParagraph = content.split('\n\n')[0];
+  return firstParagraph || '';
+}
 
 export default async function BlogListPage() {
   const featuredPost = posts[0];
@@ -84,7 +89,7 @@ export default async function BlogListPage() {
                             <p className="text-sm text-primary font-semibold mb-2">Featured Post</p>
                             <CardTitle className="text-3xl font-bold mb-4">{featuredPost.title}</CardTitle>
                             <CardDescription className="mb-6 line-clamp-3">
-                                {featuredPost.content.substring(0, 200)}...
+                                {getFirstParagraph(featuredPost.content)}
                             </CardDescription>
                             <p className="text-sm text-muted-foreground mb-6">
                                 By {featuredPost.authorName} on {format(featuredPost.createdAt, 'MMMM d, yyyy')}
@@ -118,7 +123,7 @@ export default async function BlogListPage() {
                         </CardHeader>
                          <CardContent className="flex-grow">
                             <p className="text-muted-foreground line-clamp-4">
-                                 {post.content.substring(0, 150)}...
+                                 {getFirstParagraph(post.content)}
                             </p>
                         </CardContent>
                         <div className="p-6 pt-0">
@@ -141,3 +146,5 @@ export default async function BlogListPage() {
     </div>
   );
 }
+
+    
