@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { db } from '@/lib/firebase';
@@ -19,7 +19,7 @@ import { format } from 'date-fns';
 import { Switch } from '../ui/switch';
 import Link from 'next/link';
 import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
+import { Editor } from '@tinymce/tinymce-react';
 
 
 const postSchema = z.object({
@@ -191,14 +191,39 @@ export function BlogManager() {
           <DialogHeader>
             <DialogTitle>{editingPost ? 'Edit Post' : 'Create New Post'}</DialogTitle>
             <DialogDescription>
-              Write your content using Markdown.
+              Write your content using the rich text editor.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="Your amazing post title" {...field} /></FormControl><FormMessage /></FormItem>)} />
               
-              <FormField control={form.control} name="content" render={({ field }) => (<FormItem><FormLabel>Content (Markdown)</FormLabel><FormControl><Textarea placeholder="Write your post content here..." {...field} className="min-h-[300px]" /></FormControl><FormMessage /></FormItem>)} />
+              <Controller
+                name="content"
+                control={form.control}
+                render={({ field }) => (
+                   <Editor
+                     apiKey="owtfot81tms7uu3mvnb50nnviwiig64gymxje7ylxjfelmk9"
+                     value={field.value}
+                     onEditorChange={(content) => field.onChange(content)}
+                     init={{
+                       height: 500,
+                       menubar: false,
+                       plugins: [
+                         'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
+                         'preview', 'anchor', 'searchreplace', 'visualblocks', 'code',
+                         'fullscreen', 'insertdatetime', 'media', 'table', 'code',
+                         'help', 'wordcount'
+                       ],
+                       toolbar: 'undo redo | blocks | ' +
+                         'bold italic forecolor | alignleft aligncenter ' +
+                         'alignright alignjustify | bullist numlist outdent indent | ' +
+                         'removeformat | help',
+                       content_style: 'body { font-family:Inter,sans-serif; font-size:16px }'
+                     }}
+                   />
+                )}
+              />
 
               <DialogFooter className="!justify-between border-t pt-4">
                  <FormField control={form.control} name="isPublished" render={({ field }) => (
@@ -224,5 +249,3 @@ export function BlogManager() {
     </div>
   );
 }
-
-    

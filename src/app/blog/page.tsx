@@ -7,8 +7,6 @@ import { ArrowRight, Newspaper, Stethoscope } from 'lucide-react';
 import Image from 'next/image';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 
 interface Post {
   id: string;
@@ -71,9 +69,10 @@ export default async function BlogListPage() {
                          <div className="p-8 flex flex-col justify-center">
                             <p className="text-sm text-primary font-semibold mb-2">Featured Post</p>
                             <CardTitle className="text-3xl font-bold mb-4">{featuredPost.title}</CardTitle>
-                            <div className="mb-6 line-clamp-3 text-muted-foreground prose dark:prose-invert max-w-none">
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{featuredPost.content}</ReactMarkdown>
-                            </div>
+                            <div
+                                className="mb-6 line-clamp-3 text-muted-foreground prose dark:prose-invert max-w-none"
+                                dangerouslySetInnerHTML={{ __html: featuredPost.content }}
+                            />
                             <p className="text-sm text-muted-foreground mb-6">
                                 By {featuredPost.authorName} on {format(featuredPost.createdAt, 'MMMM d, yyyy')}
                             </p>
@@ -105,9 +104,10 @@ export default async function BlogListPage() {
                             </CardDescription>
                         </CardHeader>
                          <CardContent className="flex-grow">
-                            <div className="text-muted-foreground line-clamp-4 prose dark:prose-invert max-w-none">
-                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content}</ReactMarkdown>
-                            </div>
+                             <div
+                                className="text-muted-foreground line-clamp-4 prose dark:prose-invert max-w-none"
+                                dangerouslySetInnerHTML={{ __html: post.content }}
+                            />
                         </CardContent>
                         <div className="p-6 pt-0">
                             <Button asChild variant="outline">

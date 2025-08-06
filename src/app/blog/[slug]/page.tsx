@@ -5,8 +5,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit, Timestamp } from 'firebase/firestore';
 
@@ -65,9 +63,10 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
                 </header>
                 <Card>
                     <CardContent className="p-6 md:p-8">
-                         <div className="prose dark:prose-invert max-w-none prose-lg">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content}</ReactMarkdown>
-                        </div>
+                         <div
+                            className="prose dark:prose-invert max-w-none prose-lg"
+                            dangerouslySetInnerHTML={{ __html: post.content }}
+                         />
                     </CardContent>
                 </Card>
             </article>
