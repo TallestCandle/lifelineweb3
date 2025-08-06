@@ -64,7 +64,7 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
                 <Card>
                     <CardContent className="p-6 md:p-8">
                          <div
-                            className="prose dark:prose-invert max-w-none prose-lg"
+                            className="prose dark:prose-invert max-w-none prose-lg prose-p:mb-4 prose-headings:mt-8 prose-headings:mb-4 prose-ul:mb-4 prose-ol:mb-4 prose-blockquote:mb-4"
                             dangerouslySetInnerHTML={{ __html: post.content }}
                          />
                     </CardContent>
