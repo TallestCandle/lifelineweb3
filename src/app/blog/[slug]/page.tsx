@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Share2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit, Timestamp, orderBy } from 'firebase/firestore';
 
@@ -16,6 +16,7 @@ interface Post {
   title: string;
   slug: string;
   content: string;
+  tags: string[];
   createdAt: Date;
   authorName: string;
   isPublished: boolean;
@@ -38,6 +39,7 @@ async function getPost(slug: string): Promise<Post | null> {
     title: data.title,
     slug: data.slug,
     content: data.content,
+    tags: data.tags || [],
     createdAt: (data.createdAt as Timestamp).toDate(),
     authorName: data.authorName,
     isPublished: data.isPublished,
@@ -56,6 +58,7 @@ async function getPosts(): Promise<Post[]> {
       title: data.title,
       slug: data.slug,
       content: data.content,
+      tags: data.tags || [],
       createdAt: (data.createdAt as Timestamp).toDate(),
       authorName: data.authorName,
       isPublished: data.isPublished,
@@ -68,7 +71,7 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
   const [otherPosts, setOtherPosts] = useState<Post[]>([]);
   const [visiblePostsCount, setVisiblePostsCount] = useState(3);
   const [loading, setLoading] = useState(true);
-  const { slug } = params;
+  const slug = params.slug;
 
   useEffect(() => {
     const fetchPostData = async () => {
@@ -111,27 +114,45 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
   return (
     <div className="bg-secondary/30 min-h-screen">
       <div className="container mx-auto py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-            <Button asChild variant="ghost" className="mb-8">
-                <Link href="/blog"><ArrowLeft className="mr-2"/> Back to Blog</Link>
-            </Button>
-            <article>
-                <header className="mb-8">
-                    <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">{post.title}</h1>
-                    <p className="mt-4 text-lg text-muted-foreground">
-                        By {post.authorName} on {format(post.createdAt, 'MMMM d, yyyy')}
-                    </p>
-                </header>
-                <Card>
-                    <CardContent className="p-6 md:p-8">
-                         <div
-                            className="prose dark:prose-invert max-w-none prose-lg"
-                            dangerouslySetInnerHTML={{ __html: post.content }}
-                         />
-                    </CardContent>
-                </Card>
-            </article>
-        </div>
+          <div className="max-w-6xl mx-auto">
+              <Button asChild variant="ghost" className="mb-8">
+                  <Link href="/blog"><ArrowLeft className="mr-2"/> Back to Blog</Link>
+              </Button>
+              <div className="grid lg:grid-cols-3 gap-12">
+                  <article className="lg:col-span-2">
+                      <header className="mb-8">
+                          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">{post.title}</h1>
+                          <p className="mt-4 text-lg text-muted-foreground">
+                              By {post.authorName} on {format(post.createdAt, 'MMMM d, yyyy')}
+                          </p>
+                      </header>
+                      <Card>
+                          <CardContent className="p-6 md:p-8">
+                               <div
+                                  className="prose dark:prose-invert max-w-none prose-lg"
+                                  dangerouslySetInnerHTML={{ __html: post.content }}
+                               />
+                          </CardContent>
+                      </Card>
+                  </article>
+                  <aside className="lg:col-span-1 space-y-8">
+                       {post.tags.length > 0 && (
+                          <Card>
+                              <CardHeader>
+                                  <CardTitle className="text-xl">Health Tags</CardTitle>
+                              </CardHeader>
+                              <CardContent className="flex flex-wrap gap-2">
+                                  {post.tags.map(tag => (
+                                      <span key={tag} className="bg-primary/20 text-primary font-bold px-3 py-1 rounded-full text-sm">
+                                          {tag}
+                                      </span>
+                                  ))}
+                              </CardContent>
+                          </Card>
+                      )}
+                  </aside>
+              </div>
+          </div>
 
         {visibleOtherPosts.length > 0 && (
           <div className="mt-16 pt-12 border-t">
