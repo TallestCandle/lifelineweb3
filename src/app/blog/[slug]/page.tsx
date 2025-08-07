@@ -7,10 +7,9 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Tag, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit, Timestamp, orderBy } from 'firebase/firestore';
-import { Badge } from '@/components/ui/badge';
 
 interface Post {
   id: string;
@@ -20,7 +19,6 @@ interface Post {
   createdAt: Date;
   authorName: string;
   isPublished: boolean;
-  tags?: string[];
 }
 
 async function getPost(slug: string): Promise<Post | null> {
@@ -43,7 +41,6 @@ async function getPost(slug: string): Promise<Post | null> {
     createdAt: (data.createdAt as Timestamp).toDate(),
     authorName: data.authorName,
     isPublished: data.isPublished,
-    tags: data.tags || [],
   };
 }
 
@@ -62,7 +59,6 @@ async function getPosts(): Promise<Post[]> {
       createdAt: (data.createdAt as Timestamp).toDate(),
       authorName: data.authorName,
       isPublished: data.isPublished,
-      tags: data.tags || [],
     };
   });
 }
@@ -72,11 +68,12 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
   const [otherPosts, setOtherPosts] = useState<Post[]>([]);
   const [visiblePostsCount, setVisiblePostsCount] = useState(3);
   const [loading, setLoading] = useState(true);
+  const { slug } = params;
 
   useEffect(() => {
     const fetchPostData = async () => {
       setLoading(true);
-      const fetchedPost = await getPost(params.slug);
+      const fetchedPost = await getPost(slug);
       if (!fetchedPost) {
         notFound();
         return;
@@ -88,8 +85,10 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
       setLoading(false);
     };
 
-    fetchPostData();
-  }, [params.slug]);
+    if (slug) {
+        fetchPostData();
+    }
+  }, [slug]);
 
   if (loading) {
     return (
@@ -116,39 +115,22 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
             <Button asChild variant="ghost" className="mb-8">
                 <Link href="/blog"><ArrowLeft className="mr-2"/> Back to Blog</Link>
             </Button>
-            <div className="grid lg:grid-cols-4 gap-12">
-                <article className="lg:col-span-4">
-                    <header className="mb-8">
-                        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">{post.title}</h1>
-                        <p className="mt-4 text-lg text-muted-foreground">
-                            By {post.authorName} on {format(post.createdAt, 'MMMM d, yyyy')}
-                        </p>
-                    </header>
-                    <Card>
-                        <CardContent className="p-6 md:p-8">
-                             <div
-                                className="prose dark:prose-invert max-w-none prose-lg prose-p:mb-4 prose-headings:mt-8 prose-headings:mb-4 prose-ul:mb-4 prose-ol:mb-4 prose-blockquote:mb-4"
-                                dangerouslySetInnerHTML={{ __html: post.content }}
-                             />
-                        </CardContent>
-                    </Card>
-                </article>
-
-                <aside className="lg:col-span-4">
-                  {post.tags && post.tags.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-xl"><Tag className="h-5 w-5"/> Health Tags</CardTitle>
-                      </CardHeader>
-                      <CardContent className="flex flex-wrap gap-2">
-                        {post.tags.map(tag => (
-                          <Badge key={tag} variant="secondary">{tag}</Badge>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  )}
-                </aside>
-            </div>
+            <article>
+                <header className="mb-8">
+                    <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">{post.title}</h1>
+                    <p className="mt-4 text-lg text-muted-foreground">
+                        By {post.authorName} on {format(post.createdAt, 'MMMM d, yyyy')}
+                    </p>
+                </header>
+                <Card>
+                    <CardContent className="p-6 md:p-8">
+                         <div
+                            className="prose dark:prose-invert max-w-none prose-lg"
+                            dangerouslySetInnerHTML={{ __html: post.content }}
+                         />
+                    </CardContent>
+                </Card>
+            </article>
         </div>
 
         {visibleOtherPosts.length > 0 && (
