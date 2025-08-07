@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { notFound } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import Link from 'next/link';
@@ -66,12 +66,13 @@ async function getPosts(): Promise<Post[]> {
   });
 }
 
-export default function BlogPostPage({ params }: { params: { slug: string } }) {
+export default function BlogPostPage() {
   const [post, setPost] = useState<Post | null>(null);
   const [otherPosts, setOtherPosts] = useState<Post[]>([]);
   const [visiblePostsCount, setVisiblePostsCount] = useState(3);
   const [loading, setLoading] = useState(true);
-  const slug = params.slug;
+  const params = useParams();
+  const slug = params.slug as string;
 
   useEffect(() => {
     const fetchPostData = async () => {
