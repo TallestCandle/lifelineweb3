@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { notFound, useParams } from 'next/navigation';
 import { format } from 'date-fns';
-import { Card, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, Share2 } from 'lucide-react';
@@ -196,5 +196,3 @@ export default function BlogPostPage() {
     </div>
   );
 }
-
-    
