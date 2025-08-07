@@ -1,11 +1,13 @@
 
+"use client";
 
+import { useState, useEffect } from 'react';
 import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Share2, Tag, Newspaper } from 'lucide-react';
+import { ArrowLeft, Tag, Loader2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit, Timestamp, orderBy } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
@@ -65,15 +67,47 @@ async function getPosts(): Promise<Post[]> {
   });
 }
 
-export default async function BlogPostPage({ params }: { params: { slug: string } }) {
-  const post = await getPost(params.slug);
-  const allPosts = await getPosts();
+export default function BlogPostPage({ params }: { params: { slug: string } }) {
+  const [post, setPost] = useState<Post | null>(null);
+  const [otherPosts, setOtherPosts] = useState<Post[]>([]);
+  const [visiblePostsCount, setVisiblePostsCount] = useState(3);
+  const [loading, setLoading] = useState(true);
 
-  if (!post) {
-    notFound();
+  useEffect(() => {
+    const fetchPostData = async () => {
+      setLoading(true);
+      const fetchedPost = await getPost(params.slug);
+      if (!fetchedPost) {
+        notFound();
+        return;
+      }
+      setPost(fetchedPost);
+
+      const allPosts = await getPosts();
+      setOtherPosts(allPosts.filter(p => p.id !== fetchedPost.id));
+      setLoading(false);
+    };
+
+    fetchPostData();
+  }, [params.slug]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+      </div>
+    );
   }
 
-  const otherPosts = allPosts.filter(p => p.id !== post.id).slice(0, 3);
+  if (!post) {
+    return null; // notFound() is called in useEffect
+  }
+  
+  const handleLoadMore = () => {
+    setVisiblePostsCount(prevCount => prevCount + 3);
+  };
+
+  const visibleOtherPosts = otherPosts.slice(0, visiblePostsCount);
 
   return (
     <div className="bg-secondary/30 min-h-screen">
@@ -117,11 +151,11 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
             </div>
         </div>
 
-        {otherPosts.length > 0 && (
+        {visibleOtherPosts.length > 0 && (
           <div className="mt-16 pt-12 border-t">
             <h2 className="text-3xl font-bold text-center mb-8">More Posts</h2>
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
-              {otherPosts.map(p => (
+              {visibleOtherPosts.map(p => (
                 <Card key={p.id} className="flex flex-col bg-background">
                   <CardHeader>
                     <CardTitle className="text-2xl">{p.title}</CardTitle>
@@ -143,6 +177,13 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
                 </Card>
               ))}
             </div>
+            {visiblePostsCount < otherPosts.length && (
+              <div className="text-center mt-12">
+                <Button onClick={handleLoadMore} size="lg">
+                  Load More Articles
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
