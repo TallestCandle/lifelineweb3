@@ -78,47 +78,49 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
   return (
     <div className="bg-secondary/30 min-h-screen">
       <div className="container mx-auto py-8 px-4">
-        <Button asChild variant="ghost" className="mb-8">
-            <Link href="/blog"><ArrowLeft className="mr-2"/> Back to Blog</Link>
-        </Button>
-        <div className="grid lg:grid-cols-4 gap-12">
-            <article className="lg:col-span-3">
-                <header className="mb-8">
-                    <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">{post.title}</h1>
-                    <p className="mt-4 text-lg text-muted-foreground">
-                        By {post.authorName} on {format(post.createdAt, 'MMMM d, yyyy')}
-                    </p>
-                </header>
-                <Card>
-                    <CardContent className="p-6 md:p-8">
-                         <div
-                            className="prose dark:prose-invert max-w-none prose-lg prose-p:mb-4 prose-headings:mt-8 prose-headings:mb-4 prose-ul:mb-4 prose-ol:mb-4 prose-blockquote:mb-4"
-                            dangerouslySetInnerHTML={{ __html: post.content }}
-                         />
-                    </CardContent>
-                </Card>
-            </article>
+        <div className="max-w-4xl mx-auto">
+            <Button asChild variant="ghost" className="mb-8">
+                <Link href="/blog"><ArrowLeft className="mr-2"/> Back to Blog</Link>
+            </Button>
+            <div className="grid lg:grid-cols-4 gap-12">
+                <article className="lg:col-span-4">
+                    <header className="mb-8">
+                        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">{post.title}</h1>
+                        <p className="mt-4 text-lg text-muted-foreground">
+                            By {post.authorName} on {format(post.createdAt, 'MMMM d, yyyy')}
+                        </p>
+                    </header>
+                    <Card>
+                        <CardContent className="p-6 md:p-8">
+                             <div
+                                className="prose dark:prose-invert max-w-none prose-lg prose-p:mb-4 prose-headings:mt-8 prose-headings:mb-4 prose-ul:mb-4 prose-ol:mb-4 prose-blockquote:mb-4"
+                                dangerouslySetInnerHTML={{ __html: post.content }}
+                             />
+                        </CardContent>
+                    </Card>
+                </article>
 
-            <aside className="lg:col-span-1 space-y-8 lg:sticky lg:top-24 self-start">
-              {post.tags && post.tags.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-xl"><Tag className="h-5 w-5"/> Health Tags</CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex flex-wrap gap-2">
-                    {post.tags.map(tag => (
-                      <Badge key={tag} variant="secondary">{tag}</Badge>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
-            </aside>
+                <aside className="lg:col-span-4">
+                  {post.tags && post.tags.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-xl"><Tag className="h-5 w-5"/> Health Tags</CardTitle>
+                      </CardHeader>
+                      <CardContent className="flex flex-wrap gap-2">
+                        {post.tags.map(tag => (
+                          <Badge key={tag} variant="secondary">{tag}</Badge>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  )}
+                </aside>
+            </div>
         </div>
 
         {otherPosts.length > 0 && (
           <div className="mt-16 pt-12 border-t">
             <h2 className="text-3xl font-bold text-center mb-8">More Posts</h2>
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
               {otherPosts.map(p => (
                 <Card key={p.id} className="flex flex-col bg-background">
                   <CardHeader>
@@ -147,4 +149,3 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
     </div>
   );
 }
-
