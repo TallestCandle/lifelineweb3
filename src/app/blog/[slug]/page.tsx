@@ -114,51 +114,49 @@ export default function BlogPostPage() {
 
   return (
     <div className="bg-secondary/30 min-h-screen">
-      <div className="container mx-auto py-8 px-4">
-          <div className="max-w-6xl mx-auto">
-              <Button asChild variant="ghost" className="mb-8">
-                  <Link href="/blog"><ArrowLeft className="mr-2"/> Back to Blog</Link>
-              </Button>
-              <div className="grid lg:grid-cols-3 gap-12">
-                  <article className="lg:col-span-2">
-                      <header className="mb-8">
-                          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">{post.title}</h1>
-                          <p className="mt-4 text-lg text-muted-foreground">
-                              By {post.authorName} on {format(post.createdAt, 'MMMM d, yyyy')}
-                          </p>
-                      </header>
+      <div className="container mx-auto py-8 px-4 max-w-6xl">
+          <Button asChild variant="ghost" className="mb-8">
+              <Link href="/blog"><ArrowLeft className="mr-2"/> Back to Blog</Link>
+          </Button>
+          <div className="grid lg:grid-cols-3 gap-12">
+              <article className="lg:col-span-2">
+                  <header className="mb-8">
+                      <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">{post.title}</h1>
+                      <p className="mt-4 text-lg text-muted-foreground">
+                          By {post.authorName} on {format(post.createdAt, 'MMMM d, yyyy')}
+                      </p>
+                  </header>
+                  <Card>
+                      <CardContent className="p-6 md:p-8">
+                           <div
+                              className="prose dark:prose-invert max-w-none prose-lg"
+                              dangerouslySetInnerHTML={{ __html: post.content }}
+                           />
+                      </CardContent>
+                  </Card>
+              </article>
+              <aside className="lg:col-span-1 space-y-8">
+                   {post.tags.length > 0 && (
                       <Card>
-                          <CardContent className="p-6 md:p-8">
-                               <div
-                                  className="prose dark:prose-invert max-w-none prose-lg"
-                                  dangerouslySetInnerHTML={{ __html: post.content }}
-                               />
+                          <CardHeader>
+                              <CardTitle className="text-xl">Health Tags</CardTitle>
+                          </CardHeader>
+                          <CardContent className="flex flex-wrap gap-2">
+                              {post.tags.map(tag => (
+                                  <span key={tag} className="bg-primary/20 text-primary font-bold px-3 py-1 rounded-full text-sm">
+                                      {tag}
+                                  </span>
+                              ))}
                           </CardContent>
                       </Card>
-                  </article>
-                  <aside className="lg:col-span-1 space-y-8">
-                       {post.tags.length > 0 && (
-                          <Card>
-                              <CardHeader>
-                                  <CardTitle className="text-xl">Health Tags</CardTitle>
-                              </CardHeader>
-                              <CardContent className="flex flex-wrap gap-2">
-                                  {post.tags.map(tag => (
-                                      <span key={tag} className="bg-primary/20 text-primary font-bold px-3 py-1 rounded-full text-sm">
-                                          {tag}
-                                      </span>
-                                  ))}
-                              </CardContent>
-                          </Card>
-                      )}
-                  </aside>
-              </div>
+                  )}
+              </aside>
           </div>
 
         {visibleOtherPosts.length > 0 && (
           <div className="mt-16 pt-12 border-t">
             <h2 className="text-3xl font-bold text-center mb-8">More Posts</h2>
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
               {visibleOtherPosts.map(p => (
                 <Card key={p.id} className="flex flex-col bg-background">
                   <CardHeader>
