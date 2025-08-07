@@ -1,20 +1,23 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { notFound, useParams } from 'next/navigation';
 import { format } from 'date-fns';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, Share2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit, Timestamp, orderBy } from 'firebase/firestore';
+import Image from 'next/image';
 
 interface Post {
   id: string;
   title: string;
   slug: string;
   content: string;
+  imageUrl?: string;
   tags: string[];
   createdAt: Date;
   authorName: string;
@@ -38,6 +41,7 @@ async function getPost(slug: string): Promise<Post | null> {
     title: data.title,
     slug: data.slug,
     content: data.content,
+    imageUrl: data.imageUrl,
     tags: data.tags || [],
     createdAt: (data.createdAt as Timestamp).toDate(),
     authorName: data.authorName,
@@ -57,6 +61,7 @@ async function getPosts(): Promise<Post[]> {
       title: data.title,
       slug: data.slug,
       content: data.content,
+      imageUrl: data.imageUrl,
       tags: data.tags || [],
       createdAt: (data.createdAt as Timestamp).toDate(),
       authorName: data.authorName,
@@ -117,77 +122,79 @@ export default function BlogPostPage() {
           <Button asChild variant="ghost" className="mb-8">
               <Link href="/blog"><ArrowLeft className="mr-2"/> Back to Blog</Link>
           </Button>
-          <div className="grid lg:grid-cols-3 gap-12">
-              <article className="lg:col-span-2">
-                  <header className="mb-8">
+          
+          <div className="w-full max-w-4xl mx-auto">
+              <article>
+                  <header className="mb-8 text-center">
                       <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">{post.title}</h1>
                       <p className="mt-4 text-lg text-muted-foreground">
                           By {post.authorName} on {format(post.createdAt, 'MMMM d, yyyy')}
                       </p>
                   </header>
+
+                   {post.imageUrl && (
+                    <div className="mb-8 rounded-lg overflow-hidden shadow-lg">
+                        <Image
+                            src={post.imageUrl}
+                            alt={post.title}
+                            width={1200}
+                            height={630}
+                            className="w-full object-cover"
+                            priority
+                        />
+                    </div>
+                   )}
+                  
                   <Card>
                       <CardContent className="p-6 md:p-8">
                            <div
-                              className="prose dark:prose-invert max-w-none prose-lg"
+                              className="prose dark:prose-invert max-w-none prose-lg mx-auto"
                               dangerouslySetInnerHTML={{ __html: post.content }}
                            />
                       </CardContent>
                   </Card>
               </article>
-              <aside className="lg:col-span-1 space-y-8">
-                   {post.tags.length > 0 && (
-                      <Card>
-                          <CardHeader>
-                              <CardTitle className="text-xl">Health Tags</CardTitle>
-                          </CardHeader>
-                          <CardContent className="flex flex-wrap gap-2">
-                              {post.tags.map(tag => (
-                                  <span key={tag} className="bg-primary/20 text-primary font-bold px-3 py-1 rounded-full text-sm">
-                                      {tag}
-                                  </span>
-                              ))}
-                          </CardContent>
-                      </Card>
-                  )}
-              </aside>
           </div>
 
-        {visibleOtherPosts.length > 0 && (
-          <div className="mt-16 pt-12 border-t">
-            <h2 className="text-3xl font-bold text-center mb-8">More Posts</h2>
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {visibleOtherPosts.map(p => (
-                <Card key={p.id} className="flex flex-col bg-background">
-                  <CardHeader>
-                    <CardTitle className="text-2xl">{p.title}</CardTitle>
-                    <CardDescription>
-                      {format(p.createdAt, 'MMMM d, yyyy')}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex-grow">
-                    <div
-                      className="text-muted-foreground line-clamp-4 prose dark:prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: p.content }}
-                    />
-                  </CardContent>
-                  <CardFooter>
-                    <Button asChild variant="outline">
-                      <Link href={`/blog/${p.slug}`}>Read More</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-            {visiblePostsCount < otherPosts.length && (
-              <div className="text-center mt-12">
-                <Button onClick={handleLoadMore} size="lg">
-                  Load More Articles
-                </Button>
+          {/* Other Posts Section */}
+          {visibleOtherPosts.length > 0 && (
+            <div className="mt-16 pt-12 border-t">
+              <h2 className="text-3xl font-bold text-center mb-8">More Posts</h2>
+              <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+                {visibleOtherPosts.map(p => (
+                  <Card key={p.id} className="flex flex-col bg-background">
+                    <CardHeader>
+                      <CardTitle className="text-2xl">{p.title}</CardTitle>
+                      <CardDescription>
+                        {format(p.createdAt, 'MMMM d, yyyy')}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-grow">
+                      <div
+                        className="text-muted-foreground line-clamp-4 prose dark:prose-invert max-w-none"
+                        dangerouslySetInnerHTML={{ __html: p.content }}
+                      />
+                    </CardContent>
+                    <CardFooter>
+                      <Button asChild variant="outline">
+                        <Link href={`/blog/${p.slug}`}>Read More</Link>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
               </div>
-            )}
-          </div>
-        )}
+              {visiblePostsCount < otherPosts.length && (
+                <div className="text-center mt-12">
+                  <Button onClick={handleLoadMore} size="lg">
+                    Load More Articles
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
       </div>
     </div>
   );
 }
+
+    

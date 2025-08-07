@@ -13,6 +13,7 @@ interface Post {
   title: string;
   slug: string;
   content: string;
+  imageUrl?: string;
   createdAt: Date;
   authorName: string;
   isPublished: boolean;
@@ -30,6 +31,7 @@ async function getPosts(): Promise<Post[]> {
       title: data.title,
       slug: data.slug,
       content: data.content,
+      imageUrl: data.imageUrl,
       createdAt: (data.createdAt as Timestamp).toDate(),
       authorName: data.authorName,
       isPublished: data.isPublished,
@@ -82,8 +84,8 @@ export default async function BlogListPage() {
                         </div>
                         <div className="bg-primary/10 min-h-64 md:min-h-full flex items-center justify-center p-4">
                             <Image 
-                                src="https://placehold.co/600x400.png"
-                                alt="Featured post placeholder"
+                                src={featuredPost.imageUrl || "https://placehold.co/600x400.png"}
+                                alt={featuredPost.title}
                                 width={600}
                                 height={400}
                                 className="rounded-lg object-cover"
@@ -129,3 +131,5 @@ export default async function BlogListPage() {
     </div>
   );
 }
+
+    

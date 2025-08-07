@@ -25,6 +25,7 @@ import { Editor } from '@tinymce/tinymce-react';
 const postSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters'),
   content: z.string().min(10, 'Content must be at least 10 characters'),
+  imageUrl: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   isPublished: z.boolean().default(false),
 });
 
@@ -34,7 +35,9 @@ interface Post {
   id: string;
   title: string;
   slug: string;
-  content: string; 
+  content: string;
+  imageUrl?: string;
+  tags: string[];
   isPublished: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -54,6 +57,7 @@ export function BlogManager() {
     defaultValues: {
       title: '',
       content: '',
+      imageUrl: '',
       isPublished: false,
     },
   });
@@ -75,10 +79,11 @@ export function BlogManager() {
       form.reset({
         title: post.title,
         content: post.content,
+        imageUrl: post.imageUrl || '',
         isPublished: post.isPublished,
       });
     } else {
-      form.reset({ title: '', content: '', isPublished: false });
+      form.reset({ title: '', content: '', imageUrl: '', isPublished: false });
     }
     setIsDialogOpen(true);
   };
@@ -197,7 +202,7 @@ export function BlogManager() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="Your amazing post title" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              
+              <FormField control={form.control} name="imageUrl" render={({ field }) => (<FormItem><FormLabel>Image URL (Optional)</FormLabel><FormControl><Input placeholder="https://example.com/image.png" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <Controller
                 name="content"
                 control={form.control}
@@ -249,3 +254,5 @@ export function BlogManager() {
     </div>
   );
 }
+
+    
