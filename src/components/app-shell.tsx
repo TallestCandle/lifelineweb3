@@ -24,6 +24,7 @@ import {
   Ruler,
   LifeBuoy,
   HeartHandshake,
+  BookOpen,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
@@ -65,6 +66,7 @@ const mainMenuItems: MenuItem[] = [
   { href: "/dietician", label: "AI Dietician", icon: Salad },
   { href: "/report", label: "Health Report", icon: FileText, featureFlag: 'isReportEnabled' },
   { href: "/reminders", label: "Prescriptions", icon: FileSpreadsheet, featureFlag: 'isPrescriptionsEnabled' },
+  { href: "/ebook-store", label: "Ebook Store", icon: BookOpen },
 ];
 
 function AppLayout({ children }: { children: React.ReactNode }) {
