@@ -12,6 +12,8 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit, Timestamp, orderBy } from 'firebase/firestore';
 import Image from 'next/image';
 
+export const dynamic = 'force-dynamic';
+
 interface Post {
   id: string;
   title: string;

@@ -8,6 +8,8 @@ import Image from 'next/image';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 
+export const dynamic = 'force-dynamic';
+
 interface Post {
   id: string;
   title: string;
