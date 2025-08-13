@@ -53,6 +53,8 @@ export function LandingPage() {
   
     return (
         <div className="bg-background text-foreground font-sans antialiased">
+            <div className="fixed inset-0 -z-10 h-full w-full bg-background bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,hsl(var(--primary)/0.1),rgba(255,255,255,0))]"></div>
+
             <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm">
                 <div className="container mx-auto flex h-20 items-center justify-between px-4">
                     <Link href="/landing" className="flex items-center gap-2 text-primary">
@@ -60,7 +62,7 @@ export function LandingPage() {
                         <h1 className="text-2xl font-bold">Lifeline AI</h1>
                     </Link>
                     <div className="flex items-center gap-2">
-                        <Button variant="ghost" onClick={handleAuthRedirect}>Log In</Button>
+                        <Button variant="ghost" asChild><Link href="/blog">Blog</Link></Button>
                         <Button onClick={handleAuthRedirect}>Get Started</Button>
                     </div>
                 </div>
@@ -68,24 +70,18 @@ export function LandingPage() {
 
             <main className="pt-20">
                 {/* Hero Section */}
-                <section className="relative py-24 md:py-32">
-                     <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[radial-gradient(#D4A017_1px,transparent_1px)] [background-size:32px_32px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_60%,transparent_100%)] opacity-20"></div>
-                    <div className="container mx-auto px-4 grid md:grid-cols-2 gap-16 items-center">
-                        <div className="text-center md:text-left">
-                            <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-br from-foreground to-muted-foreground">
-                                Your Health, Empowered by AI
-                            </h1>
-                            <p className="max-w-xl mx-auto md:mx-0 text-lg md:text-xl text-muted-foreground mb-8">
-                                Lifeline AI uses affordable test kits and powerful, personalized AI to detect early signs of deadly diseases. Take control of your health today.
-                            </p>
-                            <div className="flex justify-center md:justify-start gap-4">
-                                <Button size="lg" onClick={handleAuthRedirect}>
-                                     Start Your Health Journey <ArrowRight className="ml-2"/>
-                                </Button>
-                            </div>
-                        </div>
-                         <div className="relative h-96 md:h-full w-full">
-                            <Image src="https://placehold.co/600x800.png" alt="Lifeline AI App on a smartphone" layout="fill" objectFit="contain" className="drop-shadow-[0_0_45px_rgba(212,160,23,0.15)]" data-ai-hint="app mockup" />
+                <section className="relative py-32 md:py-48 text-center">
+                    <div className="container mx-auto px-4">
+                        <h1 className="text-4xl md:text-6xl font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-br from-foreground to-muted-foreground tracking-tight">
+                            Your Health, Empowered by AI
+                        </h1>
+                        <p className="max-w-2xl mx-auto text-lg md:text-xl text-muted-foreground mb-8">
+                            Lifeline AI uses affordable test kits and powerful, personalized AI to detect early signs of deadly diseases. Take control of your health today.
+                        </p>
+                        <div className="flex justify-center gap-4">
+                            <Button size="lg" onClick={handleAuthRedirect}>
+                                 Start Your Health Journey <ArrowRight className="ml-2"/>
+                            </Button>
                         </div>
                     </div>
                 </section>
@@ -140,35 +136,6 @@ export function LandingPage() {
                         </Card>
                     </div>
                 </section>
-
-                {/* Testimonials */}
-                 <section className="py-20 bg-secondary/30">
-                    <div className="container mx-auto px-4">
-                        <div className="text-center mb-12">
-                            <h2 className="text-3xl md:text-4xl font-bold">Saving Lives, One Test at a Time</h2>
-                        </div>
-                        <div className="grid md:grid-cols-2 gap-8">
-                             <Card className="p-8 bg-card border border-primary/20">
-                                <CardContent className="p-0">
-                                    <div className="flex mb-2">
-                                        {[...Array(5)].map((_, i) => <Star key={i} className="w-5 h-5 text-primary fill-primary"/>)}
-                                    </div>
-                                    <blockquote className="text-lg text-foreground/90">"The app detected high protein in my urine, which I ignored. The AI insisted I see a doctor. It was early kidney disease. Lifeline AI saved my life."</blockquote>
-                                    <footer className="mt-4 font-bold">- Fatima, Kaduna State</footer>
-                                </CardContent>
-                            </Card>
-                             <Card className="p-8 bg-card border border-primary/20">
-                                <CardContent className="p-0">
-                                    <div className="flex mb-2">
-                                        {[...Array(5)].map((_, i) => <Star key={i} className="w-5 h-5 text-primary fill-primary"/>)}
-                                    </div>
-                                    <blockquote className="text-lg text-foreground/90">"As a community health worker, this app is a game-changer. I can screen dozens of people in a day and get instant risk analysis. It's helping us reach so many more people."</blockquote>
-                                    <footer className="mt-4 font-bold">- David, Oyo State</footer>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </div>
-                </section>
                 
                 {/* CTA Section */}
                 <section className="py-20">
@@ -192,7 +159,7 @@ export function LandingPage() {
     );
 }
 
-const FeatureCard = ({ icon: Icon, title, description }: { icon: LucideIcon, title: string, description: string }) => (
+const FeatureCard = ({ icon: Icon, title, description }: { icon: React.ElementType, title: string, description: string }) => (
     <Card className="text-center p-6 bg-card border-border hover:border-primary/50 transition-colors duration-300">
         <div className="w-12 h-12 mx-auto rounded-lg flex items-center justify-center bg-primary/10 text-primary mb-4">
             <Icon className="w-6 h-6"/>

@@ -84,16 +84,18 @@ export default async function BlogListPage() {
                                 <Link href={`/blog/${featuredPost.slug}`}>Read More <ArrowRight className="ml-2"/></Link>
                             </Button>
                         </div>
-                        <div className="bg-primary/10 min-h-64 md:min-h-full flex items-center justify-center p-4">
-                            <Image 
-                                src={featuredPost.imageUrl || "https://placehold.co/600x400.png"}
-                                alt={featuredPost.title}
-                                width={600}
-                                height={400}
-                                className="rounded-lg object-cover"
-                                data-ai-hint="health technology"
-                            />
-                        </div>
+                        {featuredPost.imageUrl && (
+                          <div className="bg-primary/10 min-h-64 md:min-h-full flex items-center justify-center p-4">
+                              <Image 
+                                  src={featuredPost.imageUrl}
+                                  alt={featuredPost.title}
+                                  width={600}
+                                  height={400}
+                                  className="rounded-lg object-cover"
+                                  data-ai-hint="health technology"
+                              />
+                          </div>
+                        )}
                     </CardContent>
                 </Card>
             )}
@@ -133,5 +135,7 @@ export default async function BlogListPage() {
     </div>
   );
 }
+
+    
 
     
