@@ -147,7 +147,7 @@ export function AdminAuthForm() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     if (!auth) {
-        toast({ variant: "destructive", title: "Config Error", description: "Firebase not configured." });
+        toast({ variant: "destructive", title: "Config Error", description: "Firebase authentication is not available." });
         setIsLoading(false);
         return;
     }

@@ -108,7 +108,7 @@ export function DoctorAuthForm() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     if (!auth) {
-      toast({ variant: "destructive", title: "Config Error" });
+      toast({ variant: "destructive", title: "Config Error", description: "Firebase authentication is not available." });
       setIsLoading(false);
       return;
     }
