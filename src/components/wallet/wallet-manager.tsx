@@ -3,7 +3,6 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { usePaystackPayment } from 'react-paystack';
-import type { PaystackHookConfig } from 'react-paystack/dist/types';
 
 import { useProfile } from '@/context/profile-provider';
 import { Button } from "@/components/ui/button";
@@ -45,7 +44,7 @@ export function WalletManager() {
 
   const amountInNaira = typeof customAmount === 'string' ? parseFloat(customAmount) || 0 : customAmount;
 
-  const config: PaystackHookConfig = {
+  const config = {
     publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
     reference: (new Date()).getTime().toString(),
     email: user?.email || '',
