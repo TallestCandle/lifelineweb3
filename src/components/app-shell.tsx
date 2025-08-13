@@ -63,7 +63,7 @@ const mainMenuItems: MenuItem[] = [
   { href: "/log", label: "Vitals Logger", icon: Camera },
   { href: "/deep-dive", label: "Deep Dive", icon: BrainCircuit },
   { href: "/clinic", label: "Clinic", icon: Building2, featureFlag: 'isClinicEnabled' },
-  { href: "/dietician", label: "AI Dietician", icon: Salad },
+  { href: "/dietician", label: "Meal Analyzer", icon: Salad },
   { href: "/report", label: "Health Report", icon: FileText, featureFlag: 'isReportEnabled' },
   { href: "/reminders", label: "Prescriptions", icon: FileSpreadsheet, featureFlag: 'isPrescriptionsEnabled' },
   { href: "/ebook-store", label: "Ebook Store", icon: BookOpen },

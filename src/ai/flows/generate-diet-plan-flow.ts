@@ -3,6 +3,9 @@
 /**
  * @fileOverview An AI agent that generates personalized dietary advice.
  *
+ * This flow is now DEPRECATED and has been replaced by the more advanced analyze-meal-flow.
+ * It is kept for potential future reference but is no longer actively used in the application.
+ * 
  * - generateDietPlan - Creates dietary advice based on health data.
  * - GenerateDietPlanInput - The input type for the function.
  * - GenerateDietPlanOutput - The return type for the function.
