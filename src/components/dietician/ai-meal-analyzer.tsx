@@ -23,6 +23,7 @@ interface MealLog {
     id: string;
     timestamp: string;
     mealDescription: string;
+    healthConditions: string;
     analysis: AnalyzeMealOutput;
     imageDataUri?: string;
 }
@@ -34,6 +35,7 @@ export function AiMealAnalyzer() {
     
     const [isLoading, setIsLoading] = useState(false);
     const [mealDescription, setMealDescription] = useState('');
+    const [healthConditions, setHealthConditions] = useState('');
     const [imageDataUri, setImageDataUri] = useState<string | null>(null);
     const [analysisResult, setAnalysisResult] = useState<AnalyzeMealOutput | null>(null);
     const [mealHistory, setMealHistory] = useState<MealLog[]>([]);
@@ -79,15 +81,18 @@ export function AiMealAnalyzer() {
             toast({ variant: "destructive", title: "Please describe your meal in more detail." });
             return;
         }
+         if (healthConditions.length < 3) {
+            toast({ variant: "destructive", title: "Please state your health condition(s)." });
+            return;
+        }
 
         setIsLoading(true);
         setAnalysisResult(null);
 
         try {
-            const healthContext = `User is ${profile.age} years old. Known conditions: check history. Goals: manage health.`;
             const result = await analyzeMeal({
                 mealDescription,
-                userHealthContext: healthContext,
+                healthConditions,
                 imageDataUri: imageDataUri || undefined,
             });
 
@@ -98,6 +103,7 @@ export function AiMealAnalyzer() {
             const logEntry: Omit<MealLog, 'id'> = {
                 timestamp,
                 mealDescription,
+                healthConditions,
                 analysis: result,
             };
 
@@ -118,6 +124,7 @@ export function AiMealAnalyzer() {
 
     const resetForm = () => {
         setMealDescription('');
+        setHealthConditions('');
         setImageDataUri(null);
         setAnalysisResult(null);
         if (fileInputRef.current) {
@@ -135,18 +142,28 @@ export function AiMealAnalyzer() {
                             <span className="text-2xl">AI Meal Analyzer</span>
                         </CardTitle>
                         <CardDescription>
-                            Log what you ate and get instant, personalized feedback from our AI dietician.
+                            Log what you ate and your health condition to get instant, personalized feedback.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div>
+                            <label htmlFor="health-conditions" className="font-bold">What is your health condition?</label>
+                             <Input
+                                id="health-conditions"
+                                placeholder="e.g., Chronic Kidney Disease, Diabetes, Hypertension"
+                                value={healthConditions}
+                                onChange={(e) => setHealthConditions(e.target.value)}
+                                className="mt-2"
+                            />
+                        </div>
+                        <div>
                             <label htmlFor="meal-description" className="font-bold">Describe your meal</label>
                             <Textarea
                                 id="meal-description"
-                                placeholder="e.g., I had a plate of jollof rice with fried chicken and a side of plantain."
+                                placeholder="e.g., A plate of jollof rice with fried chicken and a side of plantain."
                                 value={mealDescription}
                                 onChange={(e) => setMealDescription(e.target.value)}
-                                rows={4}
+                                rows={3}
                                 className="mt-2"
                             />
                         </div>
@@ -251,6 +268,7 @@ export function AiMealAnalyzer() {
                                     <AccordionContent className="space-y-4">
                                         {log.imageDataUri && <Image src={log.imageDataUri} alt="Logged meal" width={100} height={100} className="rounded-md border"/>}
                                         <p className="text-sm italic text-muted-foreground">{log.analysis.overallAssessment}</p>
+                                        <p className="text-sm"><span className="font-bold">Conditions at time of log:</span> {log.healthConditions}</p>
                                         <ul className="space-y-2">
                                             {log.analysis.mainComponents.map((item, index) => (
                                                 <li key={index} className="flex items-start gap-2 text-xs">

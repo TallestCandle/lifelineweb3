@@ -13,7 +13,7 @@ import { z } from 'zod';
 
 const AnalyzeMealInputSchema = z.object({
   mealDescription: z.string().describe("A user's description of a meal they have eaten. e.g., 'I had jollof rice with fried chicken and plantain.'"),
-  userHealthContext: z.string().describe("A brief summary of the user's known health conditions or goals, e.g., 'User has Chronic Kidney Disease (CKD) Stage 3' or 'User is trying to manage type 2 diabetes.'"),
+  healthConditions: z.string().describe("A user-provided description of their known health conditions, e.g., 'Chronic Kidney Disease (CKD) Stage 3', 'Type 2 diabetes', 'Hypertension'."),
   imageDataUri: z.string().optional().describe("An optional photo of the meal, provided as a data URI. This serves as visual context for the analysis."),
 }).describe("A user's meal information for nutritional analysis.");
 
@@ -48,8 +48,8 @@ const prompt = ai.definePrompt({
 **Analysis Task:**
 Analyze the user's meal based on their description and health context. Provide a detailed, structured analysis.
 
-**User Health Context:**
-{{{userHealthContext}}}
+**User Health Conditions:**
+"{{{healthConditions}}}"
 
 **User's Meal Description:**
 "{{{mealDescription}}}"
@@ -61,7 +61,7 @@ Analyze the user's meal based on their description and health context. Provide a
 
 **Instructions:**
 1.  **Deconstruct the Meal:** Break down the 'mealDescription' into its main food components (e.g., 'Jollof Rice', 'Fried Chicken', 'Plantain').
-2.  **Assess Each Component:** For each component, evaluate its health impact based on the 'userHealthContext'. Is it healthy or unhealthy for them? Why? Be specific. For a CKD patient, this means focusing on sodium, potassium, and phosphorus. For a diabetic patient, focus on carbohydrates and sugar.
+2.  **Assess Each Component:** For each component, evaluate its health impact based on the 'healthConditions'. Is it healthy or unhealthy for them? Why? Be specific. For a CKD patient, this means focusing on sodium, potassium, and phosphorus. For a diabetic patient, focus on carbohydrates and sugar.
 3.  **Calculate Health Score:** Based on your analysis, provide a 'healthScore' from 1 to 100. A score of 100 is perfectly aligned with the user's health needs, while a score of 1 is extremely detrimental.
 4.  **Provide Overall Assessment:** Write a single, concise 'overallAssessment' sentence.
 5.  **Suggest Alternatives:** Offer a concrete, 'healthierAlternative' to the meal. For example, "Next time, consider baked or grilled chicken instead of fried, and have boiled plantains instead of fried ones."
