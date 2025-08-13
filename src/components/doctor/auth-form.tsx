@@ -81,7 +81,6 @@ export function DoctorAuthForm() {
             email: user.email,
         });
         toast({ title: "Doctor Sign Up Successful", description: "Please complete your profile." });
-        router.push('/doctor/dashboard');
     } else {
         const docSnap = await getDoc(userDocRef);
         if (!docSnap.exists() || docSnap.data().role !== 'doctor') {
@@ -89,8 +88,8 @@ export function DoctorAuthForm() {
             throw new Error("This is not a doctor account.");
         }
         toast({ title: "Doctor Login Successful", description: "Welcome back, Doctor!" });
-        router.push('/doctor/dashboard');
     }
+    router.push('/');
   };
 
   const handleAuthError = (error: any) => {

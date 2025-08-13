@@ -87,7 +87,6 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
             age: '', gender: '', address: '', phone: '',
         });
         toast({ title: "Sign Up Successful", description: "Let's set up your profile." });
-        router.push('/profiles');
     } else {
         const docSnap = await getDoc(userDocRef);
         if (!docSnap.exists() || docSnap.data().role !== 'patient') {
@@ -95,8 +94,8 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
             throw new Error("This is not a patient account. Please use the doctor portal to log in.");
         }
         toast({ title: "Login Successful", description: "Welcome back!" });
-        router.push('/');
     }
+    router.push('/');
   };
 
   const handleAuthError = (error: any) => {

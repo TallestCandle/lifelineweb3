@@ -98,7 +98,6 @@ export function AdminAuthForm() {
             permissions: { canManageSystem: false }
         });
         toast({ title: "Admin Account Created", description: "Your account is pending approval." });
-        router.push('/admin/auth');
     } else {
         if (!docSnap.exists() || docSnap.data().role !== 'admin') {
             await auth.signOut();
@@ -109,8 +108,8 @@ export function AdminAuthForm() {
             throw new Error("This account has been suspended.");
         }
         toast({ title: "Admin Login Successful" });
-        router.push('/admin/dashboard');
     }
+    router.push('/');
   };
 
   const onSubmit = async (data: FormValues) => {
@@ -147,19 +146,19 @@ export function AdminAuthForm() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     if (!auth) {
-        toast({ variant: "destructive", title: "Config Error", description: "Firebase authentication is not available." });
-        setIsLoading(false);
-        return;
+      toast({ variant: "destructive", title: "Config Error", description: "Firebase authentication is not available." });
+      setIsLoading(false);
+      return;
     }
     try {
-        const result = await signInWithPopup(auth, googleProvider);
-        const userDocRef = doc(db, 'users', result.user.uid);
-        const docSnap = await getDoc(userDocRef);
-        await handleAuthSuccess(result, !docSnap.exists());
+      const result = await signInWithPopup(auth, googleProvider);
+      const userDocRef = doc(db, 'users', result.user.uid);
+      const docSnap = await getDoc(userDocRef);
+      await handleAuthSuccess(result, !docSnap.exists());
     } catch (error: any) {
-        handleAuthError(error);
+      handleAuthError(error);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
