@@ -99,8 +99,12 @@ export function AiMealAnalyzer() {
                 timestamp,
                 mealDescription,
                 analysis: result,
-                imageDataUri: imageDataUri || undefined,
             };
+
+            if (imageDataUri) {
+                (logEntry as MealLog).imageDataUri = imageDataUri;
+            }
+            
             await setDoc(doc(db, `users/${user.uid}/meal_logs`, timestamp), logEntry);
             toast({ title: "Meal Analyzed & Logged!" });
 
