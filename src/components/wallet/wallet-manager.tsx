@@ -53,7 +53,7 @@ export function WalletManager() {
     metadata: {
       user_id: user?.uid || '',
     },
-    redirect: true,
+    redirect: false, // Use popup instead of redirect
   };
 
   const initializePayment = usePaystackPayment(config);
@@ -82,8 +82,15 @@ export function WalletManager() {
     
     setIsPaying(true);
     initializePayment({
-        onSuccess: () => {}, 
-        onClose: () => setIsPaying(false)
+        onSuccess: () => {
+            // onSuccess is handled by the webhook, no action needed here.
+            // But we can stop the loader if it's still showing.
+            setIsPaying(false);
+        }, 
+        onClose: () => {
+            // User closed the popup, so we stop the loading state.
+            setIsPaying(false);
+        }
     });
   };
 
