@@ -100,6 +100,11 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
   };
 
   const handleAuthError = (error: any) => {
+    // Gracefully handle popup closed by user
+    if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+        return;
+    }
+    
     let errorMessage = error.message || "An unexpected error occurred.";
     if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         errorMessage = "Invalid email or password.";
