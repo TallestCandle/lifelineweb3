@@ -1,12 +1,11 @@
-
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider, UserCredential } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider, UserCredential, onAuthStateChanged } from 'firebase/auth';
 import { auth, db, googleProvider } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
@@ -59,6 +58,10 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
   const { settings } = useSettings();
   const router = useRouter();
   const { toast } = useToast();
+  
+  // Refs to track authentication state
+  const authStateListenerRef = useRef<(() => void) | null>(null);
+  const isGoogleSignInInProgressRef = useRef(false);
 
   const isPatientSignupDisabled = settings?.signupControls?.isPatientSignupDisabled ?? false;
   const isDoctorPortalEnabled = settings?.featureFlags?.isDoctorPortalEnabled ?? true;
@@ -68,73 +71,93 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
     defaultValues: { email: "", password: "", name: "" },
   });
 
-  const handleAuthSuccess = async (userCredential: UserCredential, isNewUserViaGoogle: boolean = false) => {
+  // Cleanup auth state listener on unmount
+  useEffect(() => {
+    return () => {
+      if (authStateListenerRef.current) {
+        authStateListenerRef.current();
+      }
+    };
+  }, []);
+
+  const handleAuthSuccess = async (userCredential: UserCredential, isNewUser: boolean = false) => {
     const user = userCredential.user;
     const userDocRef = doc(db, 'users', user.uid);
 
     try {
-        const docSnap = await getDoc(userDocRef);
-
-        if (!docSnap.exists() || isNewUserViaGoogle) {
-            // This is a new user signing up.
-            if (isPatientSignupDisabled) {
-                await auth.signOut();
-                throw new Error("Patient sign-ups are currently disabled.");
-            }
-            
-            // Create new user document
-            await setDoc(userDocRef, {
-                role: 'patient' as UserRole,
-                name: user.displayName || '',
-                email: user.email || '',
-                balance: 0,
-                theme: 'theme-cool-flash',
-                age: '', 
-                gender: '', 
-                address: '', 
-                phone: '',
-                createdAt: new Date().toISOString(),
-            }, { merge: true }); // Use merge to avoid overwriting if doc exists but was empty
-            
-            toast({ title: "Sign Up Successful", description: "Welcome! Let's set up your profile." });
-        } else {
-            // This is an existing user logging in.
-            const userData = docSnap.data();
-            if (userData.role !== 'patient') {
-                await auth.signOut();
-                throw new Error("This is not a patient account. Please use the doctor portal to log in.");
-            }
-            
-            toast({ title: "Login Successful", description: "Welcome back!" });
+      if (isNewUser) {
+        if (isPatientSignupDisabled) {
+          await auth.signOut();
+          throw new Error("Patient sign-ups are currently disabled.");
         }
         
-        // **REMOVED** router.push('/'); 
-        // The AuthGuard will handle redirection once the auth state is updated globally.
+        // Create new user document
+        await setDoc(userDocRef, {
+          role: 'patient' as UserRole,
+          name: user.displayName || '',
+          email: user.email || '',
+          balance: 0,
+          theme: 'theme-cool-flash',
+          age: '', 
+          gender: '', 
+          address: '', 
+          phone: '',
+          createdAt: new Date().toISOString(),
+        });
+        
+        toast({ title: "Sign Up Successful", description: "Welcome! Let's set up your profile." });
+        
+        // Add a small delay before redirect to ensure popup is fully resolved
+        setTimeout(() => {
+          router.push('/');
+        }, 100);
+        
+      } else {
+        // Check if user document exists and validate role
+        const docSnap = await getDoc(userDocRef);
+        if (!docSnap.exists()) {
+          await auth.signOut();
+          throw new Error("User account not found. Please sign up first.");
+        }
+        
+        const userData = docSnap.data();
+        if (userData.role !== 'patient') {
+          await auth.signOut();
+          throw new Error("This is not a patient account. Please use the doctor portal to log in.");
+        }
+        
+        toast({ title: "Login Successful", description: "Welcome back!" });
+        
+        // Add a small delay before redirect to ensure popup is fully resolved
+        setTimeout(() => {
+          router.push('/');
+        }, 100);
+      }
     } catch (error) {
-        console.error('Error in handleAuthSuccess:', error);
-        throw error; // Re-throw to be handled by the calling function
+      console.error('Error in handleAuthSuccess:', error);
+      throw error; // Re-throw to be handled by the calling function
     }
   };
 
   const handleAuthError = (error: any) => {
-    console.error('Auth error:', error);
-    
-    // Gracefully handle popup closed by user
-    if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+    // Gracefully handle popup closed by user - don't log or show error
+    if (error.code === 'auth/popup-closed-by-user' || 
+        error.code === 'auth/cancelled-popup-request' ||
+        error.code === 'auth/popup-blocked') {
       return;
     }
     
-    let errorMessage = "An unexpected error occurred. Please try again.";
-    if (error.message) {
-        errorMessage = error.message;
-    }
+    console.error('Auth error:', error);
     
+    let errorMessage = error.message || "An unexpected error occurred.";
     if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
       errorMessage = "Invalid email or password.";
     } else if (error.code === 'auth/email-already-in-use') {
       errorMessage = "This email address is already in use.";
     } else if (error.code === 'auth/account-exists-with-different-credential') {
       errorMessage = "An account already exists with this email address using a different sign-in method.";
+    } else if (error.code === 'auth/network-request-failed') {
+      errorMessage = "Network error. Please check your connection and try again.";
     }
     
     toast({ 
@@ -157,19 +180,77 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
       return;
     }
     
+    // Set flag to indicate Google sign-in is in progress
+    isGoogleSignInInProgressRef.current = true;
+    
+    // Set up auth state listener to handle successful authentication
+    // This approach avoids race conditions with popup closure
+    const cleanup = onAuthStateChanged(auth, async (user) => {
+      if (!isGoogleSignInInProgressRef.current || !user) {
+        return;
+      }
+      
+      // Clear the flag and cleanup listener
+      isGoogleSignInInProgressRef.current = false;
+      cleanup();
+      
+      try {
+        // Process the authenticated user
+        const userDocRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(userDocRef);
+        
+        // Check if this is a new user
+        const isDocumentExists = docSnap.exists();
+        const isNewUser = !isDocumentExists || (!isLogin && !docSnap.data()?.role);
+        
+        // Create a mock UserCredential object for handleAuthSuccess
+        const userCredential = {
+          user,
+          providerId: 'google.com',
+          operationType: 'signIn' as const
+        };
+        
+        await handleAuthSuccess(userCredential, isNewUser);
+        
+      } catch (error: any) {
+        handleAuthError(error);
+      } finally {
+        setIsLoading(false);
+      }
+    });
+    
+    // Store cleanup function for potential later use
+    authStateListenerRef.current = cleanup;
+    
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const userDocRef = doc(db, 'users', result.user.uid);
-      const docSnap = await getDoc(userDocRef);
-      
-      // A new user via Google is one where the Firestore document doesn't exist yet.
-      const isNewUser = !docSnap.exists();
-      
-      await handleAuthSuccess(result, isNewUser);
+      // Trigger the popup - we don't await this or handle its result directly
+      // Instead, we rely on the auth state listener above
+      signInWithPopup(auth, googleProvider).catch((error) => {
+        // Handle popup-specific errors
+        if (error.code === 'auth/popup-closed-by-user' || 
+            error.code === 'auth/cancelled-popup-request' ||
+            error.code === 'auth/popup-blocked') {
+          // User cancelled - clean up and reset state
+          isGoogleSignInInProgressRef.current = false;
+          cleanup();
+          setIsLoading(false);
+          return;
+        }
+        
+        // For other errors, let the auth state listener handle them
+        if (isGoogleSignInInProgressRef.current) {
+          isGoogleSignInInProgressRef.current = false;
+          cleanup();
+          handleAuthError(error);
+          setIsLoading(false);
+        }
+      });
       
     } catch (error: any) {
+      // This shouldn't happen since we're handling errors in the catch above
+      isGoogleSignInInProgressRef.current = false;
+      cleanup();
       handleAuthError(error);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -190,7 +271,7 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
     try {
       if (isLogin) {
         const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-        await handleAuthSuccess(userCredential);
+        await handleAuthSuccess(userCredential, false);
       } else {
         if (!data.name?.trim()) {
           form.setError("name", { type: "manual", message: "Name is required for sign up." });
@@ -210,7 +291,7 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
         
         const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
         await updateProfile(userCredential.user, { displayName: data.name.trim() });
-        await handleAuthSuccess(userCredential);
+        await handleAuthSuccess(userCredential, true);
       }
     } catch (error: any) {
       handleAuthError(error);
