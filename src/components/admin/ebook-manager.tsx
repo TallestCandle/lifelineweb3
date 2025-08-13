@@ -132,12 +132,12 @@ export function EbookManager() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <CardTitle>Ebook Management</CardTitle>
             <CardDescription>Add, edit, and manage your ebooks for the store.</CardDescription>
           </div>
-          <Button onClick={() => openDialog()}>
+          <Button onClick={() => openDialog()} className="w-full sm:w-auto">
             <PlusCircle className="mr-2" /> New Ebook
           </Button>
         </CardHeader>

@@ -146,12 +146,12 @@ export function BlogManager() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <CardTitle>Blog Management</CardTitle>
             <CardDescription>Create, edit, and manage your blog posts.</CardDescription>
           </div>
-          <Button onClick={() => openDialog()}>
+          <Button onClick={() => openDialog()} className="w-full sm:w-auto">
             <PlusCircle className="mr-2" /> New Post
           </Button>
         </CardHeader>
@@ -163,8 +163,8 @@ export function BlogManager() {
           ) : posts.length > 0 ? (
             <div className="space-y-4">
               {posts.map(post => (
-                <div key={post.id} className="flex justify-between items-center p-4 border rounded-lg">
-                  <div>
+                <div key={post.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border rounded-lg gap-4">
+                  <div className="flex-grow">
                     <h3 className="font-bold text-lg">{post.title}</h3>
                     <p className="text-sm text-muted-foreground">
                       By {post.authorName} on {post.createdAt ? format(post.createdAt.toDate(), 'MMM d, yyyy') : '...'}
@@ -173,12 +173,14 @@ export function BlogManager() {
                         View Post
                     </Link>
                   </div>
-                  <div className="flex items-center gap-4">
-                    {post.isPublished ? (
-                      <span className="flex items-center gap-1 text-sm text-green-500"><Eye className="h-4 w-4"/> Published</span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-sm text-muted-foreground"><EyeOff className="h-4 w-4"/> Draft</span>
-                    )}
+                  <div className="flex items-center gap-2 self-end sm:self-center w-full sm:w-auto">
+                    <div className="flex-grow">
+                      {post.isPublished ? (
+                        <span className="flex items-center gap-1 text-sm text-green-500"><Eye className="h-4 w-4"/> Published</span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-sm text-muted-foreground"><EyeOff className="h-4 w-4"/> Draft</span>
+                      )}
+                    </div>
                     <Button variant="outline" size="icon" onClick={() => openDialog(post)}><Edit className="h-4 w-4"/></Button>
                     <Button variant="destructive" size="icon" onClick={() => deletePost(post.id)}><Trash2 className="h-4 w-4"/></Button>
                   </div>
@@ -254,5 +256,3 @@ export function BlogManager() {
     </div>
   );
 }
-
-    

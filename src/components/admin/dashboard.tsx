@@ -195,7 +195,7 @@ export function AdminDashboard() {
       </div>
 
       <Form {...settingsForm}>
-        <form onSubmit={settingsForm.handleSubmit(onSettingsSubmit)} className="grid gap-8 lg:grid-cols-2 lg:items-start">
+        <form onSubmit={settingsForm.handleSubmit(onSettingsSubmit)} className="flex flex-col gap-8">
             <div className="space-y-8">
               <Card>
                 <CardHeader>
@@ -231,14 +231,14 @@ export function AdminDashboard() {
               </Card>
               
               <div className="flex justify-end sticky bottom-4">
-                  <Button type="submit" size="lg" disabled={isLoading || !canManage} className="shadow-2xl">
+                  <Button type="submit" size="lg" disabled={isLoading || !canManage} className="shadow-2xl w-full sm:w-auto">
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Save All Settings
                   </Button>
               </div>
             </div>
             
-            <div className="space-y-8 lg:sticky lg:top-24">
+            <div className="space-y-8">
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Users/> Admin Management</CardTitle>
