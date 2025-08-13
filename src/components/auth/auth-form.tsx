@@ -10,7 +10,6 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfi
 import { auth, db, googleProvider } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -69,64 +68,100 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
     defaultValues: { email: "", password: "", name: "" },
   });
 
-  const handleAuthSuccess = async (userCredential: UserCredential, isNewUser: boolean = false) => {
+  const handleAuthSuccess = async (userCredential: UserCredential, isNewUserViaGoogle: boolean = false) => {
     const user = userCredential.user;
     const userDocRef = doc(db, 'users', user.uid);
 
-    if (isNewUser) {
-        if (isPatientSignupDisabled) {
-            await auth.signOut();
-            throw new Error("Patient sign-ups are currently disabled.");
-        }
-        await setDoc(userDocRef, {
-            role: 'patient' as UserRole,
-            name: user.displayName,
-            email: user.email,
-            balance: 0,
-            theme: 'theme-cool-flash',
-            age: '', gender: '', address: '', phone: '',
-        });
-        toast({ title: "Sign Up Successful", description: "Let's set up your profile." });
-    } else {
+    try {
         const docSnap = await getDoc(userDocRef);
-        if (!docSnap.exists() || docSnap.data().role !== 'patient') {
-            await auth.signOut();
-            throw new Error("This is not a patient account. Please use the doctor portal to log in.");
+
+        if (!docSnap.exists() || isNewUserViaGoogle) {
+            // This is a new user signing up.
+            if (isPatientSignupDisabled) {
+                await auth.signOut();
+                throw new Error("Patient sign-ups are currently disabled.");
+            }
+            
+            // Create new user document
+            await setDoc(userDocRef, {
+                role: 'patient' as UserRole,
+                name: user.displayName || '',
+                email: user.email || '',
+                balance: 0,
+                theme: 'theme-cool-flash',
+                age: '', 
+                gender: '', 
+                address: '', 
+                phone: '',
+                createdAt: new Date().toISOString(),
+            }, { merge: true }); // Use merge to avoid overwriting if doc exists but was empty
+            
+            toast({ title: "Sign Up Successful", description: "Welcome! Let's set up your profile." });
+        } else {
+            // This is an existing user logging in.
+            const userData = docSnap.data();
+            if (userData.role !== 'patient') {
+                await auth.signOut();
+                throw new Error("This is not a patient account. Please use the doctor portal to log in.");
+            }
+            
+            toast({ title: "Login Successful", description: "Welcome back!" });
         }
-        toast({ title: "Login Successful", description: "Welcome back!" });
+        
+        router.push('/');
+    } catch (error) {
+        console.error('Error in handleAuthSuccess:', error);
+        throw error; // Re-throw to be handled by the calling function
     }
-    router.push('/');
   };
 
   const handleAuthError = (error: any) => {
+    console.error('Auth error:', error);
+    
     // Gracefully handle popup closed by user
     if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
-        return;
+      return;
     }
     
     let errorMessage = error.message || "An unexpected error occurred.";
     if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        errorMessage = "Invalid email or password.";
+      errorMessage = "Invalid email or password.";
     } else if (error.code === 'auth/email-already-in-use') {
-        errorMessage = "This email address is already in use.";
+      errorMessage = "This email address is already in use.";
     } else if (error.code === 'auth/account-exists-with-different-credential') {
-        errorMessage = "An account already exists with this email address using a different sign-in method.";
+      errorMessage = "An account already exists with this email address using a different sign-in method.";
     }
-    toast({ variant: "destructive", title: "Authentication Failed", description: errorMessage });
+    
+    toast({ 
+      variant: "destructive", 
+      title: "Authentication Failed", 
+      description: errorMessage 
+    });
   };
   
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
+    
     if (!auth) {
-      toast({ variant: "destructive", title: "Config Error", description: "Firebase authentication is not available." });
+      toast({ 
+        variant: "destructive", 
+        title: "Config Error", 
+        description: "Firebase authentication is not available." 
+      });
       setIsLoading(false);
       return;
     }
+    
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const userDocRef = doc(db, 'users', result.user.uid);
       const docSnap = await getDoc(userDocRef);
-      await handleAuthSuccess(result, !docSnap.exists());
+      
+      // A new user via Google is one where the Firestore document doesn't exist yet.
+      const isNewUser = !docSnap.exists();
+      
+      await handleAuthSuccess(result, isNewUser);
+      
     } catch (error: any) {
       handleAuthError(error);
     } finally {
@@ -136,24 +171,41 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
+    
     if (!auth) {
-        toast({ variant: "destructive", title: "Configuration Error", description: "Firebase is not configured. Please check your environment variables." });
-        setIsLoading(false);
-        return;
+      toast({ 
+        variant: "destructive", 
+        title: "Configuration Error", 
+        description: "Firebase is not configured. Please check your environment variables." 
+      });
+      setIsLoading(false);
+      return;
     }
+    
     try {
       if (isLogin) {
         const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-        await handleAuthSuccess(userCredential, false);
+        await handleAuthSuccess(userCredential);
       } else {
-        if (!data.name) {
-            form.setError("name", { type: "manual", message: "Name is required for sign up." });
-            setIsLoading(false);
-            return;
+        if (!data.name?.trim()) {
+          form.setError("name", { type: "manual", message: "Name is required for sign up." });
+          setIsLoading(false);
+          return;
         }
+        
+        if (isPatientSignupDisabled) {
+          toast({ 
+            variant: "destructive", 
+            title: "Sign-up Disabled", 
+            description: "Patient sign-ups are currently disabled." 
+          });
+          setIsLoading(false);
+          return;
+        }
+        
         const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-        await updateProfile(userCredential.user, { displayName: data.name });
-        await handleAuthSuccess(userCredential, true);
+        await updateProfile(userCredential.user, { displayName: data.name.trim() });
+        await handleAuthSuccess(userCredential);
       }
     } catch (error: any) {
       handleAuthError(error);
@@ -197,7 +249,12 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
             </Alert>
           )}
 
-          <Button variant="outline" className="w-full mb-4" onClick={handleGoogleSignIn} disabled={isLoading || (!isLogin && isPatientSignupDisabled)}>
+          <Button 
+            variant="outline" 
+            className="w-full mb-4" 
+            onClick={handleGoogleSignIn} 
+            disabled={isLoading || (!isLogin && isPatientSignupDisabled)}
+          >
             <GoogleIcon /> Sign {isLogin ? 'in' : 'up'} with Google
           </Button>
 
@@ -235,7 +292,7 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
                     <FormMessage />
                   </FormItem>
                 )}
-              />
+                />
               <FormField
                 control={form.control}
                 name="password"
@@ -246,7 +303,13 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
                         <FormControl>
                             <Input type={showPassword ? "text" : "password"} placeholder="••••••••" {...field} />
                         </FormControl>
-                        <Button type="button" variant="ghost" size="icon" className="absolute top-0 right-0 h-full w-10 text-muted-foreground" onClick={() => setShowPassword(!showPassword)}>
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="icon" 
+                          className="absolute top-0 right-0 h-full w-10 text-muted-foreground" 
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
                             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
                     </div>
@@ -254,7 +317,11 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={isLoading || (!isLogin && isPatientSignupDisabled)}>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading || (!isLogin && isPatientSignupDisabled)}
+              >
                 {isLoading ? 'Processing...' : (isLogin ? 'Log In with Email' : 'Sign Up with Email')}
               </Button>
             </form>
