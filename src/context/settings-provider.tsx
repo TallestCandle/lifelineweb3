@@ -9,6 +9,7 @@ export interface FeatureFlags {
   isClinicEnabled: boolean;
   isReportEnabled: boolean;
   isPrescriptionsEnabled: boolean;
+  isDoctorPortalEnabled: boolean;
 }
 
 export interface SignupControls {
@@ -34,6 +35,7 @@ const defaultSettings: SystemSettings = {
         isClinicEnabled: true,
         isReportEnabled: true,
         isPrescriptionsEnabled: true,
+        isDoctorPortalEnabled: true,
     },
     signupControls: {
         isPatientSignupDisabled: false,

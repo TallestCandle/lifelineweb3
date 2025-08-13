@@ -39,6 +39,7 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
   const { toast } = useToast();
 
   const isPatientSignupDisabled = settings?.signupControls?.isPatientSignupDisabled ?? false;
+  const isDoctorPortalEnabled = settings?.featureFlags?.isDoctorPortalEnabled ?? true;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -202,9 +203,11 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
               {isLogin ? 'Sign Up' : 'Log In'}
             </Button>
           </p>
-          <Button variant="link" size="sm" className="text-xs" onClick={() => router.push('/doctor/auth')}>
-              Doctor Portal
-          </Button>
+          {isDoctorPortalEnabled && (
+            <Button variant="link" size="sm" className="text-xs" onClick={() => router.push('/doctor/auth')}>
+                Doctor Portal
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </div>

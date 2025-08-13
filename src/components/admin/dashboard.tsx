@@ -47,6 +47,7 @@ const settingsSchema = z.object({
     isClinicEnabled: z.boolean().default(true),
     isReportEnabled: z.boolean().default(true),
     isPrescriptionsEnabled: z.boolean().default(true),
+    isDoctorPortalEnabled: z.boolean().default(true),
   })
 });
 
@@ -82,6 +83,7 @@ export function AdminDashboard() {
         isClinicEnabled: true,
         isReportEnabled: true,
         isPrescriptionsEnabled: true,
+        isDoctorPortalEnabled: true,
       }
     },
   });
@@ -222,6 +224,7 @@ export function AdminDashboard() {
                        <FormField control={settingsForm.control} name="featureFlags.isClinicEnabled" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><FormLabel className="text-base">Clinic</FormLabel><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
                        <FormField control={settingsForm.control} name="featureFlags.isReportEnabled" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><FormLabel className="text-base">Health Report</FormLabel><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
                        <FormField control={settingsForm.control} name="featureFlags.isPrescriptionsEnabled" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><FormLabel className="text-base">Prescriptions</FormLabel><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
+                       <FormField control={settingsForm.control} name="featureFlags.isDoctorPortalEnabled" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><FormLabel className="text-base">Doctor Portal Access</FormLabel><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
                     </div>
                   </fieldset>
                 </CardContent>
