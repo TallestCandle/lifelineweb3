@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-provider';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, limit, where, Timestamp } from 'firebase/firestore';
 import { format, parseISO } from 'date-fns';
 import {
   Heart,
@@ -16,7 +16,9 @@ import {
   TrendingUp,
   Minus,
   Wallet,
-  AlertCircle
+  AlertCircle,
+  BookOpen,
+  ArrowRight
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -46,6 +48,12 @@ interface VitalHistoryEntry {
     bloodSugar?: string;
     oxygenSaturation?: string;
     pulseRate?: string;
+}
+
+interface Post {
+  id: string;
+  title: string;
+  slug: string;
 }
 
 
@@ -97,6 +105,7 @@ export function Dashboard() {
     const [latestVitals, setLatestVitals] = useState<LatestVital[]>([]);
     const [bpHistory, setBpHistory] = useState<{name: string, systolic: number, diastolic: number}[]>([]);
     const [trendsHistory, setTrendsHistory] = useState<{name: string, blood_sugar?: number, oxygen_saturation?: number, pulse_rate?: number}[]>([]);
+    const [blogPosts, setBlogPosts] = useState<Post[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const firstName = user?.displayName?.split(' ')[0] || 'User';
 
@@ -109,10 +118,11 @@ export function Dashboard() {
         const fetchData = async () => {
             setIsLoading(true);
             try {
+                // Fetch Vitals
                 const vitalsQuery = query(collection(db, `users/${user.uid}/vitals`), orderBy('date', 'desc'), limit(50));
-                const snapshot = await getDocs(vitalsQuery);
+                const vitalsSnapshot = await getDocs(vitalsQuery);
                 
-                const history: VitalHistoryEntry[] = snapshot.docs.map(doc => {
+                const history: VitalHistoryEntry[] = vitalsSnapshot.docs.map(doc => {
                     const data = doc.data();
                     return {
                         ...data,
@@ -224,9 +234,17 @@ export function Dashboard() {
                     }));
                 setTrendsHistory(trendsHistoryForChart);
 
+                // Fetch Blog Posts
+                const postsQuery = query(collection(db, 'posts'), where("isPublished", "==", true), orderBy("createdAt", "desc"), limit(3));
+                const postsSnapshot = await getDocs(postsQuery);
+                setBlogPosts(postsSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    title: doc.data().title,
+                    slug: doc.data().slug,
+                } as Post)));
 
             } catch (error) {
-                console.error("Error processing vitals:", error);
+                console.error("Error processing dashboard data:", error);
                 toast({ variant: 'destructive', title: "Error", description: "Could not load dashboard data." });
             } finally {
                 setIsLoading(false);
@@ -295,6 +313,7 @@ export function Dashboard() {
                 </div>
                 <div className="grid gap-6 lg:grid-cols-2">
                     <Skeleton className="h-80" />
+                    <Skeleton className="h-80" />
                 </div>
             </div>
         )
@@ -322,8 +341,8 @@ export function Dashboard() {
                 )}
             </div>
 
-            <div className="grid grid-cols-1 gap-6">
-                 <Card>
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                 <Card className="lg:col-span-3">
                     <CardHeader>
                         <CardTitle>Blood Pressure Over Time</CardTitle>
                         <CardDescription>Your last 7 BP readings.</CardDescription>
@@ -346,6 +365,33 @@ export function Dashboard() {
                                 <Bar dataKey="diastolic" fill="hsl(var(--chart-2))" name="Diastolic" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+                <Card className="lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><BookOpen/> From the Blog</CardTitle>
+                        <CardDescription>Latest insights and updates.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {blogPosts.length > 0 ? (
+                             <div className="space-y-4">
+                                {blogPosts.map(post => (
+                                    <div key={post.id} className="flex items-center justify-between gap-4 p-3 rounded-md bg-secondary/50">
+                                        <h4 className="font-semibold text-sm truncate">{post.title}</h4>
+                                        <Button asChild variant="ghost" size="sm">
+                                            <Link href={`/blog/${post.slug}`}>Read <ArrowRight className="ml-2 h-4 w-4"/></Link>
+                                        </Button>
+                                    </div>
+                                ))}
+                                <Button variant="outline" className="w-full" asChild>
+                                    <Link href="/blog">View All Posts</Link>
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="text-center py-10 text-muted-foreground">
+                                <p>No blog posts available yet.</p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
