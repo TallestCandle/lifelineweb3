@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -15,7 +15,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Stethoscope, ArrowLeft, ShieldAlert, Bot } from 'lucide-react';
+import { Stethoscope, ArrowLeft, ShieldAlert, Bot, Eye, EyeOff } from 'lucide-react';
 import { Loader } from '../ui/loader';
 import type { UserRole } from '@/context/auth-provider';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -32,6 +32,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function DoctorAuthForm() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { settings } = useSettings();
   const router = useRouter();
   const { toast } = useToast();
@@ -169,9 +170,14 @@ export function DoctorAuthForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
-                    </FormControl>
+                     <div className="relative">
+                        <FormControl>
+                            <Input type={showPassword ? "text" : "password"} placeholder="••••••••" {...field} />
+                        </FormControl>
+                        <Button type="button" variant="ghost" size="icon" className="absolute top-0 right-0 h-full w-10 text-muted-foreground" onClick={() => setShowPassword(!showPassword)}>
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}

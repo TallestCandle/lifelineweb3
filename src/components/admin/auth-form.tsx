@@ -15,7 +15,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, ArrowLeft, ShieldAlert, Bot } from 'lucide-react';
+import { Shield, ArrowLeft, ShieldAlert, Bot, Eye, EyeOff } from 'lucide-react';
 import { Loader } from '../ui/loader';
 import type { UserRole } from '@/context/auth-provider';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -36,6 +36,7 @@ export function AdminAuthForm() {
   const [isSignupDisabled, setIsSignupDisabled] = useState(true);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -221,9 +222,14 @@ export function AdminAuthForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
-                    </FormControl>
+                    <div className="relative">
+                        <FormControl>
+                          <Input type={showPassword ? "text" : "password"} placeholder="••••••••" {...field} />
+                        </FormControl>
+                        <Button type="button" variant="ghost" size="icon" className="absolute top-0 right-0 h-full w-10 text-muted-foreground" onClick={() => setShowPassword(!showPassword)}>
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
