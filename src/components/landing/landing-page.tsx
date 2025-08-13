@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Stethoscope, ShieldCheck, Zap, Bot, ArrowRight, MessageSquare, Star } from 'lucide-react';
+import { ShieldCheck, Zap, Bot, ArrowRight, MessageSquare, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import Image from 'next/image';
@@ -58,8 +58,8 @@ export function LandingPage() {
             <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm">
                 <div className="container mx-auto flex h-20 items-center justify-between px-4">
                     <Link href="/landing" className="flex items-center gap-2 text-primary">
-                        <Stethoscope className="w-8 h-8" />
-                        <h1 className="text-2xl font-bold">Lifeline AI</h1>
+                        <Bot className="w-8 h-8" />
+                        <h1 className="text-2xl font-bold">Lifeline</h1>
                     </Link>
                     <div className="flex items-center gap-2">
                         <Button variant="ghost" asChild><Link href="/blog">Blog</Link></Button>
@@ -76,7 +76,7 @@ export function LandingPage() {
                             Your Health, Empowered by AI
                         </h1>
                         <p className="max-w-2xl mx-auto text-lg md:text-xl text-muted-foreground mb-8">
-                            Lifeline AI uses affordable test kits and powerful, personalized AI to detect early signs of deadly diseases. Take control of your health today.
+                            Lifeline uses affordable test kits and powerful, personalized AI to detect early signs of deadly diseases. Take control of your health today.
                         </p>
                         <div className="flex justify-center gap-4">
                             <Button size="lg" onClick={handleAuthRedirect}>
@@ -90,14 +90,14 @@ export function LandingPage() {
                  <section className="py-20 bg-secondary/30">
                     <div className="container mx-auto px-4">
                         <div className="text-center mb-12">
-                            <h2 className="text-3xl md:text-4xl font-bold">Why Lifeline AI?</h2>
+                            <h2 className="text-3xl md:text-4xl font-bold">Why Lifeline?</h2>
                             <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">We are on a mission to make proactive healthcare accessible to everyone, everywhere.</p>
                         </div>
                         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
                             <FeatureCard icon={Zap} title="Early Detection" description="Identify risks for stroke, kidney failure, diabetes & more—before it's too late."/>
                             <FeatureCard icon={Bot} title="AI-Powered" description="Get instant, intelligent analysis of your results right on your phone."/>
                             <FeatureCard icon={ShieldCheck} title="Private & Secure" description="Your health data is yours. It's encrypted and protected with enterprise-grade security."/>
-                            <FeatureCard icon={Stethoscope} title="Doctor Verified" description="AI insights are the start. Our plans are reviewed and approved by certified doctors."/>
+                            <FeatureCard icon={Bot} title="Doctor Verified" description="AI insights are the start. Our plans are reviewed and approved by certified doctors."/>
                         </div>
                     </div>
                 </section>
@@ -141,7 +141,7 @@ export function LandingPage() {
                 <section className="py-20">
                     <div className="container mx-auto px-4 text-center">
                         <h2 className="text-3xl md:text-4xl font-bold">Ready to Take Control of Your Health?</h2>
-                        <p className="text-muted-foreground mt-2 mb-8 max-w-2xl mx-auto">Download Lifeline AI today and join a community empowered by knowledge and early detection. Your future self will thank you.</p>
+                        <p className="text-muted-foreground mt-2 mb-8 max-w-2xl mx-auto">Download Lifeline today and join a community empowered by knowledge and early detection. Your future self will thank you.</p>
                         <Button size="lg" onClick={handleAuthRedirect}>
                              Sign Up for Free <ArrowRight className="ml-2"/>
                         </Button>
@@ -151,7 +151,7 @@ export function LandingPage() {
 
             <footer className="bg-card">
                 <div className="container mx-auto px-4 py-8 text-center text-muted-foreground">
-                    <p>&copy; {new Date().getFullYear()} Lifeline AI. All Rights Reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} Lifeline. All Rights Reserved.</p>
                     <p className="text-sm mt-2">Empowering proactive health for a better future.</p>
                 </div>
             </footer>
@@ -168,5 +168,3 @@ const FeatureCard = ({ icon: Icon, title, description }: { icon: React.ElementTy
         <p className="text-muted-foreground">{description}</p>
     </Card>
 );
-
-    

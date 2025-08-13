@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AuthForm } from '@/components/auth/auth-form';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Stethoscope, User } from 'lucide-react';
+import { Stethoscope, User, Bot } from 'lucide-react';
 
 export function RoleSelection() {
   const [role, setRole] = useState<'patient' | null>(null);
@@ -26,8 +26,8 @@ export function RoleSelection() {
       <Card className="w-full max-w-md mx-4 bg-card/80 backdrop-blur-sm border-primary/20 text-center">
         <CardHeader>
           <div className="flex justify-center items-center gap-2 mb-4">
-            <Stethoscope className="w-10 h-10 text-primary"/>
-            <h1 className="text-3xl font-bold">Lifeline AI</h1>
+            <Bot className="w-10 h-10 text-primary"/>
+            <h1 className="text-3xl font-bold">Lifeline</h1>
           </div>
           <CardTitle>Welcome!</CardTitle>
           <CardDescription>Please select your role to continue.</CardDescription>

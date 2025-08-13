@@ -15,7 +15,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { Shield, ArrowLeft, ShieldAlert, Bot } from 'lucide-react';
 import { Loader } from '../ui/loader';
 import type { UserRole } from '@/context/auth-provider';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -169,8 +169,8 @@ export function AdminAuthForm() {
         </Button>
         <CardHeader className="text-center pt-16">
             <div className="flex justify-center items-center gap-2 mb-4">
-                <Shield className="w-10 h-10 text-primary"/>
-                <h1 className="text-3xl font-bold">Lifeline AI</h1>
+                <Bot className="w-10 h-10 text-primary"/>
+                <h1 className="text-3xl font-bold">Lifeline</h1>
             </div>
           <CardTitle>{isLogin ? "Admin Login" : "Admin Sign Up"}</CardTitle>
           <CardDescription>{isLogin ? "Access the system's control panel." : "Create an administrator account."}</CardDescription>

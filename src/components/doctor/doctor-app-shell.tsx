@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Stethoscope, LogOut, Users, BarChart, MessageSquare, UserCircle } from "lucide-react"
+import { Bot, LogOut, Users, BarChart, MessageSquare, UserCircle } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { signOut } from "firebase/auth"
 import { auth } from "@/lib/firebase"
@@ -45,8 +45,8 @@ function DoctorAppShellInternal({ children }: { children: React.ReactNode }) {
       <nav className="hidden md:flex flex-col w-64 bg-secondary border-r border-primary/20">
         <div className="flex items-center justify-center h-16 border-b border-primary/20">
             <a href="/doctor/dashboard" className="flex items-center gap-2 text-primary">
-                <Stethoscope className="w-8 h-8" />
-                <h1 className="text-xl font-headline font-bold">Lifeline AI</h1>
+                <Bot className="w-8 h-8" />
+                <h1 className="text-xl font-headline font-bold">Lifeline</h1>
             </a>
         </div>
         <div className="flex-1 p-4 space-y-2">
@@ -70,8 +70,8 @@ function DoctorAppShellInternal({ children }: { children: React.ReactNode }) {
       <div className="flex flex-col flex-1">
         <header className="flex items-center justify-between p-4 border-b border-primary/20 bg-background/80 backdrop-blur-sm sticky top-0 z-10 md:justify-end">
             <div className="flex items-center gap-2 text-primary md:hidden">
-                <Stethoscope className="w-8 h-8" />
-                <h1 className="text-xl font-headline font-bold">Lifeline AI</h1>
+                <Bot className="w-8 h-8" />
+                <h1 className="text-xl font-headline font-bold">Lifeline</h1>
             </div>
             <div className="flex items-center gap-4">
                 <p className="text-sm font-bold hidden sm:block">{profile?.name || user?.displayName}</p>

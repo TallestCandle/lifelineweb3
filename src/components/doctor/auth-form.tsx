@@ -15,7 +15,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Stethoscope, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { Stethoscope, ArrowLeft, ShieldAlert, Bot } from 'lucide-react';
 import { Loader } from '../ui/loader';
 import type { UserRole } from '@/context/auth-provider';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -124,8 +124,8 @@ export function DoctorAuthForm() {
         </Button>
         <CardHeader className="text-center pt-16">
             <div className="flex justify-center items-center gap-2 mb-4">
-                <Stethoscope className="w-10 h-10 text-primary"/>
-                <h1 className="text-3xl font-bold">Lifeline AI</h1>
+                <Bot className="w-10 h-10 text-primary"/>
+                <h1 className="text-3xl font-bold">Lifeline</h1>
             </div>
           <CardTitle>{isLogin ? "Doctor Portal" : "Doctor Registration"}</CardTitle>
           <CardDescription>{isLogin ? "Sign in to the clinical dashboard." : "Create a new doctor account."}</CardDescription>

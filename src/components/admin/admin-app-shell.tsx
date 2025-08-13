@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Shield, LogOut, Settings, Newspaper, BookOpen } from "lucide-react"
+import { Shield, LogOut, Settings, Newspaper, BookOpen, Bot } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { signOut } from "firebase/auth"
 import { auth } from "@/lib/firebase"
@@ -56,8 +56,8 @@ export function AdminAppShell({ children }: { children: React.ReactNode }) {
       <div className="flex flex-col flex-1">
         <header className="flex items-center justify-between p-4 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10 md:justify-end">
             <div className="flex items-center gap-2 text-primary md:hidden">
-                <Shield className="w-8 h-8" />
-                <h1 className="text-xl font-headline font-bold">Admin Panel</h1>
+                <Bot className="w-8 h-8" />
+                <h1 className="text-xl font-headline font-bold">Lifeline</h1>
             </div>
             <div className="flex items-center gap-4">
                 <p className="text-sm font-bold hidden sm:block">{user?.displayName}</p>

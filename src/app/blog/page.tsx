@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Newspaper, Stethoscope } from 'lucide-react';
+import { ArrowRight, Newspaper, Bot } from 'lucide-react';
 import Image from 'next/image';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
@@ -51,8 +51,8 @@ export default async function BlogListPage() {
         <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm">
             <div className="container mx-auto flex h-20 items-center justify-between px-4">
                 <Link href="/landing" className="flex items-center gap-2 text-primary">
-                    <Stethoscope className="w-8 h-8" />
-                    <h1 className="text-2xl font-bold">Lifeline AI</h1>
+                    <Bot className="w-8 h-8" />
+                    <h1 className="text-2xl font-bold">Lifeline</h1>
                 </Link>
                 <div className="flex items-center gap-2">
                     <Button variant="ghost" asChild><Link href="/auth">Log In</Link></Button>
@@ -64,7 +64,7 @@ export default async function BlogListPage() {
         <div className="container mx-auto py-8 px-4">
             <header className="text-center mb-12">
                 <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">The Lifeline Blog</h1>
-                <p className="mt-4 text-lg md:text-xl text-muted-foreground">Insights and updates on proactive health.</p>
+                <p className="text-lg md:text-xl text-muted-foreground">Insights and updates on proactive health.</p>
             </header>
 
             {featuredPost && (
@@ -135,7 +135,3 @@ export default async function BlogListPage() {
     </div>
   );
 }
-
-    
-
-    
