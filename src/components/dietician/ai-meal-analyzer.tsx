@@ -417,7 +417,6 @@ export function AiMealAnalyzer() {
                     )}
                 </CardContent>
             </Card>
-
         </div>
     );
 }
