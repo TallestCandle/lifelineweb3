@@ -13,4 +13,4 @@ import './flows/comprehensive-case-review-flow';
 import './flows/generate-bmi-advice-flow';
 import './flows/system-support-flow';
 import './flows/analyze-meal-flow';
-
+import './flows/check-food-suitability-flow';
