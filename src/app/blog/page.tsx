@@ -63,16 +63,16 @@ export default async function BlogListPage() {
 
         <div className="container mx-auto py-8 px-4">
             <header className="text-center mb-12">
-                <h1 className="text-5xl font-extrabold tracking-tight text-primary">The Lifeline Blog</h1>
-                <p className="mt-4 text-xl text-muted-foreground">Insights and updates on proactive health.</p>
+                <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">The Lifeline Blog</h1>
+                <p className="mt-4 text-lg md:text-xl text-muted-foreground">Insights and updates on proactive health.</p>
             </header>
 
             {featuredPost && (
                  <Card className="mb-12 overflow-hidden bg-background">
                     <CardContent className="p-0 grid md:grid-cols-2">
-                         <div className="p-8 flex flex-col justify-center">
+                         <div className="p-6 sm:p-8 flex flex-col justify-center">
                             <p className="text-sm text-primary font-semibold mb-2">Featured Post</p>
-                            <CardTitle className="text-3xl font-bold mb-4">{featuredPost.title}</CardTitle>
+                            <CardTitle className="text-2xl md:text-3xl font-bold mb-4">{featuredPost.title}</CardTitle>
                             <div
                                 className="mb-6 line-clamp-3 text-muted-foreground prose dark:prose-invert max-w-none"
                                 dangerouslySetInnerHTML={{ __html: featuredPost.content }}

@@ -287,7 +287,7 @@ export function Dashboard() {
                 <div className="flex justify-between items-center">
                     <Skeleton className="h-10 w-64" />
                 </div>
-                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <Skeleton className="h-48" />
                     <Skeleton className="h-48" />
                     <Skeleton className="h-48" />
@@ -303,16 +303,16 @@ export function Dashboard() {
     return (
         <div className="space-y-8 animate-fade-in">
             <div>
-                <h1 className="text-3xl font-bold">Welcome back, {firstName}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">Welcome back, {firstName}</h1>
                 <p className="text-muted-foreground">Here’s what’s happening with your health today.</p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <WalletCard />
                 {latestVitals.slice(0, 3).map(v => <VitalCard key={v.type} vital={v} />)}
                 {latestVitals.length === 0 && (
-                    <Card className="md:col-span-2 lg:col-span-3">
-                        <CardContent className="flex flex-col items-center justify-center p-12 text-center h-full">
+                    <Card className="sm:col-span-2 lg:col-span-3">
+                        <CardContent className="flex flex-col items-center justify-center p-6 sm:p-12 text-center h-full">
                             <AlertCircle className="w-12 h-12 text-muted-foreground mb-4"/>
                             <h3 className="text-lg font-bold">Not Enough Data</h3>
                             <p className="text-muted-foreground">Log your vitals for at least two days to see your dashboard cards.</p>
@@ -322,7 +322,7 @@ export function Dashboard() {
                 )}
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-1">
+            <div className="grid grid-cols-1 gap-6">
                  <Card>
                     <CardHeader>
                         <CardTitle>Blood Pressure Over Time</CardTitle>

@@ -120,16 +120,16 @@ export default function BlogPostPage() {
 
   return (
     <div className="bg-secondary/30 min-h-screen">
-      <div className="container mx-auto py-8 px-4 max-w-6xl">
+      <div className="container mx-auto py-8 px-4 max-w-4xl">
           <Button asChild variant="ghost" className="mb-8">
               <Link href="/blog"><ArrowLeft className="mr-2"/> Back to Blog</Link>
           </Button>
           
-          <div className="w-full max-w-4xl mx-auto">
+          <div className="w-full">
               <article>
                   <header className="mb-8 text-center">
-                      <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">{post.title}</h1>
-                      <p className="mt-4 text-lg text-muted-foreground">
+                      <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-primary">{post.title}</h1>
+                      <p className="mt-4 text-base md:text-lg text-muted-foreground">
                           By {post.authorName} on {format(post.createdAt, 'MMMM d, yyyy')}
                       </p>
                   </header>
@@ -161,12 +161,12 @@ export default function BlogPostPage() {
           {/* Other Posts Section */}
           {visibleOtherPosts.length > 0 && (
             <div className="mt-16 pt-12 border-t">
-              <h2 className="text-3xl font-bold text-center mb-8">More Posts</h2>
+              <h2 className="text-2xl md:text-3xl font-bold text-center mb-8">More Posts</h2>
               <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
                 {visibleOtherPosts.map(p => (
                   <Card key={p.id} className="flex flex-col bg-background">
                     <CardHeader>
-                      <CardTitle className="text-2xl">{p.title}</CardTitle>
+                      <CardTitle className="text-xl md:text-2xl">{p.title}</CardTitle>
                       <CardDescription>
                         {format(p.createdAt, 'MMMM d, yyyy')}
                       </CardDescription>
