@@ -108,7 +108,8 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
             toast({ title: "Login Successful", description: "Welcome back!" });
         }
         
-        router.push('/');
+        // **REMOVED** router.push('/'); 
+        // The AuthGuard will handle redirection once the auth state is updated globally.
     } catch (error) {
         console.error('Error in handleAuthSuccess:', error);
         throw error; // Re-throw to be handled by the calling function
@@ -123,7 +124,11 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
       return;
     }
     
-    let errorMessage = error.message || "An unexpected error occurred.";
+    let errorMessage = "An unexpected error occurred. Please try again.";
+    if (error.message) {
+        errorMessage = error.message;
+    }
+    
     if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
       errorMessage = "Invalid email or password.";
     } else if (error.code === 'auth/email-already-in-use') {
