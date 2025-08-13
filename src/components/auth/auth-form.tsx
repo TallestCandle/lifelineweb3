@@ -21,6 +21,7 @@ import { Loader } from '../ui/loader';
 import type { UserRole } from '@/context/auth-provider';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { ShieldAlert } from 'lucide-react';
+import { useSettings } from '@/context/settings-provider';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -33,24 +34,16 @@ type FormValues = z.infer<typeof formSchema>;
 export function AuthForm({ onBack }: { onBack: () => void }) {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignupDisabled, setIsSignupDisabled] = useState(false);
+  const { settings } = useSettings();
   const router = useRouter();
   const { toast } = useToast();
+
+  const isPatientSignupDisabled = settings?.signupControls?.isPatientSignupDisabled ?? false;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { email: "", password: "", name: "" },
   });
-
-  useEffect(() => {
-    const checkSignupStatus = async () => {
-        const settingsDoc = await getDoc(doc(db, 'system_settings', 'signup_controls'));
-        if (settingsDoc.exists() && settingsDoc.data().isPatientSignupDisabled) {
-            setIsSignupDisabled(true);
-        }
-    };
-    checkSignupStatus();
-  }, []);
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
@@ -69,13 +62,13 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
 
         if (!docSnap.exists() || docSnap.data().role !== 'patient') {
           await auth.signOut(); // Log out the user
-          throw new Error("This is not a patient account. Please use the doctor portal to log in.");
+          throw new Error("This is not a patient account. Please use the appropriate portal to log in.");
         }
         
         toast({ title: "Login Successful", description: "Welcome back!" });
         router.push('/');
       } else {
-        if(isSignupDisabled) {
+        if(isPatientSignupDisabled) {
             throw new Error("Patient sign-ups are currently disabled by the administrator.");
         }
         if (!data.name) {
@@ -130,7 +123,7 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
-       <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[radial-gradient(#D4A017_1px,transparent_1px)] [background-size:32px_32px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_60%,transparent_100%)] opacity-20"></div>
+       <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[radial-gradient(hsl(var(--primary)/0.1)_1px,transparent_1px)] [background-size:32px_32px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_60%,transparent_100%)]"></div>
       <Card className="w-full max-w-md mx-4 bg-card/80 backdrop-blur-sm border-primary/20 relative">
         <Button variant="ghost" size="icon" className="absolute top-4 left-4" onClick={onBack}>
           <ArrowLeft />
@@ -140,11 +133,11 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
                 <Bot className="w-10 h-10 text-primary"/>
                 <h1 className="text-3xl font-bold">Lifeline</h1>
             </div>
-          <CardTitle>{isLogin ? "Patient Login" : "Patient Sign Up"}</CardTitle>
-          <CardDescription>{isLogin ? "Sign in to access your dashboard." : "Get started with your health journey."}</CardDescription>
+          <CardTitle>{isLogin ? "Welcome Back" : "Create Your Account"}</CardTitle>
+          <CardDescription>{isLogin ? "Sign in to access your health dashboard." : "Get started on your proactive health journey."}</CardDescription>
         </CardHeader>
         <CardContent>
-          {!isLogin && isSignupDisabled && (
+          {!isLogin && isPatientSignupDisabled && (
             <Alert variant="destructive" className="mb-4">
                 <ShieldAlert className="h-4 w-4" />
                 <AlertTitle>Sign-ups Disabled</AlertTitle>
@@ -196,19 +189,22 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={isLoading || (!isLogin && isSignupDisabled)}>
+              <Button type="submit" className="w-full" disabled={isLoading || (!isLogin && isPatientSignupDisabled)}>
                 {isLoading ? 'Processing...' : (isLogin ? 'Log In' : 'Sign Up')}
               </Button>
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="text-center flex-col">
+        <CardFooter className="text-center flex-col gap-2">
           <p className="text-sm text-muted-foreground">
             {isLogin ? "Don't have an account?" : "Already have an account?"}{' '}
             <Button variant="link" onClick={toggleForm} className="p-0 h-auto">
               {isLogin ? 'Sign Up' : 'Log In'}
             </Button>
           </p>
+          <Button variant="link" size="sm" className="text-xs" onClick={() => router.push('/doctor/auth')}>
+              Doctor Portal
+          </Button>
         </CardFooter>
       </Card>
     </div>

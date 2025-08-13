@@ -19,6 +19,7 @@ import { Stethoscope, ArrowLeft, ShieldAlert, Bot } from 'lucide-react';
 import { Loader } from '../ui/loader';
 import type { UserRole } from '@/context/auth-provider';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { useSettings } from '@/context/settings-provider';
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -31,24 +32,16 @@ type FormValues = z.infer<typeof formSchema>;
 export function DoctorAuthForm() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignupDisabled, setIsSignupDisabled] = useState(false);
+  const { settings } = useSettings();
   const router = useRouter();
   const { toast } = useToast();
+
+  const isDoctorSignupDisabled = settings?.signupControls?.isDoctorSignupDisabled ?? false;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { email: "", password: "", name: "" },
   });
-
-  useEffect(() => {
-    const checkSignupStatus = async () => {
-        const settingsDoc = await getDoc(doc(db, 'system_settings', 'signup_controls'));
-        if (settingsDoc.exists() && settingsDoc.data().isDoctorSignupDisabled) {
-            setIsSignupDisabled(true);
-        }
-    };
-    checkSignupStatus();
-  }, []);
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
@@ -73,7 +66,7 @@ export function DoctorAuthForm() {
         toast({ title: "Doctor Login Successful", description: "Welcome back, Doctor!" });
         router.push('/doctor/dashboard');
       } else {
-        if (isSignupDisabled) {
+        if (isDoctorSignupDisabled) {
             throw new Error("Doctor sign-ups are currently disabled by the administrator.");
         }
         if (!data.name) {
@@ -88,7 +81,7 @@ export function DoctorAuthForm() {
 
         // Set user role in Firestore
         const userDocRef = doc(db, 'users', user.uid);
-        await setDoc(userDocRef, { role: 'doctor' as UserRole });
+        await setDoc(userDocRef, { role: 'doctor' as UserRole, email: data.email, name: data.name });
         
         toast({ title: "Doctor Sign Up Successful", description: "Your account has been created. Please complete your profile." });
         router.push('/doctor/dashboard');
@@ -119,7 +112,7 @@ export function DoctorAuthForm() {
     <div className="flex items-center justify-center min-h-screen bg-secondary/50">
       <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[radial-gradient(hsl(var(--primary)/0.15)_1px,transparent_1px)] [background-size:32px_32px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_60%,transparent_100%)]"></div>
       <Card className="w-full max-w-md mx-4 relative bg-card/80 backdrop-blur-sm border-primary/20">
-         <Button variant="ghost" size="icon" className="absolute top-4 left-4" onClick={() => router.push('/auth')}>
+         <Button variant="ghost" size="icon" className="absolute top-4 left-4" onClick={() => router.push('/landing')}>
           <ArrowLeft />
         </Button>
         <CardHeader className="text-center pt-16">
@@ -131,7 +124,7 @@ export function DoctorAuthForm() {
           <CardDescription>{isLogin ? "Sign in to the clinical dashboard." : "Create a new doctor account."}</CardDescription>
         </CardHeader>
         <CardContent>
-          {!isLogin && isSignupDisabled && (
+          {!isLogin && isDoctorSignupDisabled && (
             <Alert variant="destructive" className="mb-4">
                 <ShieldAlert className="h-4 w-4" />
                 <AlertTitle>Sign-ups Disabled</AlertTitle>
@@ -183,19 +176,22 @@ export function DoctorAuthForm() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={isLoading || (!isLogin && isSignupDisabled)}>
+              <Button type="submit" className="w-full" disabled={isLoading || (!isLogin && isDoctorSignupDisabled)}>
                 {isLoading ? 'Processing...' : (isLogin ? 'Log In' : 'Sign Up')}
               </Button>
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="text-center flex-col">
+        <CardFooter className="text-center flex-col gap-2">
           <p className="text-sm text-muted-foreground">
             {isLogin ? "Don't have a doctor account?" : "Already have a doctor account?"}{' '}
             <Button variant="link" onClick={toggleForm} className="p-0 h-auto">
               {isLogin ? 'Sign Up' : 'Log In'}
             </Button>
           </p>
+           <Button variant="link" size="sm" className="text-xs" onClick={() => router.push('/admin/auth')}>
+                Admin Portal
+           </Button>
         </CardFooter>
       </Card>
     </div>
