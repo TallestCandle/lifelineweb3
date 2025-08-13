@@ -150,8 +150,10 @@ const MealAnalyzer = () => {
                         <Input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                         {imageDataUri && (
                             <div className="relative w-fit">
-                            <Image src={imageDataUri} alt="Preview" width={60} height={60} className="rounded-md border" />
-                            <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 rounded-full h-6 w-6" onClick={() => setImageDataUri(null)}><Trash2 className="h-4 w-4" /></Button>
+                                <Image src={imageDataUri} alt="Preview" width={60} height={60} className="rounded-md border" />
+                                <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 rounded-full h-6 w-6" onClick={() => setImageDataUri(null)}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
                             </div>
                         )}
                     </div>
@@ -187,7 +189,11 @@ const MealAnalyzer = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {analysisResult.mainComponents.map((item, index) => (
                                 <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
-                                    {item.isHealthy ? <ThumbsUp className="w-5 h-5 text-green-500 mt-1 flex-shrink-0" /> : <ThumbsDown className="w-5 h-5 text-red-500 mt-1 flex-shrink-0" />}
+                                    {item.isHealthy ? (
+                                        <ThumbsUp className="w-5 h-5 text-green-500 mt-1 flex-shrink-0" />
+                                    ) : (
+                                        <ThumbsDown className="w-5 h-5 text-red-500 mt-1 flex-shrink-0" />
+                                    )}
                                     <div>
                                         <p className="font-bold">{item.name}</p>
                                         <p className="text-xs text-muted-foreground">{item.reason}</p>
@@ -206,7 +212,9 @@ const MealAnalyzer = () => {
                             <AlertTitle>Pro Tips</AlertTitle>
                             <AlertDescription>
                                 <ul className="list-disc list-inside mt-1">
-                                    {analysisResult.healthTips.map((tip, index) => <li key={index}>{tip}</li>)}
+                                    {analysisResult.healthTips.map((tip, index) => (
+                                        <li key={index}>{tip}</li>
+                                    ))}
                                 </ul>
                             </AlertDescription>
                         </Alert>
@@ -224,7 +232,7 @@ const FoodChecker = () => {
     const [checkResult, setCheckResult] = useState<CheckFoodSuitabilityOutput | null>(null);
     const { toast } = useToast();
 
-    const suitabilityConfig = {
+    const suitabilityConfig: Record<string, { color: string; icon: React.ComponentType<any>; text: string }> = {
         'Yes': { color: 'text-green-500', icon: ShieldCheck, text: 'Considered Safe' },
         'In Moderation': { color: 'text-yellow-500', icon: AlertTriangle, text: 'Use With Caution' },
         'No': { color: 'text-red-500', icon: ShieldBan, text: 'Not Recommended' },
@@ -265,7 +273,7 @@ const FoodChecker = () => {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                     <div>
+                    <div>
                         <label htmlFor="health-condition-check" className="font-bold">Your health condition</label>
                         <Input
                             id="health-condition-check"
@@ -275,7 +283,7 @@ const FoodChecker = () => {
                             className="mt-2"
                         />
                     </div>
-                     <div>
+                    <div>
                         <label htmlFor="food-query" className="font-bold">Food item or question</label>
                         <Input
                             id="food-query"
@@ -297,11 +305,14 @@ const FoodChecker = () => {
             {checkResult && (
                 <Card className="border-primary/30">
                     <CardHeader>
-                         <CardTitle>AI Suitability Check</CardTitle>
+                        <CardTitle>AI Suitability Check</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <Alert className={cn("border-2", suitabilityConfig[checkResult.isSuitable].color.replace('text-', 'border-'))}>
-                            <suitabilityConfig[checkResult.isSuitable].icon className={cn("h-4 w-4", suitabilityConfig[checkResult.isSuitable].color)} />
+                            {(() => {
+                                const IconComponent = suitabilityConfig[checkResult.isSuitable].icon;
+                                return <IconComponent className={cn("h-4 w-4", suitabilityConfig[checkResult.isSuitable].color)} />;
+                            })()}
                             <AlertTitle className={cn(suitabilityConfig[checkResult.isSuitable].color)}>
                                 {suitabilityConfig[checkResult.isSuitable].text}
                             </AlertTitle>
@@ -311,12 +322,14 @@ const FoodChecker = () => {
                         </Alert>
 
                         {checkResult.contextualTips.length > 0 && (
-                             <Alert variant="default" className="border-accent bg-accent/10">
+                            <Alert variant="default" className="border-accent bg-accent/10">
                                 <AlertTriangle className="h-4 w-4 text-accent-foreground" />
                                 <AlertTitle>Important Tips</AlertTitle>
                                 <AlertDescription>
                                     <ul className="list-disc list-inside mt-1">
-                                        {checkResult.contextualTips.map((tip, index) => <li key={index}>{tip}</li>)}
+                                        {checkResult.contextualTips.map((tip, index) => (
+                                            <li key={index}>{tip}</li>
+                                        ))}
                                     </ul>
                                 </AlertDescription>
                             </Alert>
@@ -327,7 +340,6 @@ const FoodChecker = () => {
         </div>
     );
 };
-
 
 export function AiMealAnalyzer() {
     const { user } = useAuth();
@@ -341,7 +353,12 @@ export function AiMealAnalyzer() {
             return;
         }
 
-        const historyQuery = query(collection(db, `users/${user.uid}/meal_logs`), orderBy('timestamp', 'desc'), limit(20));
+        const historyQuery = query(
+            collection(db, `users/${user.uid}/meal_logs`), 
+            orderBy('timestamp', 'desc'), 
+            limit(20)
+        );
+        
         const unsubscribe = onSnapshot(historyQuery, (snapshot) => {
             const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MealLog));
             setMealHistory(logs);
@@ -358,7 +375,7 @@ export function AiMealAnalyzer() {
     return (
         <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
-                 <Tabs defaultValue="analyze" className="w-full">
+                <Tabs defaultValue="analyze" className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="analyze">Analyze Meal</TabsTrigger>
                         <TabsTrigger value="check">Check Food</TabsTrigger>
@@ -374,12 +391,17 @@ export function AiMealAnalyzer() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><History/> Meal Log History</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <History className="w-5 h-5" /> 
+                        Meal Log History
+                    </CardTitle>
                     <CardDescription>Your recently analyzed meals.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isHistoryLoading ? (
-                        <div className="flex justify-center p-8"><Loader2 className="animate-spin"/></div>
+                        <div className="flex justify-center p-8">
+                            <Loader2 className="animate-spin" />
+                        </div>
                     ) : mealHistory.length > 0 ? (
                         <Accordion type="single" collapsible className="w-full">
                             {mealHistory.map(log => (
@@ -388,23 +410,43 @@ export function AiMealAnalyzer() {
                                         <div className="flex justify-between items-center w-full pr-4">
                                             <div className="flex-grow text-left">
                                                 <p className="font-bold truncate max-w-[200px]">{log.mealDescription}</p>
-                                                <p className="text-xs text-muted-foreground">{formatDistanceToNow(parseISO(log.timestamp), { addSuffix: true })}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {formatDistanceToNow(parseISO(log.timestamp), { addSuffix: true })}
+                                                </p>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <Progress value={log.analysis.healthScore} className="w-16 h-2 hidden sm:block"/>
+                                                <Progress value={log.analysis.healthScore} className="w-16 h-2 hidden sm:block" />
                                                 <span className="font-bold text-sm text-primary">{log.analysis.healthScore}</span>
                                             </div>
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="space-y-4">
-                                        {log.imageDataUri && <Image src={log.imageDataUri} alt="Logged meal" width={100} height={100} className="rounded-md border"/>}
-                                        <p className="text-sm italic text-muted-foreground">{log.analysis.overallAssessment}</p>
-                                        <p className="text-sm"><span className="font-bold">Conditions at time of log:</span> {log.healthConditions}</p>
+                                        {log.imageDataUri && (
+                                            <Image 
+                                                src={log.imageDataUri} 
+                                                alt="Logged meal" 
+                                                width={100} 
+                                                height={100} 
+                                                className="rounded-md border" 
+                                            />
+                                        )}
+                                        <p className="text-sm italic text-muted-foreground">
+                                            {log.analysis.overallAssessment}
+                                        </p>
+                                        <p className="text-sm">
+                                            <span className="font-bold">Conditions at time of log:</span> {log.healthConditions}
+                                        </p>
                                         <ul className="space-y-2">
                                             {log.analysis.mainComponents.map((item, index) => (
                                                 <li key={index} className="flex items-start gap-2 text-xs">
-                                                    {item.isHealthy ? <ThumbsUp className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" /> : <ThumbsDown className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />}
-                                                    <p><span className="font-bold">{item.name}:</span> {item.reason}</p>
+                                                    {item.isHealthy ? (
+                                                        <ThumbsUp className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                                    ) : (
+                                                        <ThumbsDown className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                                                    )}
+                                                    <p>
+                                                        <span className="font-bold">{item.name}:</span> {item.reason}
+                                                    </p>
                                                 </li>
                                             ))}
                                         </ul>
