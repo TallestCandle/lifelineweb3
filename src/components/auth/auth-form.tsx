@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -58,10 +59,6 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
   const { settings } = useSettings();
   const router = useRouter();
   const { toast } = useToast();
-  
-  // Refs to track authentication state
-  const authStateListenerRef = useRef<(() => void) | null>(null);
-  const isGoogleSignInInProgressRef = useRef(false);
 
   const isPatientSignupDisabled = settings?.signupControls?.isPatientSignupDisabled ?? false;
   const isDoctorPortalEnabled = settings?.featureFlags?.isDoctorPortalEnabled ?? true;
@@ -71,27 +68,16 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
     defaultValues: { email: "", password: "", name: "" },
   });
 
-  // Cleanup auth state listener on unmount
-  useEffect(() => {
-    return () => {
-      if (authStateListenerRef.current) {
-        authStateListenerRef.current();
-      }
-    };
-  }, []);
-
   const handleAuthSuccess = async (userCredential: UserCredential, isNewUser: boolean = false) => {
     const user = userCredential.user;
     const userDocRef = doc(db, 'users', user.uid);
 
-    try {
-      if (isNewUser) {
+    if (isNewUser) {
         if (isPatientSignupDisabled) {
           await auth.signOut();
           throw new Error("Patient sign-ups are currently disabled.");
         }
         
-        // Create new user document
         await setDoc(userDocRef, {
           role: 'patient' as UserRole,
           name: user.displayName || '',
@@ -105,165 +91,63 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
           createdAt: new Date().toISOString(),
         });
         
-        toast({ title: "Sign Up Successful", description: "Welcome! Let's set up your profile." });
-        
-        // Add a small delay before redirect to ensure popup is fully resolved
-        setTimeout(() => {
-          router.push('/');
-        }, 100);
-        
+        toast({ title: "Sign Up Successful", description: "Welcome! Redirecting you to the dashboard." });
       } else {
-        // Check if user document exists and validate role
         const docSnap = await getDoc(userDocRef);
-        if (!docSnap.exists()) {
-          await auth.signOut();
-          throw new Error("User account not found. Please sign up first.");
-        }
-        
-        const userData = docSnap.data();
-        if (userData.role !== 'patient') {
+        if (!docSnap.exists() || docSnap.data().role !== 'patient') {
           await auth.signOut();
           throw new Error("This is not a patient account. Please use the doctor portal to log in.");
         }
         
         toast({ title: "Login Successful", description: "Welcome back!" });
-        
-        // Add a small delay before redirect to ensure popup is fully resolved
-        setTimeout(() => {
-          router.push('/');
-        }, 100);
       }
-    } catch (error) {
-      console.error('Error in handleAuthSuccess:', error);
-      throw error; // Re-throw to be handled by the calling function
-    }
+      // CRITICAL FIX: Do NOT redirect here. Let the AuthGuard handle it.
+      // router.push('/'); 
   };
 
   const handleAuthError = (error: any) => {
-    // Gracefully handle popup closed by user - don't log or show error
-    if (error.code === 'auth/popup-closed-by-user' || 
-        error.code === 'auth/cancelled-popup-request' ||
-        error.code === 'auth/popup-blocked') {
-      return;
+    if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+      return; // Silently ignore user-cancelled popups
     }
     
     console.error('Auth error:', error);
     
-    let errorMessage = error.message || "An unexpected error occurred.";
+    let errorMessage = "An unexpected error occurred. Please try again.";
     if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
       errorMessage = "Invalid email or password.";
     } else if (error.code === 'auth/email-already-in-use') {
-      errorMessage = "This email address is already in use.";
+      errorMessage = "This email address is already in use by another account.";
     } else if (error.code === 'auth/account-exists-with-different-credential') {
-      errorMessage = "An account already exists with this email address using a different sign-in method.";
-    } else if (error.code === 'auth/network-request-failed') {
-      errorMessage = "Network error. Please check your connection and try again.";
+      errorMessage = "An account already exists with this email address. Please sign in with your original method (e.g., Google).";
     }
     
-    toast({ 
-      variant: "destructive", 
-      title: "Authentication Failed", 
-      description: errorMessage 
-    });
+    toast({ variant: "destructive", title: "Authentication Failed", description: errorMessage });
   };
   
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
-    
     if (!auth) {
-      toast({ 
-        variant: "destructive", 
-        title: "Config Error", 
-        description: "Firebase authentication is not available." 
-      });
+      toast({ variant: "destructive", title: "Config Error", description: "Firebase authentication is not available." });
       setIsLoading(false);
       return;
     }
-    
-    // Set flag to indicate Google sign-in is in progress
-    isGoogleSignInInProgressRef.current = true;
-    
-    // Set up auth state listener to handle successful authentication
-    // This approach avoids race conditions with popup closure
-    const cleanup = onAuthStateChanged(auth, async (user) => {
-      if (!isGoogleSignInInProgressRef.current || !user) {
-        return;
-      }
-      
-      // Clear the flag and cleanup listener
-      isGoogleSignInInProgressRef.current = false;
-      cleanup();
-      
-      try {
-        // Process the authenticated user
-        const userDocRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(userDocRef);
-        
-        // Check if this is a new user
-        const isDocumentExists = docSnap.exists();
-        const isNewUser = !isDocumentExists || (!isLogin && !docSnap.data()?.role);
-        
-        // Create a mock UserCredential object for handleAuthSuccess
-        const userCredential = {
-          user,
-          providerId: 'google.com',
-          operationType: 'signIn' as const
-        };
-        
-        await handleAuthSuccess(userCredential, isNewUser);
-        
-      } catch (error: any) {
-        handleAuthError(error);
-      } finally {
-        setIsLoading(false);
-      }
-    });
-    
-    // Store cleanup function for potential later use
-    authStateListenerRef.current = cleanup;
-    
+
     try {
-      // Trigger the popup - we don't await this or handle its result directly
-      // Instead, we rely on the auth state listener above
-      signInWithPopup(auth, googleProvider).catch((error) => {
-        // Handle popup-specific errors
-        if (error.code === 'auth/popup-closed-by-user' || 
-            error.code === 'auth/cancelled-popup-request' ||
-            error.code === 'auth/popup-blocked') {
-          // User cancelled - clean up and reset state
-          isGoogleSignInInProgressRef.current = false;
-          cleanup();
-          setIsLoading(false);
-          return;
-        }
-        
-        // For other errors, let the auth state listener handle them
-        if (isGoogleSignInInProgressRef.current) {
-          isGoogleSignInInProgressRef.current = false;
-          cleanup();
-          handleAuthError(error);
-          setIsLoading(false);
-        }
-      });
-      
+      const result = await signInWithPopup(auth, googleProvider);
+      const userDocRef = doc(db, 'users', result.user.uid);
+      const docSnap = await getDoc(userDocRef);
+      await handleAuthSuccess(result, !docSnap.exists());
     } catch (error: any) {
-      // This shouldn't happen since we're handling errors in the catch above
-      isGoogleSignInInProgressRef.current = false;
-      cleanup();
       handleAuthError(error);
+    } finally {
       setIsLoading(false);
     }
   };
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
-    
     if (!auth) {
-      toast({ 
-        variant: "destructive", 
-        title: "Configuration Error", 
-        description: "Firebase is not configured. Please check your environment variables." 
-      });
+      toast({ variant: "destructive", title: "Configuration Error", description: "Firebase is not configured." });
       setIsLoading(false);
       return;
     }
@@ -280,11 +164,7 @@ export function AuthForm({ onBack }: { onBack: () => void }) {
         }
         
         if (isPatientSignupDisabled) {
-          toast({ 
-            variant: "destructive", 
-            title: "Sign-up Disabled", 
-            description: "Patient sign-ups are currently disabled." 
-          });
+          toast({ variant: "destructive", title: "Sign-up Disabled", description: "Patient sign-ups are currently disabled." });
           setIsLoading(false);
           return;
         }

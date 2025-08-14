@@ -29,11 +29,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     const isAlwaysAccessible = ALWAYS_ACCESSIBLE_ROUTES.some(prefix => pathname.startsWith(prefix));
 
     useEffect(() => {
-        if (authLoading) return;
+        if (authLoading) {
+            // While authentication state is loading, don't do any redirects.
+            // The Loader component will be shown.
+            return;
+        }
 
-        if (isAlwaysAccessible) return;
+        if (isAlwaysAccessible) {
+            // Always allow access to routes like the blog.
+            return;
+        }
 
         if (!user) {
+            // If user is not logged in, they must be on a public auth page.
+            // If not, redirect them to the appropriate login page.
             if (!isPublicAuthRoute) {
                 if (isDoctorRoute) {
                     router.replace('/doctor/auth');
@@ -44,33 +53,35 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 }
             }
         } else {
+            // User is logged in.
             if (role) {
+                // Once the role is loaded, enforce role-based routing.
                 if (isAdminRoute && role !== 'admin') {
-                    router.replace('/');
+                    router.replace('/'); // Admins only in /admin/*
                 } else if (isDoctorRoute && role !== 'doctor') {
-                    router.replace('/');
+                    router.replace('/'); // Doctors only in /doctor/*
                 } else if (!isDoctorRoute && !isAdminRoute && (role === 'doctor' || role === 'admin')) {
+                    // If a doctor/admin is on a patient page, redirect to their dashboard.
                     router.replace(role === 'doctor' ? '/doctor/dashboard' : '/admin/dashboard');
                 }
             }
             
-            if (isPublicAuthRoute) {
+            // If an authenticated user (with a role) is on a public auth page,
+            // redirect them away to their correct dashboard.
+            if (isPublicAuthRoute && role) {
                  if (role === 'admin') {
                     router.replace('/admin/dashboard');
                 } else if (role === 'doctor') {
                      router.replace('/doctor/dashboard');
                 } else {
-                    router.replace('/');
+                    router.replace('/'); // Default for patients
                 }
             }
         }
     }, [authLoading, user, role, isPublicAuthRoute, isAlwaysAccessible, router, pathname, isDoctorRoute, isAdminRoute]);
 
-    if (authLoading || (!isAlwaysAccessible && !user && !isPublicAuthRoute) || (!isAlwaysAccessible && user && isPublicAuthRoute)) {
-        return <Loader />;
-    }
-    
-    if (user && !role && !isAlwaysAccessible) {
+    // Show a loader during critical state transitions to prevent content flashing.
+    if (authLoading || (!isAlwaysAccessible && !user && !isPublicAuthRoute) || (!isAlwaysAccessible && user && !role) || (!isAlwaysAccessible && user && role && isPublicAuthRoute)) {
         return <Loader />;
     }
     
@@ -80,7 +91,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     // Determine the correct shell for authenticated users on private routes.
-    if (user) {
+    if (user && role) {
         if (isAdminRoute && role !== 'admin') return <Loader />;
         if (isDoctorRoute && role !== 'doctor') return <Loader />;
         if (!isAdminRoute && !isDoctorRoute && role !== 'patient') return <Loader />;
