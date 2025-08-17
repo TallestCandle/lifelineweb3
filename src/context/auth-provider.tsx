@@ -38,6 +38,13 @@ interface PiPayment {
 }
 
 declare const Pi: PiSDK;
+// Augment the window object
+declare global {
+    interface Window {
+        Pi: PiSDK;
+    }
+}
+
 
 export interface PiUser {
   uid: string;
@@ -88,8 +95,6 @@ class FirestoreError extends Error {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const PI_SDK_VERSION = '2.0';
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<PiUser | null>(null);
   const [userData, setUserData] = useState<UserDocument | null>(null);
@@ -97,43 +102,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [sdkLoading, setSdkLoading] = useState(true);
   const router = useRouter();
 
-  // Initialize Pi SDK
+  // Load and initialize the Pi SDK
   useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 10;
-    const intervalTime = 500; // 0.5 seconds
-
-    const initPiSdk = () => {
-      if (typeof window !== 'undefined' && 'Pi' in window) {
-        try {
-          Pi.init({ version: PI_SDK_VERSION, sandbox: true });
-          console.log('Pi SDK initialized successfully');
-          setSdkLoading(false);
-          return true;
-        } catch (error) {
-          console.error('Error initializing Pi SDK:', error);
-          return false;
-        }
+    const script = document.createElement('script');
+    script.src = 'https://sdk.minepi.com/pi-sdk.js';
+    script.async = true;
+    script.onload = () => {
+      try {
+        window.Pi.init({ version: '2.0', sandbox: true });
+        console.log('Pi SDK Initialized');
+        setSdkLoading(false);
+      } catch (error) {
+        console.error('Pi SDK Initialization failed:', error);
+        setSdkLoading(false);
       }
-      return false;
+    };
+    script.onerror = () => {
+      console.error('Pi SDK script failed to load.');
+      setSdkLoading(false);
     };
 
-    if (initPiSdk()) {
-      return;
-    }
+    document.body.appendChild(script);
 
-    const intervalId = setInterval(() => {
-      attempts++;
-      if (initPiSdk()) {
-        clearInterval(intervalId);
-      } else if (attempts >= maxAttempts) {
-        clearInterval(intervalId);
-        console.error('Pi SDK failed to load after multiple attempts.');
-        setSdkLoading(false); // Stop loading even if it fails
-      }
-    }, intervalTime);
-
-    return () => clearInterval(intervalId);
+    return () => {
+      document.body.removeChild(script);
+    };
   }, []);
 
   // Validate Pi user data
@@ -161,7 +154,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const onIncompletePaymentFound = useCallback((payment: PiPayment) => {
     console.log("Incomplete payment found:", payment);
     
-    // Store incomplete payment info for later processing
     if (typeof window !== 'undefined') {
       const incompletePayments = JSON.parse(
         localStorage.getItem('incompletePayments') || '[]'
@@ -172,9 +164,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       localStorage.setItem('incompletePayments', JSON.stringify(incompletePayments));
     }
-    
-    // You can navigate to a payment resolution page or show a notification
-    // router.push(`/payments/resolve?paymentId=${payment.identifier}`);
     
     return payment;
   }, []);
@@ -208,7 +197,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const now = new Date().toISOString();
       
       if (!docSnap.exists()) {
-        // Create new user
         const newUserData: UserDocument = {
           username: piUser.username,
           uid: piUser.uid,
@@ -230,12 +218,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('New user created in Firestore');
         return newUserData;
       } else {
-        // Update existing user's last login
         const existingData = docSnap.data() as UserDocument;
         const updatedData = {
           ...existingData,
           lastLoginAt: now,
-          username: piUser.username, // Update username in case it changed
+          username: piUser.username,
           isActive: true
         };
         
@@ -260,28 +247,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new PiAuthError('Pi SDK is still loading. Please wait a moment and try again.', 'SDK_LOADING');
     }
 
-    if (typeof Pi === 'undefined') {
+    if (typeof window.Pi === 'undefined') {
       throw new PiAuthError('Pi SDK not available. Please ensure you are using the Pi Browser.', 'SDK_NOT_AVAILABLE');
     }
 
     setLoading(true);
     
     try {
-      // Authenticate with Pi Network
       const scopes = ['username', 'payments'];
-      const piUserData = await Pi.authenticate(scopes, onIncompletePaymentFound);
+      const piUserData = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
       
-      // Validate the received user data
       const validatedUser = validatePiUser(piUserData);
+      const userDataFromDb = await createOrUpdateUser(validatedUser);
       
-      // Create or update user in Firestore
-      const userData = await createOrUpdateUser(validatedUser);
-      
-      // Update state
       setUser(validatedUser);
-      setUserData(userData);
+      setUserData(userDataFromDb);
       
-      // Navigate to main app
       router.push('/');
       
       console.log('User signed in successfully:', validatedUser.username);
@@ -289,16 +270,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error('Sign-in error:', error);
       
-      // Clear user state on error
       setUser(null);
       setUserData(null);
       
-      // Handle specific error types
       if (error instanceof PiAuthError || error instanceof FirestoreError) {
         throw error;
       }
       
-      // Handle Pi Network specific errors
       if (error.message?.includes('User cancelled')) {
         throw new PiAuthError('Sign-in was cancelled', 'USER_CANCELLED');
       }
@@ -307,7 +285,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new PiAuthError('Network error. Please check your connection and try again.', 'NETWORK_ERROR');
       }
       
-      // Generic error
       throw new PiAuthError('Sign-in failed. Please try again.', 'SIGN_IN_FAILED');
       
     } finally {
@@ -320,7 +297,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setUserData(null);
     
-    // Clear any stored incomplete payments
     if (typeof window !== 'undefined') {
       localStorage.removeItem('incompletePayments');
     }
@@ -361,7 +337,6 @@ export const useAuth = () => {
   return context;
 };
 
-// Helper hook for checking authentication status
 export const useAuthRequired = () => {
   const { user, loading, sdkLoading } = useAuth();
   const router = useRouter();
@@ -375,5 +350,4 @@ export const useAuthRequired = () => {
   return { user, loading: loading || sdkLoading };
 };
 
-// Export error classes for use in components
 export { PiAuthError, FirestoreError };
