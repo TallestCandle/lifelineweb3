@@ -3,8 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { PiUser, UserData, AuthState, PiAuthError } from '@/types/auth';
-import { PiNetworkAuthResult } from '@/types/pi-network';
-import { initPiSDK } from '@/lib/pi-sdk-loader';
+import { initPiSDK } from '@/lib/pi-sdk';
 
 interface AuthContextType extends Omit<AuthState, 'userData'> {
   userData: UserData | null;
@@ -34,10 +33,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   });
   const [sdkLoading, setSdkLoading] = useState(true);
 
+  // Initialize Pi SDK
   useEffect(() => {
     const init = async () => {
       try {
-        await initPiSDK(true); // Always use sandbox for now
+        await initPiSDK(process.env.NODE_ENV === 'development');
         setSdkLoading(false);
       } catch (error: any) {
         console.error('Failed to initialize Pi SDK:', error);
@@ -52,6 +52,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     init();
   }, []);
 
+  // Check for existing session
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -59,18 +60,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const savedUserData = localStorage.getItem('pi_user_data');
         
         if (savedUser && savedUserData) {
-          const parsedUser = JSON.parse(savedUser);
-          const parsedUserData = JSON.parse(savedUserData);
-
-          // Ensure scopes are present for existing sessions
-          if (!parsedUser.scopes) {
-            parsedUser.scopes = ['username', 'payments', 'wallet_address'];
-            localStorage.setItem('pi_user', JSON.stringify(parsedUser));
-          }
-
           setState({
-            user: parsedUser,
-            userData: parsedUserData,
+            user: JSON.parse(savedUser),
+            userData: JSON.parse(savedUserData),
             loading: false,
             error: null,
           });
@@ -79,8 +71,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } catch (error) {
         console.error('Error checking session:', error);
-        setState(prev => ({
-          ...prev,
+        setState(prev => ({ 
+          ...prev, 
           loading: false,
           error: new PiAuthError('Failed to restore session', 'SESSION_RESTORE_FAILED')
         }));
@@ -104,40 +96,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      // Start Pi authentication
-      const auth = await window.Pi.authenticate(['username', 'payments', 'wallet_address']);
-      console.log('Pi authentication response:', auth);
+      // Only request username scope for authentication
+      const piUser = await window.Pi.authenticate(['username']);
 
-      if (!auth) {
-        throw new PiAuthError('No response from Pi Network', 'NO_RESPONSE');
-      }
-
-      if (!auth.user?.username || !auth.user?.uid || !auth.accessToken) {
-        console.error('Invalid Pi user data:', auth);
+      if (!piUser || typeof piUser !== 'object') {
         throw new PiAuthError('Invalid response from Pi Network', 'INVALID_RESPONSE');
       }
 
-            // Create authenticated user object
-      const user: PiUser = {
-        username: auth.user.username,
-        uid: auth.user.uid,
-        accessToken: auth.accessToken,
-        scopes: ['username', 'payments', 'wallet_address'], // Store granted scopes
-      };
+      if (!piUser.uid || typeof piUser.uid !== 'string' || piUser.uid.trim() === '') {
+        throw new PiAuthError('Missing or invalid user ID from Pi Network. Please try again.', 'INVALID_USER_ID');
+      }
 
+      if (!piUser.username || typeof piUser.username !== 'string' || piUser.username.trim() === '') {
+        throw new PiAuthError('Missing or invalid username from Pi Network. Please try again.', 'INVALID_USERNAME');
+      }
+
+      // Create user data
       const userData: UserData = {
-        username: auth.user.username,
-        uid: auth.user.uid,
+        uid: piUser.uid,
+        username: piUser.username,
         createdAt: new Date(),
         updatedAt: new Date(),
-        roles: auth.user.roles || [],
       };
 
-      localStorage.setItem('pi_user', JSON.stringify(user));
+      // Save to local storage
+      localStorage.setItem('pi_user', JSON.stringify(piUser));
       localStorage.setItem('pi_user_data', JSON.stringify(userData));
 
       setState({
-        user,
+        user: piUser,
         userData,
         loading: false,
         error: null,
@@ -169,9 +156,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setState(prev => ({ ...prev, loading: true }));
 
     try {
+      // Clear stored data
       localStorage.removeItem('pi_user');
       localStorage.removeItem('pi_user_data');
 
+      // Reset state
       setState({
         user: null,
         userData: null,

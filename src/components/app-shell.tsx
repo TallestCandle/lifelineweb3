@@ -26,6 +26,7 @@ import {
   HeartHandshake,
   BookOpen,
   Bot,
+  CreditCard,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
@@ -68,6 +69,7 @@ const mainMenuItems: MenuItem[] = [
   { href: "/report", label: "Health Report", icon: FileText, featureFlag: 'isReportEnabled' },
   { href: "/reminders", label: "Prescriptions", icon: FileSpreadsheet, featureFlag: 'isPrescriptionsEnabled' },
   { href: "/ebook-store", label: "Ebook Store", icon: BookOpen },
+  { href: "/subscription", label: "Subscription", icon: CreditCard },
 ];
 
 function AppLayout({ children }: { children: React.ReactNode }) {
@@ -77,9 +79,17 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
   const handleLogout = async () => {
     try {
+      // Sign out from both Firebase and Pi Network
       if (auth) {
         await signOut(auth);
       }
+      
+      // Clear Pi Network data
+      localStorage.removeItem('pi_user');
+      localStorage.removeItem('pi_user_data');
+      
+      // Refresh the page to reset all states
+      window.location.href = '/';
     } catch (error) {
       console.error("Error signing out: ", error);
     }
