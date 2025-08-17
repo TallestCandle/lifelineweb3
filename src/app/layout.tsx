@@ -6,6 +6,7 @@ import { AuthProvider } from '@/context/auth-provider';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { Inter } from 'next/font/google';
 import { SettingsProvider } from '@/context/settings-provider';
+import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -25,6 +26,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </head>
       <body className="font-sans antialiased bg-background">
+        <Script src="https://sdk.pi-network.dev/v2/pi-sdk.js" strategy="beforeInteractive" />
         <SettingsProvider>
             <AuthProvider>
               <AuthGuard>
