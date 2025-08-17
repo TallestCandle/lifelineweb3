@@ -12,6 +12,9 @@ import { SettingsProvider } from '@/context/settings-provider';
 const PUBLIC_ROUTES = ['/auth', '/landing'];
 const ALWAYS_ACCESSIBLE_ROUTES = ['/blog']; 
 
+// Regex to check for file extensions
+const FILE_EXTENSION_REGEX = /\.[^/]+$/;
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
     const { user, loading: authLoading } = useAuth();
     const pathname = usePathname();
@@ -19,13 +22,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
     const isAlwaysAccessible = ALWAYS_ACCESSIBLE_ROUTES.some(prefix => pathname.startsWith(prefix));
+    const isStaticFile = FILE_EXTENSION_REGEX.test(pathname);
 
     useEffect(() => {
         if (authLoading) {
             return;
         }
 
-        if (isAlwaysAccessible) {
+        // Allow access to always-accessible routes and static files without any checks
+        if (isAlwaysAccessible || isStaticFile) {
             return;
         }
 
@@ -40,14 +45,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 router.replace('/');
             }
         }
-    }, [authLoading, user, isPublicRoute, isAlwaysAccessible, router, pathname]);
+    }, [authLoading, user, isPublicRoute, isAlwaysAccessible, isStaticFile, router, pathname]);
 
     // Show a loader during critical state transitions to prevent content flashing.
-    if (authLoading || (!isAlwaysAccessible && !user && !isPublicRoute) || (!isAlwaysAccessible && user && isPublicRoute)) {
+    if (authLoading || (!isAlwaysAccessible && !isStaticFile && !user && !isPublicRoute) || (!isAlwaysAccessible && !isStaticFile && user && isPublicRoute)) {
         return <Loader />;
     }
     
-    if (isAlwaysAccessible) {
+    // For always-accessible routes and static files, render children directly without the app shell.
+    if (isAlwaysAccessible || isStaticFile) {
         return <>{children}</>;
     }
 
